@@ -1,0 +1,63 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>ZZZScannerNext</RootNamespace>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>
+    <Version>1.0.49</Version>
+    <AssemblyVersion>1.0.49.0</AssemblyVersion>
+    <FileVersion>1.0.49.0</FileVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Launcher\**\*.cs" />
+    <Compile Remove="OcrCli\**\*.cs" />
+    <Compile Remove="Tests\**\*.cs" />
+    <None Remove="Launcher\**\*" />
+    <None Remove="OcrCli\**\*" />
+    <None Remove="Tests\**\*" />
+    <None Include="Data\drive_discs.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Data\scan_profiles.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Data\stat_rules.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Data\soda-drive-disc-data.v1.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Data\scanner-detail-geometry.v1.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>ZZZ-Scanner.Next.RegressionTests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.23.1" />
+    <PackageReference Include="Microsoft.VisualBasic" Version="10.3.0" />
+    <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
+    <PackageReference Include="Vortice.DXGI" Version="3.8.3" />
+  </ItemGroup>
+
+  <Target Name="PruneScannerPublishPayload" AfterTargets="Publish">
+    <ItemGroup>
+      <_ScannerPublishFilesToRemove Include="$(PublishDir)opencv_videoio_ffmpeg4110_64.dll" />
+      <_ScannerPublishFilesToRemove Include="$(PublishDir)createdump.exe" />
+      <_ScannerPublishFilesToRemove Include="$(PublishDir)mscordbi.dll" />
+      <_ScannerPublishFilesToRemove Include="$(PublishDir)mscordaccore.dll" />
+      <_ScannerPublishFilesToRemove Include="$(PublishDir)mscordaccore_*.dll" />
+      <_ScannerPublishFilesToRemove Include="$(PublishDir)Microsoft.DiaSymReader.Native.amd64.dll" />
+      <_ScannerPublishFilesToRemove Include="$(PublishDir)onnxruntime.lib" />
+      <_ScannerPublishFilesToRemove Include="$(PublishDir)onnxruntime_providers_shared.lib" />
+      <_ScannerPublishFilesToRemove Include="$(PublishDir)*.pdb" />
+      <_ScannerPublishDirsToRemove Include="$(PublishDir)Scans" />
+      <_ScannerPublishDirsToRemove Include="$(PublishDir)StabilitySuites" />
+    </ItemGroup>
+    <Delete Files="@(_ScannerPublishFilesToRemove)" TreatErrorsAsWarnings="true" />
+    <RemoveDir Directories="@(_ScannerPublishDirsToRemove)" ContinueOnError="WarnAndContinue" />
+  </Target>
+
+</Project>

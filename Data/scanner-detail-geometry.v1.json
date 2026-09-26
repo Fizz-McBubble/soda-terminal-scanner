@@ -1,0 +1,188 @@
+{
+  "schemaVersion": "soda.scanner.detail-geometry.v1",
+  "source": {
+    "repository": "ZztIsolation/ZZZ-Scanner.Next",
+    "commit": "b4f3b53f6e9acb1f42af1a68c63cfe326bf912d4",
+    "profilePath": "Data/scan_profiles.json",
+    "profileName": "ZZZ背包驱动盘-16比9"
+  },
+  "production": {
+    "standardScreen": {
+      "width": 1920,
+      "height": 1080
+    },
+    "detailCrop": {
+      "left": 1400,
+      "top": 258,
+      "right": 1850,
+      "bottom": 775
+    },
+    "fields": [
+      {
+        "key": "selectedDiscName",
+        "left": 10,
+        "top": 12,
+        "right": 235,
+        "bottom": 52
+      },
+      {
+        "key": "level",
+        "left": 65,
+        "top": 147,
+        "right": 200,
+        "bottom": 177
+      },
+      {
+        "key": "mainStat",
+        "left": 18,
+        "top": 231,
+        "right": 430,
+        "bottom": 272
+      },
+      {
+        "key": "subStat1",
+        "left": 18,
+        "top": 309,
+        "right": 430,
+        "bottom": 350
+      },
+      {
+        "key": "subStat2",
+        "left": 18,
+        "top": 360,
+        "right": 430,
+        "bottom": 401
+      },
+      {
+        "key": "subStat3",
+        "left": 18,
+        "top": 412,
+        "right": 430,
+        "bottom": 453
+      },
+      {
+        "key": "subStat4",
+        "left": 18,
+        "top": 464,
+        "right": 430,
+        "bottom": 505
+      }
+    ]
+  },
+  "replayOnly": [
+    {
+      "id": "historical-python-full-detail",
+      "width": 455,
+      "height": 645,
+      "unavailableFields": [],
+      "fields": [
+        {
+          "key": "selectedDiscName",
+          "left": 15,
+          "top": 10,
+          "right": 315,
+          "bottom": 75
+        },
+        {
+          "key": "level",
+          "left": 20,
+          "top": 130,
+          "right": 265,
+          "bottom": 200
+        },
+        {
+          "key": "mainStat",
+          "left": 20,
+          "top": 232,
+          "right": 440,
+          "bottom": 285
+        },
+        {
+          "key": "subStat1",
+          "left": 20,
+          "top": 305,
+          "right": 440,
+          "bottom": 363
+        },
+        {
+          "key": "subStat2",
+          "left": 20,
+          "top": 363,
+          "right": 440,
+          "bottom": 417
+        },
+        {
+          "key": "subStat3",
+          "left": 20,
+          "top": 417,
+          "right": 440,
+          "bottom": 471
+        },
+        {
+          "key": "subStat4",
+          "left": 20,
+          "top": 471,
+          "right": 440,
+          "bottom": 525
+        }
+      ]
+    },
+    {
+      "id": "native-v4-clipped-detail",
+      "width": 414,
+      "height": 470,
+      "unavailableFields": ["selectedDiscName"],
+      "fields": [
+        {
+          "key": "selectedDiscName",
+          "left": 0,
+          "top": 0,
+          "right": 1,
+          "bottom": 1
+        },
+        {
+          "key": "level",
+          "left": 46,
+          "top": 53,
+          "right": 181,
+          "bottom": 83
+        },
+        {
+          "key": "mainStat",
+          "left": 0,
+          "top": 137,
+          "right": 411,
+          "bottom": 178
+        },
+        {
+          "key": "subStat1",
+          "left": 0,
+          "top": 215,
+          "right": 411,
+          "bottom": 256
+        },
+        {
+          "key": "subStat2",
+          "left": 0,
+          "top": 266,
+          "right": 411,
+          "bottom": 307
+        },
+        {
+          "key": "subStat3",
+          "left": 0,
+          "top": 318,
+          "right": 411,
+          "bottom": 359
+        },
+        {
+          "key": "subStat4",
+          "left": 0,
+          "top": 370,
+          "right": 411,
+          "bottom": 411
+        }
+      ]
+    }
+  ]
+}

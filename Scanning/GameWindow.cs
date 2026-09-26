@@ -1,0 +1,275 @@
+using System.Diagnostics;
+using System.Drawing;
+using ZZZScannerNext.Interop;
+
+namespace ZZZScannerNext.Scanning;
+
+public sealed class GameWindow : IDisposable
+{
+    private readonly IntPtr _handle;
+    private readonly CaptureSourceCoordinator _captureSource = new(new GdiCaptureSource());
+    private Action? _inputGuard;
+    private Rectangle _clientScreenRect;
+    private float _coordinateScale = 1f;
+    private bool _disposed;
+
+    private GameWindow(IntPtr handle, ClientMetrics metrics)
+    {
+        _handle = handle;
+        _clientScreenRect = metrics.ScreenRect;
+        _coordinateScale = metrics.Scale;
+        Dpi = NativeMethods.TryGetDpiForWindow(handle);
+    }
+
+    public Rectangle ClientScreenRect => _clientScreenRect;
+    public int Dpi { get; }
+    public float CoordinateScale => _coordinateScale;
+    public string ActiveCaptureMode => _captureSource.Name;
+    public string ActiveFrameBackend => _captureSource.FrameBackendName;
+
+    public static GameWindow Find(string processName)
+    {
+        NativeMethods.TryEnablePerMonitorDpiAwareness();
+        using var process = FindProcess(processName);
+        EnsureCurrentProcessCanAccess(process, processName);
+        return new GameWindow(process.MainWindowHandle, GetClientMetrics(process.MainWindowHandle));
+    }
+
+    public static void EnsureCurrentProcessCanAccess(string processName)
+    {
+        NativeMethods.TryEnablePerMonitorDpiAwareness();
+        using var process = FindProcess(processName);
+        EnsureCurrentProcessCanAccess(process, processName);
+    }
+
+    private static Process FindProcess(string processName)
+    {
+        var process = Process.GetProcesses().FirstOrDefault(candidate =>
+        {
+            try
+            {
+                return string.Equals(candidate.ProcessName, processName, StringComparison.OrdinalIgnoreCase)
+                    && candidate.MainWindowHandle != IntPtr.Zero;
+            }
+            catch
+            {
+                return false;
+            }
+        });
+        return process ?? throw new InvalidOperationException($"未找到游戏窗口进程：{processName}");
+    }
+
+    private static void EnsureCurrentProcessCanAccess(Process process, string processName)
+    {
+        if (NativeMethods.RequiresElevationForProcess(process.Id))
+        {
+            throw new ScannerElevationRequiredException(
+                $"游戏进程 {processName} 的权限高于当前扫描器，普通权限无法可靠截图或发送输入。");
+        }
+    }
+
+    public void BringToFront()
+    {
+        if (!NativeMethods.TryActivateForegroundWindow(_handle))
+        {
+            throw new InvalidOperationException("game_foreground_handoff_failed");
+        }
+
+        var metrics = GetClientMetrics(_handle);
+        _clientScreenRect = metrics.ScreenRect;
+        _coordinateScale = metrics.Scale;
+    }
+
+    public void ConfigureCaptureMode(CaptureMode mode, Action<string>? log = null)
+    {
+        _captureSource.ConfigureLog(log);
+        if (mode == CaptureMode.Gdi)
+        {
+            SwitchCaptureSource(new GdiCaptureSource());
+            log?.Invoke($"Capture backend active: gdi. captureFrameBackend={_captureSource.FrameBackendName}");
+            return;
+        }
+
+        try
+        {
+            var framePolicy = DxgiFrameBackendPolicy.Current;
+            SwitchCaptureSource(DxgiDesktopCaptureSource.Create(_clientScreenRect));
+            log?.Invoke($"Capture backend active: dxgi. client={_clientScreenRect}, dxgiFramePolicy={framePolicy.Name}, captureFrameBackend={_captureSource.FrameBackendName}");
+        }
+        catch (Exception ex)
+        {
+            var framePolicy = DxgiFrameBackendPolicy.Current;
+            SwitchCaptureSource(new GdiCaptureSource());
+            log?.Invoke($"Capture backend fallback: requested=dxgi, active=gdi, dxgiFramePolicy={framePolicy.Name}, captureFrameBackend={_captureSource.FrameBackendName}, reason={ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    public void LeftClick(Point point, int durationMs = 0)
+    {
+        EnsureInputAllowed();
+        NativeMethods.SetCursorPos(point.X, point.Y);
+        SendLeftClick(durationMs);
+    }
+
+    public void LeftClickCurrent(int durationMs = 0)
+    {
+        EnsureInputAllowed();
+        SendLeftClick(durationMs);
+    }
+
+    private static void SendLeftClick(int durationMs)
+    {
+        NativeMethods.mouse_event(NativeMethods.MouseEventLeftDown, 0, 0, 0, UIntPtr.Zero);
+        if (durationMs > 0)
+        {
+            Thread.Sleep(durationMs);
+        }
+
+        NativeMethods.mouse_event(NativeMethods.MouseEventLeftUp, 0, 0, 0, UIntPtr.Zero);
+    }
+
+    public void MouseWheel(int delta)
+    {
+        EnsureInputAllowed();
+        NativeMethods.mouse_event(NativeMethods.MouseEventWheel, 0, 0, delta, UIntPtr.Zero);
+    }
+
+    public void LeftDrag(Point start, Point end, int durationMs = 120)
+    {
+        EnsureInputAllowed();
+        NativeMethods.SetCursorPos(start.X, start.Y);
+        NativeMethods.mouse_event(NativeMethods.MouseEventLeftDown, 0, 0, 0, UIntPtr.Zero);
+        var steps = Math.Max(4, durationMs / 16);
+        for (var i = 1; i <= steps; i++)
+        {
+            var x = start.X + (end.X - start.X) * i / steps;
+            var y = start.Y + (end.Y - start.Y) * i / steps;
+            NativeMethods.SetCursorPos(x, y);
+            Thread.Sleep(Math.Max(1, durationMs / steps));
+        }
+
+        NativeMethods.mouse_event(NativeMethods.MouseEventLeftUp, 0, 0, 0, UIntPtr.Zero);
+    }
+
+    public void MoveCursor(Point point)
+    {
+        NativeMethods.SetCursorPos(point.X, point.Y);
+    }
+
+    public Bitmap Capture(Rectangle screenRect)
+    {
+        return _captureSource.Capture(screenRect);
+    }
+
+    internal CapturedFrame CaptureFrame(Rectangle screenRect)
+    {
+        return _captureSource.CaptureFrame(screenRect);
+    }
+
+    internal bool TryCapture(Rectangle screenRect, out Bitmap? image)
+    {
+        return _captureSource.TryCapture(screenRect, out image);
+    }
+
+    public Color GetPixel(Point point)
+    {
+        return _captureSource.GetPixel(point);
+    }
+
+    public Point ToScreenPoint(PointF normalized, bool clientToScreen = true)
+    {
+        return MapToScreenPoint(_clientScreenRect, normalized, Dpi, clientToScreen);
+    }
+
+    internal void ConfigureInputGuard(Action? inputGuard)
+    {
+        _inputGuard = inputGuard;
+    }
+
+    private void EnsureInputAllowed()
+    {
+        _inputGuard?.Invoke();
+    }
+
+    internal static Point MapToScreenPoint(
+        Rectangle clientScreenRect,
+        PointF normalized,
+        int dpi,
+        bool clientToScreen = true)
+    {
+        _ = dpi;
+        var x = (int)Math.Round(normalized.X * clientScreenRect.Width);
+        var y = (int)Math.Round(normalized.Y * clientScreenRect.Height);
+        return clientToScreen ? new Point(clientScreenRect.X + x, clientScreenRect.Y + y) : new Point(x, y);
+    }
+
+    public Rectangle ToScreenRectangle(RectangleF normalized)
+    {
+        var x = (int)Math.Round(normalized.X * _clientScreenRect.Width);
+        var y = (int)Math.Round(normalized.Y * _clientScreenRect.Height);
+        var width = Math.Max(1, (int)Math.Round(normalized.Width * _clientScreenRect.Width));
+        var height = Math.Max(1, (int)Math.Round(normalized.Height * _clientScreenRect.Height));
+        return new Rectangle(_clientScreenRect.X + x, _clientScreenRect.Y + y, width, height);
+    }
+
+    public Size ToClientSize(SizeF normalized)
+    {
+        return new Size(
+            Math.Max(1, (int)Math.Round(normalized.Width * _clientScreenRect.Width)),
+            Math.Max(1, (int)Math.Round(normalized.Height * _clientScreenRect.Height)));
+    }
+
+    private static ClientMetrics GetClientMetrics(IntPtr handle)
+    {
+        if (!NativeMethods.GetClientRect(handle, out var nativeRect))
+        {
+            throw new InvalidOperationException("无法读取游戏客户区。");
+        }
+
+        Rectangle client = nativeRect;
+        var point = new NativePoint { X = client.X, Y = client.Y };
+        if (!NativeMethods.ClientToScreen(handle, ref point))
+        {
+            throw new InvalidOperationException("无法换算游戏窗口坐标。");
+        }
+
+        var logicalClientScreen = new Rectangle(point.X, point.Y, client.Width, client.Height);
+        // CopyFromScreen and SetCursorPos operate in the same coordinate space that
+        // ClientToScreen returns for this process. Converting it again by DPI makes
+        // high-DPI secondary monitors overshoot the lower rows.
+        return new ClientMetrics(logicalClientScreen, 1f);
+    }
+
+    private void SwitchCaptureSource(IWindowCaptureSource captureSource)
+    {
+        _captureSource.Replace(captureSource);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _captureSource.Dispose();
+    }
+
+    private readonly record struct ClientMetrics(Rectangle ScreenRect, float Scale);
+}
+
+public sealed class ScannerElevationRequiredException : InvalidOperationException, IScannerFailureException
+{
+    public ScannerElevationRequiredException(string message)
+        : base(message)
+    {
+    }
+
+    public string Code => "elevation_required";
+    public string Title => "需要管理员权限";
+    public string Remedy => "请以管理员权限重启扫描器；只有这一次启动会请求 UAC。";
+    public bool Retryable => true;
+    public IReadOnlyDictionary<string, object?> DiagnosticDetails { get; } =
+        new Dictionary<string, object?>();
+}

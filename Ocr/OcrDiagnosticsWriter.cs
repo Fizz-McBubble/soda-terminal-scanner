@@ -1,0 +1,100 @@
+using System.Globalization;
+using System.Text;
+
+namespace ZZZScannerNext.Ocr;
+
+public sealed class OcrDiagnosticsWriter : IDisposable
+{
+    private readonly object _sync = new();
+    private readonly StreamWriter _writer;
+
+    public OcrDiagnosticsWriter(string file)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(file) ?? ".");
+        _writer = new StreamWriter(file, append: false, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+        _writer.WriteLine("timestamp,worker_id,batch_size,roi_count,max_width,run_count,bitmap_to_mat_ms,preprocess_ms,inference_ms,decode_ms,total_ms,clean_ms,fallback_count,queued_completed_backlog,fast_match_ms,fast_accepted_count,fast_rejected_count,ppocr_roi_count");
+        _writer.Flush();
+    }
+
+    public void Write(
+        int workerId,
+        int batchSize,
+        PaddleOcrRecognizer.OcrBatchDiagnostics diagnostics,
+        double bitmapToMatMs,
+        double cleanMs,
+        int fallbackCount,
+        int backlog,
+        double fastMatchMs = 0,
+        int fastAcceptedCount = 0,
+        int fastRejectedCount = 0,
+        int ppocrRoiCount = -1)
+    {
+        lock (_sync)
+        {
+            _writer.WriteLine(string.Join(",", [
+                DateTimeOffset.Now.ToString("O", CultureInfo.InvariantCulture),
+                workerId.ToString(CultureInfo.InvariantCulture),
+                batchSize.ToString(CultureInfo.InvariantCulture),
+                diagnostics.RoiCount.ToString(CultureInfo.InvariantCulture),
+                diagnostics.MaxWidth.ToString(CultureInfo.InvariantCulture),
+                diagnostics.RunCount.ToString(CultureInfo.InvariantCulture),
+                bitmapToMatMs.ToString("F3", CultureInfo.InvariantCulture),
+                diagnostics.PreprocessMs.ToString("F3", CultureInfo.InvariantCulture),
+                diagnostics.InferenceMs.ToString("F3", CultureInfo.InvariantCulture),
+                diagnostics.DecodeMs.ToString("F3", CultureInfo.InvariantCulture),
+                diagnostics.TotalMs.ToString("F3", CultureInfo.InvariantCulture),
+                cleanMs.ToString("F3", CultureInfo.InvariantCulture),
+                fallbackCount.ToString(CultureInfo.InvariantCulture),
+                backlog.ToString(CultureInfo.InvariantCulture),
+                fastMatchMs.ToString("F3", CultureInfo.InvariantCulture),
+                fastAcceptedCount.ToString(CultureInfo.InvariantCulture),
+                fastRejectedCount.ToString(CultureInfo.InvariantCulture),
+                (ppocrRoiCount < 0 ? diagnostics.RoiCount : ppocrRoiCount).ToString(CultureInfo.InvariantCulture)
+            ]));
+            _writer.Flush();
+        }
+    }
+
+    public void Write(
+        int workerId,
+        int batchSize,
+        PpOcrV6ProcessRecognizer.PpOcrV6Diagnostics diagnostics,
+        double bitmapToMatMs,
+        double cleanMs,
+        int backlog)
+    {
+        WriteCore(workerId, batchSize, diagnostics.RoiCount, diagnostics.MaxWidth,
+            diagnostics.RunCount, bitmapToMatMs, diagnostics.PreprocessMs,
+            diagnostics.InferenceMs, diagnostics.DecodeMs, diagnostics.TotalMs,
+            cleanMs, backlog, diagnostics.RoiCount);
+    }
+
+    private void WriteCore(
+        int workerId, int batchSize, int roiCount, int maxWidth, int runCount,
+        double bitmapToMatMs, double preprocessMs, double inferenceMs, double decodeMs,
+        double totalMs, double cleanMs, int backlog, int ppocrRoiCount)
+    {
+        lock (_sync)
+        {
+            _writer.WriteLine(string.Join(",", [
+                DateTimeOffset.Now.ToString("O", CultureInfo.InvariantCulture),
+                workerId.ToString(CultureInfo.InvariantCulture), batchSize.ToString(CultureInfo.InvariantCulture),
+                roiCount.ToString(CultureInfo.InvariantCulture), maxWidth.ToString(CultureInfo.InvariantCulture),
+                runCount.ToString(CultureInfo.InvariantCulture), bitmapToMatMs.ToString("F3", CultureInfo.InvariantCulture),
+                preprocessMs.ToString("F3", CultureInfo.InvariantCulture), inferenceMs.ToString("F3", CultureInfo.InvariantCulture),
+                decodeMs.ToString("F3", CultureInfo.InvariantCulture), totalMs.ToString("F3", CultureInfo.InvariantCulture),
+                cleanMs.ToString("F3", CultureInfo.InvariantCulture), "0", backlog.ToString(CultureInfo.InvariantCulture),
+                "0.000", "0", "0", ppocrRoiCount.ToString(CultureInfo.InvariantCulture)
+            ]));
+            _writer.Flush();
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (_sync)
+        {
+            _writer.Dispose();
+        }
+    }
+}
