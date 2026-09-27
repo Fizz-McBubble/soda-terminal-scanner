@@ -18,7 +18,6 @@ internal static partial class Program
         private readonly HttpListener _listener = new();
         private readonly object _gate = new();
         private readonly ScannerPairingStore _pairings = new();
-        private readonly SemaphoreSlim _pairingPromptGate = new(1, 1);
         private readonly List<HttpListenerResponse> _eventClients = [];
         private readonly Dictionary<HttpListenerResponse, SemaphoreSlim> _eventWriteGates = [];
         private readonly DirectForkJobSlot<Process> _jobs;
@@ -76,21 +75,8 @@ internal static partial class Program
                         await JsonAsync(context.Response, 403, new JsonObject { ["error"] = "origin_not_allowed" }, token);
                         return;
                     }
-                    if (configuredHttps)
-                    {
-                        await _pairingPromptGate.WaitAsync(token);
-                        try
-                        {
-                            if (MessageBox(IntPtr.Zero,
-                                $"允许 {origin} 在本机使用 Soda 扫描助手吗？\n本次授权最多持续 8 小时；关闭助手或在网页撤销后失效。",
-                                "Soda 扫描助手本机授权", 0x24) != 6)
-                            {
-                                await JsonAsync(context.Response, 403, new JsonObject { ["error"] = "pairing_denied" }, token);
-                                return;
-                            }
-                        }
-                        finally { _pairingPromptGate.Release(); }
-                    }
+                    // The player already initiated pairing on the trusted site. Keep the
+                    // exact-origin gate and short-lived token without a second Windows dialog.
                     var issued = _pairings.Issue(origin!, DateTimeOffset.UtcNow);
                     await JsonAsync(context.Response, 200, new JsonObject { ["token"] = issued }, token);
                     return;

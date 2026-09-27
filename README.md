@@ -2,7 +2,7 @@
 
 This repository contains the locked `ZZZ-Scanner.Next` 1.0.49 Soda fork, the Soda loopback Helper, and the separate PP-OCRv6 OCR CLI. It is the source counterpart of Soda Terminal's scanner download; users can install the verified Windows package from Soda Terminal without visiting this repository.
 
-The scanner reads the visible game window. It does not read game memory, inject code, or upload account data. The Helper starts the scanner locally. RC7 retains the exact Railway origin for rollback and accepts one additional, package-configured HTTPS origin for the Cloudflare site; new browser pairing still requires the local Windows confirmation. The OCR CLI runs locally.
+The scanner reads the visible game window. It does not read game memory, inject code, or upload account data. The Helper starts the scanner locally. RC8 retains the exact Railway origin for rollback and accepts one additional, package-configured HTTPS origin for the Cloudflare site. Pairing starts from the site's connect action without a second Windows dialog; the exact-origin check, eight-hour token, and revocation remain. Windows may still require its own administrator confirmation when scanning an elevated game. The OCR CLI runs locally.
 
 ## Build
 
