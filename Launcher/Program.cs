@@ -16,7 +16,7 @@ namespace ZZZScannerHelper;
 internal static partial class Program
 {
     private const string ServiceName = "soda-terminal-scanner-helper";
-    internal const string HelperVersion = "2.3.1";
+    internal const string HelperVersion = "2.3.3";
     internal const int ProtocolVersion = 5;
     private const int HelperPort = 43127;
     private const string ProtocolName = SodaProtocolRegistration.Scheme;
@@ -2133,7 +2133,7 @@ internal static partial class Program
         if (origin.Equals("http://localhost:5173", StringComparison.OrdinalIgnoreCase)
             || origin.Equals("http://127.0.0.1:5173", StringComparison.OrdinalIgnoreCase)) return true;
         return ScannerOriginPolicy.IsTrustedHttpsOrigin(origin,
-            Environment.GetEnvironmentVariable("SODA_SCANNER_HTTPS_ORIGIN"));
+            ScannerOriginPolicy.ReadAdditionalOrigin());
     }
 
     private static void AddCorsHeaders(HttpListenerResponse response, string? origin)

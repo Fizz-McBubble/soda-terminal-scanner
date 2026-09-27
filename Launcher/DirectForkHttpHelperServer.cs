@@ -63,17 +63,17 @@ internal static partial class Program
                 var path = context.Request.Url?.AbsolutePath ?? "/";
                 if (context.Request.HttpMethod == "GET" && path == "/")
                 {
-                    await JsonAsync(context.Response, 200, new { service = ServiceName, version = HelperVersion, protocolVersion = ProtocolVersion, transport = "direct-fork-http", accountWriteEnabled = false, importAccess = false }, token);
+                    await JsonAsync(context.Response, 200, new JsonObject { ["service"] = ServiceName, ["version"] = HelperVersion, ["protocolVersion"] = ProtocolVersion, ["transport"] = "direct-fork-http", ["accountWriteEnabled"] = false, ["importAccess"] = false }, token);
                     return;
                 }
                 if (context.Request.HttpMethod == "POST" && path == "/token")
                 {
                     var configuredHttps = ScannerOriginPolicy.IsTrustedHttpsOrigin(origin,
-                        Environment.GetEnvironmentVariable("SODA_SCANNER_HTTPS_ORIGIN"));
+                        ScannerOriginPolicy.ReadAdditionalOrigin());
                     if (!IsAllowedOrigin(origin) || (!configuredHttps && _launchOrigin is not null &&
                         !string.Equals(_launchOrigin, origin, StringComparison.OrdinalIgnoreCase)))
                     {
-                        await JsonAsync(context.Response, 403, new { error = "origin_not_allowed" }, token);
+                        await JsonAsync(context.Response, 403, new JsonObject { ["error"] = "origin_not_allowed" }, token);
                         return;
                     }
                     if (configuredHttps)
@@ -85,24 +85,24 @@ internal static partial class Program
                                 $"允许 {origin} 在本机使用 Soda 扫描助手吗？\n本次授权最多持续 8 小时；关闭助手或在网页撤销后失效。",
                                 "Soda 扫描助手本机授权", 0x24) != 6)
                             {
-                                await JsonAsync(context.Response, 403, new { error = "pairing_denied" }, token);
+                                await JsonAsync(context.Response, 403, new JsonObject { ["error"] = "pairing_denied" }, token);
                                 return;
                             }
                         }
                         finally { _pairingPromptGate.Release(); }
                     }
                     var issued = _pairings.Issue(origin!, DateTimeOffset.UtcNow);
-                    await JsonAsync(context.Response, 200, new { token = issued }, token);
+                    await JsonAsync(context.Response, 200, new JsonObject { ["token"] = issued }, token);
                     return;
                 }
                 if (!string.IsNullOrWhiteSpace(origin) && !IsAllowedOrigin(origin))
                 {
-                    await JsonAsync(context.Response, 403, new { error = "origin_not_allowed" }, token);
+                    await JsonAsync(context.Response, 403, new JsonObject { ["error"] = "origin_not_allowed" }, token);
                     return;
                 }
                 if (!Authorized(context.Request))
                 {
-                    await JsonAsync(context.Response, 401, new { error = "invalid_session_token" }, token);
+                    await JsonAsync(context.Response, 401, new JsonObject { ["error"] = "invalid_session_token" }, token);
                     return;
                 }
 
@@ -115,13 +115,13 @@ internal static partial class Program
                         _eventClients.Clear();
                         _eventWriteGates.Clear();
                     }
-                    await JsonAsync(context.Response, 200, new { revoked = true }, token);
+                    await JsonAsync(context.Response, 200, new JsonObject { ["revoked"] = true }, token);
                     return;
                 }
 
                 if (context.Request.HttpMethod == "GET" && path == "/api/health")
                 {
-                    await JsonAsync(context.Response, 200, new { ok = true, binding = $"127.0.0.1:{Port}", accountWriteEnabled = false, importAccess = false }, token);
+                    await JsonAsync(context.Response, 200, new JsonObject { ["ok"] = true, ["binding"] = $"127.0.0.1:{Port}", ["accountWriteEnabled"] = false, ["importAccess"] = false }, token);
                     return;
                 }
                 if (context.Request.HttpMethod == "GET" && path == "/api/snapshot")
@@ -161,10 +161,10 @@ internal static partial class Program
                 {
                     if (_resultPath is null || _resultHandle is null)
                     {
-                        await JsonAsync(context.Response, 409, new { error = "result_not_ready" }, token);
+                        await JsonAsync(context.Response, 409, new JsonObject { ["error"] = "result_not_ready" }, token);
                         return;
                     }
-                    await JsonAsync(context.Response, 200, new { resultFileHandle = _resultHandle, resultStatus = SummaryString("resultStatus"), accountWriteEnabled = false, importAccess = false, preflight = "not_run", arm = "not_run", import = "not_run" }, token);
+                    await JsonAsync(context.Response, 200, new JsonObject { ["resultFileHandle"] = _resultHandle, ["resultStatus"] = SummaryString("resultStatus"), ["accountWriteEnabled"] = false, ["importAccess"] = false, ["preflight"] = "not_run", ["arm"] = "not_run", ["import"] = "not_run" }, token);
                     return;
                 }
                 var match = Regex.Match(path, "^/api/result/([^/]+)(?:/evidence/([^/]+)(?:/(detail|card))?)?$");
@@ -173,7 +173,7 @@ internal static partial class Program
                     var handle = Uri.UnescapeDataString(match.Groups[1].Value);
                     if (_resultPath is null || !string.Equals(handle, _resultHandle, StringComparison.Ordinal))
                     {
-                        await JsonAsync(context.Response, 409, new { error = "result_handle_invalid" }, token);
+                        await JsonAsync(context.Response, 409, new JsonObject { ["error"] = "result_handle_invalid" }, token);
                         return;
                     }
                     if (!match.Groups[2].Success)
@@ -187,18 +187,18 @@ internal static partial class Program
                         var item = ResultItem(itemId);
                         var encodedHandle = Uri.EscapeDataString(handle);
                         var encodedItem = Uri.EscapeDataString(itemId);
-                        await JsonAsync(context.Response, 200, new { availability = "available", detailSrc = $"/api/result/{encodedHandle}/evidence/{encodedItem}/detail", cardSrc = $"/api/result/{encodedHandle}/evidence/{encodedItem}/card", visualDetailHash = item["evidence"]?["visualDetailHash"]?.GetValue<string>() ?? "" }, token);
+                        await JsonAsync(context.Response, 200, new JsonObject { ["availability"] = "available", ["detailSrc"] = $"/api/result/{encodedHandle}/evidence/{encodedItem}/detail", ["cardSrc"] = $"/api/result/{encodedHandle}/evidence/{encodedItem}/card", ["visualDetailHash"] = item["evidence"]?["visualDetailHash"]?.GetValue<string>() ?? "" }, token);
                         return;
                     }
                     await EvidenceAsync(context.Response, itemId, match.Groups[3].Value, token);
                     return;
                 }
-                await JsonAsync(context.Response, 404, new { error = "not_found" }, token);
+                await JsonAsync(context.Response, 404, new JsonObject { ["error"] = "not_found" }, token);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 HelperLog.RecordException("direct_fork_helper_request", "helper", ex);
-                if (context.Response.OutputStream.CanWrite) await JsonAsync(context.Response, 500, new { error = "helper_request_failed" }, token);
+                if (context.Response.OutputStream.CanWrite) await JsonAsync(context.Response, 500, new JsonObject { ["error"] = "helper_request_failed" }, token);
             }
         }
 
@@ -459,7 +459,7 @@ internal static partial class Program
             if (IsAllowedOrigin(origin)) response.Headers["Access-Control-Allow-Origin"] = origin;
             response.Headers["Vary"] = "Origin"; response.Headers["Access-Control-Allow-Headers"] = "Content-Type, X-Soda-Scanner-Token"; response.Headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"; response.Headers["Access-Control-Allow-Private-Network"] = "true";
         }
-        private static async Task JsonAsync(HttpListenerResponse response, int status, object value, CancellationToken token) => await BytesAsync(response, status, Encoding.UTF8.GetBytes(JsonSerializer.Serialize(value)), token);
+        private static async Task JsonAsync(HttpListenerResponse response, int status, JsonObject value, CancellationToken token) => await BytesAsync(response, status, Encoding.UTF8.GetBytes(value.ToJsonString()), token);
         private static async Task NodeAsync(HttpListenerResponse response, int status, JsonNode value, CancellationToken token) => await BytesAsync(response, status, Encoding.UTF8.GetBytes(value.ToJsonString()), token);
         private static async Task BytesAsync(HttpListenerResponse response, int status, byte[] bytes, CancellationToken token) { response.StatusCode = status; response.ContentType = "application/json; charset=utf-8"; response.Headers["Cache-Control"] = "no-store"; response.ContentLength64 = bytes.Length; await response.OutputStream.WriteAsync(bytes, token); response.Close(); }
         private Task EventAsync(HttpListenerResponse response, JsonNode value, CancellationToken token)

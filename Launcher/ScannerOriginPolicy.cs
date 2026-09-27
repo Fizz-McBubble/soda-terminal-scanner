@@ -3,12 +3,26 @@ namespace ZZZScannerHelper;
 internal static class ScannerOriginPolicy
 {
     internal const string DefaultPublicOrigin = "https://soda-terminal-production.up.railway.app";
+    internal const string AdditionalOriginFile = "scanner-public-origin.txt";
+
+    internal static string? ReadAdditionalOrigin()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, AdditionalOriginFile);
+        try
+        {
+            return File.Exists(path) ? File.ReadAllText(path).Trim() :
+                Environment.GetEnvironmentVariable("SODA_SCANNER_HTTPS_ORIGIN");
+        }
+        catch (IOException) { return null; }
+        catch (UnauthorizedAccessException) { return null; }
+    }
 
     internal static bool IsTrustedHttpsOrigin(string? candidate, string? configured)
     {
-        // A present override replaces the fixed public origin; an invalid value fails closed.
-        var approved = string.IsNullOrEmpty(configured) ? DefaultPublicOrigin : configured;
-        return IsConfiguredHttpsOrigin(candidate, approved);
+        // The old public site remains available for rollback. At most one additional
+        // exact HTTPS origin may be supplied by a candidate package (or local dev).
+        return IsConfiguredHttpsOrigin(candidate, DefaultPublicOrigin) ||
+            IsConfiguredHttpsOrigin(candidate, configured);
     }
 
     internal static bool IsConfiguredHttpsOrigin(string? candidate, string? configured)

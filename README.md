@@ -2,7 +2,7 @@
 
 This repository contains the locked `ZZZ-Scanner.Next` 1.0.49 Soda fork, the Soda loopback Helper, and the separate PP-OCRv6 OCR CLI. It is the source counterpart of Soda Terminal's scanner download; users can install the verified Windows package from Soda Terminal without visiting this repository.
 
-The scanner reads the visible game window. It does not read game memory, inject code, or upload account data. The Helper starts the scanner locally and accepts the configured Soda Terminal HTTPS origin. The OCR CLI runs locally.
+The scanner reads the visible game window. It does not read game memory, inject code, or upload account data. The Helper starts the scanner locally. RC7 retains the exact Railway origin for rollback and accepts one additional, package-configured HTTPS origin for the Cloudflare site; new browser pairing still requires the local Windows confirmation. The OCR CLI runs locally.
 
 ## Build
 
@@ -13,6 +13,8 @@ Install the .NET 8 SDK with Windows Desktop targeting support on Windows x64. Fr
 ```
 
 The script builds the scanner, Helper, and OCR CLI as three separate projects. It writes `obj` and binaries only to the selected external artifacts directory. Building source does not perform a game scan.
+
+The distributed Helper is a native AOT publish. Reproducing that executable also requires the Visual Studio C++ linker and Windows SDK; a source `build.ps1` success alone does not claim byte-for-byte identity with the released package.
 
 ONNX model weights are deliberately absent from Git. A working OCR installation also requires the PP-OCRv6 model distributed with the independently verified runtime package. Do not treat a successful source build as an installed or ready scanner. The older PP-OCRv5 model and Fast OCR template index are also absent.
 

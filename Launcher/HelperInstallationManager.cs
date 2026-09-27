@@ -6,7 +6,7 @@ using System.Text.Json;
 
 namespace ZZZScannerHelper;
 
-internal static class HelperInstallationManager
+internal static partial class HelperInstallationManager
 {
     private const string SkipManagedInstallEnvironmentVariable = "ZZZ_SCANNER_SKIP_MANAGED_INSTALL";
     private const string AcceptManagedInstallEnvironmentVariable = "ZZZ_SCANNER_ACCEPT_MANAGED_INSTALL";
@@ -97,15 +97,24 @@ internal static class HelperInstallationManager
                 ShowAmbiguousHelperWarning(existingHelper.Version, selection.Reason);
                 return new HelperLifecycleResult(true, []);
             }
+            if (!IsSameManagedInstallation(selection.Candidate.Path, managedPath))
+            {
+                ShowCrossRootTakeoverWarning(selection.Candidate.Path, managedPath);
+                return new HelperLifecycleResult(true, []);
+            }
             if (!ConfirmHelperTakeover(existingHelper.Version, selection.Candidate.Path))
             {
                 return new HelperLifecycleResult(true, []);
             }
+            var takeoverBackup = await BackupManagedHelperAsync(managedPath);
             if (!await StopExistingHelperAsync(selection.Candidate.ProcessId))
             {
                 ShowTakeoverFailure(existingHelper.Version);
                 return new HelperLifecycleResult(true, []);
             }
+            // A terminated legacy process may have a pending delete on its own image.
+            // Keep the verified old bytes available before touching the new version.
+            await RestoreMissingManagedHelperAsync(managedPath, takeoverBackup);
             installConfirmed = true;
         }
 
@@ -114,34 +123,7 @@ internal static class HelperInstallationManager
             return new HelperLifecycleResult(true, []);
         }
 
-        Directory.CreateDirectory(Path.GetDirectoryName(managedPath)!);
-        var stagingPath = managedPath + ".installing";
-        File.Copy(processPath, stagingPath, overwrite: true);
-        await VerifySameFileAsync(processPath, stagingPath);
-
-        if (File.Exists(managedPath))
-        {
-            File.Delete(managedPath);
-        }
-        File.Move(stagingPath, managedPath);
-
-        var childArguments = new List<string>
-        {
-            BootstrapArgument,
-            Environment.ProcessId.ToString(),
-            processPath,
-        };
-        childArguments.AddRange(args);
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = managedPath,
-            UseShellExecute = false,
-        };
-        foreach (var argument in childArguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-        Process.Start(startInfo);
+        await InstallManagedCopyAsync(processPath, managedPath, args);
         return new HelperLifecycleResult(true, []);
     }
 
@@ -354,6 +336,14 @@ internal static class HelperInstallationManager
     {
         if (!Environment.UserInteractive) return;
         MessageBox(IntPtr.Zero, $"无法关闭 Helper {version} 或端口未及时释放。请在任务管理器中关闭旧 Helper 后重试。", "Helper 更新未完成", 0x30);
+    }
+
+    private static void ShowCrossRootTakeoverWarning(string existingPath, string managedPath)
+    {
+        if (!Environment.UserInteractive) return;
+        MessageBox(IntPtr.Zero,
+            $"旧 Helper 位于另一安装目录：\n{existingPath}\n\n本次目标目录：\n{managedPath}\n\n为保护旧版和回退能力，已停止自动接管。请从旧安装目录执行同根升级。",
+            "无法跨目录接管 Helper", 0x30);
     }
 
     private static async Task VerifySameFileAsync(string source, string destination)
