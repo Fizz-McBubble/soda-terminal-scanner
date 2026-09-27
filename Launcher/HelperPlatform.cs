@@ -318,12 +318,41 @@ internal static class ScannerChildReaper
     private const string ScannerExecutableName = "ZZZ-Scanner.Next.Soda.exe";
 
     public static ScannerChildCleanupResult CleanupOrphans(string installRoot, int currentHelperProcessId)
+        => CleanupOrphans(installRoot, currentHelperProcessId, QueryCandidates, HasScannerProcess);
+
+    internal static ScannerChildCleanupResult CleanupOrphans(
+        string installRoot,
+        int currentHelperProcessId,
+        Func<IEnumerable<ScannerChildProcessSnapshot>> queryCandidates,
+        Func<bool> scannerProcessPresent)
     {
         var allowedRoots = LoadAllowedRoots(installRoot);
+        ScannerChildProcessSnapshot[] candidates;
+        try
+        {
+            candidates = queryCandidates().ToArray();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Native AOT can omit constructors used internally by System.Management.
+            // With no scanner process there is nothing to reap; if one exists, fail
+            // closed instead of starting a second scanner without inspecting it.
+            if (scannerProcessPresent())
+                throw new HelperFailureException(
+                    "legacy_scanner_inspection_unavailable",
+                    "startup",
+                    "旧扫描进程仍在运行",
+                    "无法核对仍在运行的扫描进程。",
+                    "请退出旧扫描进程后重试；无需重装或删除账户资料。",
+                    retryable: true,
+                    innerException: ex);
+            HelperLog.Write($"ORPHAN_SCANNER_INSPECTION_SKIPPED reason={ex.GetType().Name}");
+            return new ScannerChildCleanupResult(0, 0, 0);
+        }
         var examined = 0;
         var terminated = 0;
         var skipped = 0;
-        foreach (var candidate in QueryCandidates())
+        foreach (var candidate in candidates)
         {
             examined++;
             if (!IsOwnedOrphan(candidate, allowedRoots, currentHelperProcessId, IsProcessAlive))
@@ -410,6 +439,23 @@ internal static class ScannerChildReaper
                 Convert.ToInt32(item["ParentProcessId"]),
                 executablePath,
                 commandLine);
+        }
+    }
+
+    private static bool HasScannerProcess()
+    {
+        var processes = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(ScannerExecutableName));
+        try
+        {
+            return processes.Any(process =>
+            {
+                try { return !process.HasExited; }
+                catch { return false; }
+            });
+        }
+        finally
+        {
+            foreach (var process in processes) process.Dispose();
         }
     }
 
