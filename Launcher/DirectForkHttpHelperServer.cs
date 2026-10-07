@@ -210,7 +210,7 @@ internal static partial class Program
                     _snapshot["error"] = null;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 lock (_gate)
                 {
@@ -218,7 +218,8 @@ internal static partial class Program
                     _snapshot["state"] = "connection_failed";
                     _snapshot["permission"] = "denied";
                     _snapshot["distribution"] = new JsonObject { ["state"] = "repair_required", ["action"] = "repair", ["message"] = "组件文件校验失败；不会回退旧核心。" };
-                    _snapshot["error"] = new JsonObject { ["userMessage"] = "当前锁定扫描组件尚未就绪。", ["recoveryAction"] = "retry", ["diagnosticCode"] = ex.Message };
+                    _snapshot["error"] = new JsonObject { ["userMessage"] = "当前锁定扫描组件尚未就绪。", ["recoveryAction"] = "retry", ["diagnosticCode"] = "helper_incompatible" };
+                    RuntimeDiagnosticFailure();
                 }
             }
             Publish();
@@ -229,6 +230,7 @@ internal static partial class Program
             var job = _jobs.Reserve();
             try
             {
+                if (!BeginDiagnosticAttempt(job)) return;
                 var runtime = SodaRuntimeLocator.Load();
                 var outputRoot = Path.Combine(SodaRuntimeLocator.DefaultInstallRoot(), "outputs", $"live-{DateTime.UtcNow:yyyyMMddTHHmmssfffZ}-{job}");
                 Directory.CreateDirectory(outputRoot);
@@ -236,6 +238,8 @@ internal static partial class Program
                 foreach (var argument in new[] { "--scan-once", "--output-root", outputRoot, "--max-items", "0", "--include-non15", "--capture-mode", "gdi", "--ocr-engine", "ppocrv6", "--ppocrv6-worker", runtime.PpOcrV6.WorkerPath, "--ppocrv6-model", runtime.PpOcrV6.ModelPath, "--ppocrv6-config", runtime.PpOcrV6.ConfigPath }) start.ArgumentList.Add(argument);
                 if (!_jobs.Publish(job, () =>
                 {
+                    DirectForkDiagnostics.ApplyRuntime(_snapshot["diagnostics"]!.AsObject(), runtime);
+                    _snapshot["diagnostics"]!["stage"] = "permission";
                     _resultPath = null;
                     _resultHandle = null;
                     _evidenceRoot = null;
@@ -284,6 +288,10 @@ internal static partial class Program
                 await exited;
                 PublishScanProgress(outputRoot, job);
                 if (!_jobs.Publish(job, () => { })) return;
+                _jobs.Publish(job, () =>
+                {
+                    if (_snapshot["diagnostics"] is JsonObject report) report["evidence"]!["exitCode"] = unchecked((uint)process.ExitCode);
+                });
                 var result = NewestFile(outputRoot, "scan-once-result.json");
                 if (process.ExitCode != 0)
                 {
@@ -325,6 +333,7 @@ internal static partial class Program
                     _snapshot["permission"] = "granted";
                     _snapshot["progress"] = update["progress"]!.DeepClone();
                     _snapshot["error"] = update["error"]?.DeepClone();
+                    if (_snapshot["diagnostics"] is JsonObject report && update["diagnostics"] is JsonObject facts) DirectForkDiagnostics.Merge(report, facts);
                     Publish();
                 });
             }
@@ -341,12 +350,17 @@ internal static partial class Program
                 var reportedError = _snapshot["state"]?.GetValue<string>() == "connection_failed" ? _snapshot["error"]?.DeepClone() : null;
                 _snapshot["state"] = "connection_failed";
                 var failure = ex as ScannerRuntimeFailureException;
+                var code = ex is System.ComponentModel.Win32Exception { NativeErrorCode: 1223 } ? "elevation_cancelled"
+                    : ex is System.ComponentModel.Win32Exception { NativeErrorCode: 5 } or UnauthorizedAccessException ? "permission_denied"
+                    : failure?.DiagnosticCode ?? (ex.Message.StartsWith("soda_runtime_", StringComparison.Ordinal) ? "helper_incompatible" : ex.Message);
                 _snapshot["error"] = reportedError ?? new JsonObject
                 {
                     ["userMessage"] = failure?.UserMessage ?? "扫描器运行失败，结果未进入正式导入。",
                     ["recoveryAction"] = "retry",
-                    ["diagnosticCode"] = failure?.DiagnosticCode ?? ex.Message[..Math.Min(120, ex.Message.Length)]
+                    ["diagnosticCode"] = DirectForkDiagnostics.Code(code)
                 };
+                if (_snapshot["diagnostics"] is JsonObject report)
+                    DirectForkDiagnostics.Finish(report, "failed", reportedError?["diagnosticCode"]?.GetValue<string>() ?? code, DiagnosticElapsedMilliseconds());
                 Publish();
             });
         }
@@ -361,6 +375,8 @@ internal static partial class Program
         {
             var running = _jobs.Stop(() =>
             {
+                if (_snapshot["state"]?.GetValue<string>() is "checking" or "awaiting_elevation" or "scanning" && _snapshot["diagnostics"] is JsonObject report)
+                    DirectForkDiagnostics.Finish(report, "cancelled", "none", DiagnosticElapsedMilliseconds());
                 _resultPath = null;
                 _resultHandle = null;
                 _evidenceRoot = null;
@@ -373,6 +389,7 @@ internal static partial class Program
             try { if (running is { HasExited: false }) running.Kill(entireProcessTree: true); }
             catch (InvalidOperationException) { } // The captured process can finish concurrently.
         }
+
 
         private JsonObject BrowserScopedStaging()
         {

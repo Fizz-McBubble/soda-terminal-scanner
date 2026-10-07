@@ -9,7 +9,9 @@ internal sealed record SodaRuntimeIdentity(
     string Version,
     string Root,
     string EntryPath,
-    SodaOcrRuntimeIdentity PpOcrV6);
+    SodaOcrRuntimeIdentity PpOcrV6,
+    string? CaptureVersion = null,
+    string? OcrVersion = null);
 
 internal static class SodaRuntimeLocator
 {
@@ -51,7 +53,9 @@ internal static class SodaRuntimeLocator
             version,
             versionRoot,
             entryPath,
-            new SodaOcrRuntimeIdentity(workerPath, modelPath, configPath));
+            new SodaOcrRuntimeIdentity(workerPath, modelPath, configPath),
+            descriptor.TryGetProperty("capture", out var capture) && capture.ValueKind == JsonValueKind.String ? capture.GetString() : null,
+            descriptor.TryGetProperty("ocr", out var ocr) && ocr.ValueKind == JsonValueKind.String ? ocr.GetString() : null);
     }
 
     private static string VerifyEntry(

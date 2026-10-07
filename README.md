@@ -2,7 +2,11 @@
 
 This repository contains the locked `ZZZ-Scanner.Next` 1.0.49 Soda fork, the Soda loopback Helper, and the separate PP-OCRv6 OCR CLI. It is the source counterpart of Soda Terminal's scanner download; users can install the verified Windows package from Soda Terminal without visiting this repository.
 
-The scanner reads the visible game window. It does not read game memory, inject code, or upload account data. The Helper starts the scanner locally. RC8 retains the exact Railway origin for rollback and accepts one additional, package-configured HTTPS origin for the Cloudflare site. Pairing starts from the site's connect action without a second Windows dialog; the exact-origin check, eight-hour token, and revocation remain. Windows may still require its own administrator confirmation when scanning an elevated game. The OCR CLI runs locally.
+The scanner supports the Windows x64 local version of Zenless Zone Zero. macOS and the cloud game are not supported for scanning. Existing compatible JSON results can still be imported on the Soda Terminal website.
+
+The scanner reads the visible game window. It does not read game memory, inject code, or upload account data. The Helper starts the locked 1.0.49 Soda fork locally. RC8.3 / Helper 2.3.6 adds a bounded diagnostic summary for each attempt: stage, counts, elapsed time, versions, and a small allowlist of layout facts. The website sends that summary only when the player clicks the feedback button; Cloudflare stores it for 30 days. Accounts, game UID, disc contents, screenshots, raw logs, local paths, and contacts are excluded.
+
+Packages accept the exact configured origins `https://sodaterminal.com` and `https://app.sodaterminal.workers.dev`. Pairing starts from the site's connect action without a second Windows dialog; the exact-origin check, eight-hour token, and revocation remain. Windows may still require its own administrator confirmation when scanning an elevated game. The OCR CLI runs locally. This release does not claim a new scanner core or a verified fix for all large inventories.
 
 ## Build
 

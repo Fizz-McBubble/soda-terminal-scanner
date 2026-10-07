@@ -47,6 +47,7 @@ internal static class DirectForkProgress
         if (processed is null && total is null) return null;
         return new JsonObject
         {
+            ["diagnostics"] = DirectForkDiagnostics.Read(log, terminalJson, total),
             ["state"] = error is null ? "scanning" : "connection_failed", ["error"] = error,
             ["progress"] = new JsonObject
             {
@@ -89,7 +90,7 @@ internal static partial class Program
                     var staging = Path.Combine(scanDirectory, "scanner-r10c-r4-staging.json");
                     var resultPath = Path.Combine(scanDirectory, "scan-once-result.json");
                     var logPath = Path.Combine(scanDirectory, "scan.log");
-                    var log = File.Exists(logPath) ? File.ReadAllText(logPath) : "";
+                    var log = File.Exists(logPath) ? DirectForkProgress.ReadFile(logPath) : "";
                     recoveryProgress = DirectForkProgress.Read(log, null, null);
                     if (!File.Exists(resultPath)) throw new InvalidDataException("recovered_scan_completion_missing");
                     var terminalJson = File.ReadAllText(resultPath);
@@ -99,6 +100,12 @@ internal static partial class Program
                     if (string.IsNullOrWhiteSpace(recordedRoot) || !string.Equals(Path.GetFullPath(recordedRoot), Path.GetFullPath(scanDirectory), StringComparison.OrdinalIgnoreCase))
                         throw new InvalidDataException("recovered_scan_identity_mismatch");
                     if (terminal.TryGetProperty("Completed", out _)) recoveryProgress = DirectForkProgress.Read(log, terminalJson, null);
+                    lock (_gate)
+                    {
+                        var report = DirectForkDiagnostics.Create();
+                        DirectForkDiagnostics.Merge(report, DirectForkDiagnostics.Read(log, terminalJson, null));
+                        _snapshot["diagnostics"] = report;
+                    }
                     if (!terminal.GetProperty("Success").GetBoolean() || terminal.GetProperty("Failed").GetInt32() != 0 ||
                         terminal.GetProperty("Status").GetString() != "completed")
                         throw new InvalidDataException("recovered_scan_not_completed");
@@ -138,6 +145,10 @@ internal static partial class Program
                         ["recoveryAction"] = "retry",
                         ["diagnosticCode"] = "previous_scan_recovery_failed"
                     };
+                    var report = _snapshot["diagnostics"] as JsonObject ?? DirectForkDiagnostics.Create();
+                    if (recoveryProgress?["diagnostics"] is JsonObject facts) DirectForkDiagnostics.Merge(report, facts);
+                    DirectForkDiagnostics.Finish(report, "failed", _snapshot["error"]!["diagnosticCode"]!.GetValue<string>(), null);
+                    _snapshot["diagnostics"] = report;
                 }
                 if (testRoot is null) HelperLog.Write($"DIRECT_FORK_RECOVERY_REJECTED type={ex.GetType().Name}");
                 Publish();
@@ -159,7 +170,9 @@ internal static partial class Program
                 _resultHandle = $"r21:{batchId}";
                 _snapshot["state"] = "completed";
                 _snapshot["permission"] = "granted";
-                _snapshot["summary"] = new JsonObject { ["reliable"] = ready, ["needsReview"] = review, ["unreadable"] = invalid, ["resultFileHandle"] = _resultHandle, ["resultStatus"] = invalid > 0 ? "blocked_import" : review > 0 ? "needs_review" : "ready_for_review", ["uniqueRecords"] = items.Count, ["totalSeconds"] = 0 };
+                if (_snapshot["diagnostics"] is JsonObject report) DirectForkDiagnostics.Finish(report, "completed", "none", job is not null ? DiagnosticElapsedMilliseconds() : null);
+                var seconds = (_snapshot["diagnostics"]?["durationMs"]?.GetValue<long>() ?? 0) / 1000.0;
+                _snapshot["summary"] = new JsonObject { ["reliable"] = ready, ["needsReview"] = review, ["unreadable"] = invalid, ["resultFileHandle"] = _resultHandle, ["resultStatus"] = invalid > 0 ? "blocked_import" : review > 0 ? "needs_review" : "ready_for_review", ["uniqueRecords"] = items.Count, ["totalSeconds"] = seconds };
                 _snapshot["progress"] = new JsonObject { ["processed"] = items.Count, ["total"] = items.Count, ["stageLabel"] = "等待玩家检查", ["etaSeconds"] = null };
                 Publish();
             }
