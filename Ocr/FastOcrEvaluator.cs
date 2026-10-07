@@ -3,9 +3,10 @@ using System.Globalization;
 using System.Text;
 using ZZZScannerNext.Scanning;
 
-namespace ZZZScannerNext.Ocr;
+namespace ZZZScannerNext.Ocr
+{
 
-public static class FastOcrEvaluator
+public static partial class FastOcrEvaluator
 {
     private const double DefaultAssistMinAcceptRate = 0.60;
     private const double NameAssistMinAcceptRate = 0.95;
@@ -405,7 +406,15 @@ public static class FastOcrEvaluator
 
         return evaluations;
     }
+}
 
+}
+
+namespace ZZZScannerNext.Ocr
+{
+
+public static partial class FastOcrEvaluator
+{
     private static void WriteReport(string outputFile, IReadOnlyList<FastOcrEvaluationRow> rows)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(outputFile) ?? ".");
@@ -823,7 +832,15 @@ public static class FastOcrEvaluator
             ]));
         }
     }
+}
 
+}
+
+namespace ZZZScannerNext.Ocr
+{
+
+public static partial class FastOcrEvaluator
+{
     private static void WriteFeatureEvalReport(string outputFile, IReadOnlyList<FastOcrFeatureEvalRow> rows)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(outputFile) ?? ".");
@@ -1063,4 +1080,6 @@ public sealed record FastOcrConfusionRow(
             rows.Average(row => row.Margin),
             string.Join("|", rows.Select(row => row.Fold).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(value => value, StringComparer.OrdinalIgnoreCase)));
     }
+}
+
 }

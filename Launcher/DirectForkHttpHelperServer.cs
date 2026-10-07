@@ -26,6 +26,7 @@ internal static partial class Program
         private string? _resultPath;
         private string? _resultHandle;
         private string? _evidenceRoot;
+        private Task _initialization = Task.CompletedTask;
 
         internal DirectForkHttpHelperServer(string? launchOrigin)
         {
@@ -35,11 +36,15 @@ internal static partial class Program
 
         internal async Task RunAsync(CancellationToken token)
         {
-            RefreshRuntime();
-            RecoverCompletedResult();
             _listener.Prefixes.Add($"http://127.0.0.1:{Port}/");
             _listener.Start();
             HelperInstallationManager.CompletePendingUpdate();
+            _initialization = Task.Run(() =>
+            {
+                RefreshRuntime();
+                RecoverCompletedResult();
+            }, token);
+            _ = SendHeartbeatsAsync(token);
             while (!token.IsCancellationRequested)
             {
                 var context = await _listener.GetContextAsync().WaitAsync(token);
@@ -127,56 +132,61 @@ internal static partial class Program
                 }
                 if (context.Request.HttpMethod == "POST" && path == "/api/retry")
                 {
+                    await _initialization.WaitAsync(token);
                     RefreshRuntime();
                     await NodeAsync(context.Response, 200, Snapshot(), token);
                     return;
                 }
                 if (context.Request.HttpMethod == "POST" && path == "/api/start")
                 {
+                    await _initialization.WaitAsync(token);
                     StartDirectFork();
                     await NodeAsync(context.Response, 202, Snapshot(), token);
                     return;
                 }
                 if (context.Request.HttpMethod == "POST" && path is "/api/pause" or "/api/stop")
                 {
+                    await _initialization.WaitAsync(token);
                     StopDirectFork();
                     await NodeAsync(context.Response, 200, Snapshot(), token);
                     return;
                 }
                 if (context.Request.HttpMethod == "POST" && path == "/api/result")
                 {
-                    if (_resultPath is null || _resultHandle is null)
+                    var current = CaptureResult();
+                    if (current is null)
                     {
                         await JsonAsync(context.Response, 409, new JsonObject { ["error"] = "result_not_ready" }, token);
                         return;
                     }
-                    await JsonAsync(context.Response, 200, new JsonObject { ["resultFileHandle"] = _resultHandle, ["resultStatus"] = SummaryString("resultStatus"), ["accountWriteEnabled"] = false, ["importAccess"] = false, ["preflight"] = "not_run", ["arm"] = "not_run", ["import"] = "not_run" }, token);
+                    await JsonAsync(context.Response, 200, new JsonObject { ["resultFileHandle"] = current.Handle, ["resultStatus"] = current.Status, ["accountWriteEnabled"] = false, ["importAccess"] = false, ["preflight"] = "not_run", ["arm"] = "not_run", ["import"] = "not_run" }, token);
                     return;
                 }
                 var match = Regex.Match(path, "^/api/result/([^/]+)(?:/evidence/([^/]+)(?:/(detail|card))?)?$");
                 if (context.Request.HttpMethod == "GET" && match.Success)
                 {
                     var handle = Uri.UnescapeDataString(match.Groups[1].Value);
-                    if (_resultPath is null || !string.Equals(handle, _resultHandle, StringComparison.Ordinal))
+                    var current = CaptureResult();
+                    if (current is null || !string.Equals(handle, current.Handle, StringComparison.Ordinal))
                     {
                         await JsonAsync(context.Response, 409, new JsonObject { ["error"] = "result_handle_invalid" }, token);
                         return;
                     }
                     if (!match.Groups[2].Success)
                     {
-                        await NodeAsync(context.Response, 200, BrowserScopedStaging(), token);
+                        await NodeAsync(context.Response, 200, BrowserScopedStaging(current), token);
                         return;
                     }
                     var itemId = Uri.UnescapeDataString(match.Groups[2].Value);
                     if (!match.Groups[3].Success)
                     {
-                        var item = ResultItem(itemId);
+                        var item = ResultItem(current.Path, itemId);
                         var encodedHandle = Uri.EscapeDataString(handle);
                         var encodedItem = Uri.EscapeDataString(itemId);
                         await JsonAsync(context.Response, 200, new JsonObject { ["availability"] = "available", ["detailSrc"] = $"/api/result/{encodedHandle}/evidence/{encodedItem}/detail", ["cardSrc"] = $"/api/result/{encodedHandle}/evidence/{encodedItem}/card", ["visualDetailHash"] = item["evidence"]?["visualDetailHash"]?.GetValue<string>() ?? "" }, token);
                         return;
                     }
-                    await EvidenceAsync(context.Response, itemId, match.Groups[3].Value, token);
+                    await EvidenceAsync(context.Response, current, itemId, match.Groups[3].Value, token);
                     return;
                 }
                 await JsonAsync(context.Response, 404, new JsonObject { ["error"] = "not_found" }, token);
@@ -235,7 +245,7 @@ internal static partial class Program
                 var outputRoot = Path.Combine(SodaRuntimeLocator.DefaultInstallRoot(), "outputs", $"live-{DateTime.UtcNow:yyyyMMddTHHmmssfffZ}-{job}");
                 Directory.CreateDirectory(outputRoot);
                 var start = new ProcessStartInfo { FileName = runtime.EntryPath, WorkingDirectory = runtime.Root, UseShellExecute = true, Verb = "runas", WindowStyle = ProcessWindowStyle.Hidden };
-                foreach (var argument in new[] { "--scan-once", "--output-root", outputRoot, "--max-items", "0", "--include-non15", "--capture-mode", "gdi", "--ocr-engine", "ppocrv6", "--ppocrv6-worker", runtime.PpOcrV6.WorkerPath, "--ppocrv6-model", runtime.PpOcrV6.ModelPath, "--ppocrv6-config", runtime.PpOcrV6.ConfigPath }) start.ArgumentList.Add(argument);
+                foreach (var argument in DirectForkScanArguments(runtime, outputRoot)) start.ArgumentList.Add(argument);
                 if (!_jobs.Publish(job, () =>
                 {
                     DirectForkDiagnostics.ApplyRuntime(_snapshot["diagnostics"]!.AsObject(), runtime);
@@ -301,6 +311,8 @@ internal static partial class Program
                         var scannerError = failedRun.RootElement.TryGetProperty("Error", out var errorNode) ? errorNode.GetString() : null;
                         if (scannerError?.Contains("未找到游戏窗口进程", StringComparison.Ordinal) == true)
                             throw new ScannerRuntimeFailureException("请先启动绝区零并保持游戏窗口可用，然后重新扫描。", "game_process_not_found");
+                        if (scannerError?.Contains("未发现选中的 S 级驱动盘", StringComparison.Ordinal) == true)
+                            throw new ScannerRuntimeFailureException("没有可导入的 S 级驱动盘；本次未生成导入结果。", "direct_fork_terminal_failed");
                     }
                     throw new ScannerRuntimeFailureException("扫描器已退出，结果未进入正式导入。", $"direct_fork_exit_{unchecked((uint)process.ExitCode):X8}");
                 }
@@ -325,7 +337,7 @@ internal static partial class Program
                 var terminal = NewestFile(outputRoot, "scan-once-result.json");
                 int? total;
                 lock (_gate) total = _snapshot["progress"]?["total"]?.GetValue<int>();
-                var update = DirectForkProgress.Read(log is null ? "" : DirectForkProgress.ReadFile(log), terminal is null ? null : DirectForkProgress.ReadFile(terminal), total);
+                var update = DirectForkProgress.Read(log is null ? "" : DirectForkProgress.ReadLogFile(log), terminal is null ? null : DirectForkProgress.ReadFile(terminal), total);
                 if (update is null) return;
                 _jobs.Publish(job, () =>
                 {
@@ -391,89 +403,9 @@ internal static partial class Program
         }
 
 
-        private JsonObject BrowserScopedStaging()
-        {
-            var root = JsonNode.Parse(File.ReadAllText(_resultPath!))!.AsObject();
-            foreach (var node in root["items"]!.AsArray())
-            {
-                var item = node!.AsObject();
-                var evidence = item["evidence"]!.AsObject();
-                var id = item["id"]!.GetValue<string>();
-                evidence["detailPath"] = $"opaque:{_resultHandle}:{id}:detail";
-                evidence["cardPath"] = $"opaque:{_resultHandle}:{id}:card";
-            }
-            var identity = new JsonArray(root["items"]!.AsArray().OrderBy(item => item!["sequence"]!.GetValue<int>()).Select(item =>
-            {
-                var source = item!.AsObject();
-                var target = new JsonObject();
-                foreach (var name in new[] { "id", "batchId", "sequence", "sourceIdentity", "duplicate", "fingerprint", "lockState", "candidate", "fields", "confirmations", "issues", "state", "evidence" }) target[name] = source[name]?.DeepClone();
-                return (JsonNode)target;
-            }).ToArray());
-            var canonical = BrowserCanonicalJson(identity);
-            root["batch"]!["manifest"]!["payloadHash"] = "sha256:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical))).ToLowerInvariant();
-            return root;
-        }
-
-        private JsonObject ResultItem(string id) => JsonNode.Parse(File.ReadAllText(_resultPath!))!["items"]!.AsArray().Select(node => node!.AsObject()).Single(item => item["id"]!.GetValue<string>() == id);
-
-        private async Task EvidenceAsync(HttpListenerResponse response, string itemId, string kind, CancellationToken token)
-        {
-            var source = ResultItem(itemId)["evidence"]?[kind == "detail" ? "detailPath" : "cardPath"]?.GetValue<string>() ?? throw new InvalidDataException("result_evidence_unavailable");
-            var path = Path.GetFullPath(source);
-            var allowed = Path.GetFullPath(_evidenceRoot!).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            if (!path.StartsWith(allowed, StringComparison.OrdinalIgnoreCase) || !File.Exists(path)) throw new InvalidDataException("result_evidence_out_of_scope");
-            var bytes = await File.ReadAllBytesAsync(path, token);
-            response.StatusCode = 200; response.ContentType = "image/png"; response.Headers["Cache-Control"] = "no-store"; response.Headers["X-Content-Type-Options"] = "nosniff"; response.ContentLength64 = bytes.Length;
-            await response.OutputStream.WriteAsync(bytes, token); response.Close();
-        }
-
         private static string? NewestFile(string root, string name) => Directory.EnumerateFiles(root, name, SearchOption.AllDirectories).Select(path => new FileInfo(path)).OrderByDescending(info => info.LastWriteTimeUtc).Select(info => info.FullName).FirstOrDefault();
         private string SummaryString(string name) => _snapshot["summary"]![name]!.GetValue<string>();
         private JsonObject Snapshot() { lock (_gate) return _snapshot.DeepClone().AsObject(); }
-
-        private void Publish()
-        {
-            HttpListenerResponse[] clients;
-            JsonObject snapshot;
-            lock (_gate) { clients = [.. _eventClients]; snapshot = Snapshot(); }
-            foreach (var response in clients) _ = SendEventAsync(response, snapshot);
-        }
-
-        private async Task SendEventAsync(HttpListenerResponse response, JsonNode snapshot)
-        {
-            try { await EventAsync(response, snapshot, CancellationToken.None); }
-            catch
-            {
-                lock (_gate) { _eventClients.Remove(response); _eventWriteGates.Remove(response); }
-                try { response.Close(); } catch { }
-            }
-        }
-
-        private static JsonObject InitialSnapshot() => new()
-        {
-            ["state"] = "connecting",
-            ["permission"] = "checking",
-            ["readiness"] = new JsonObject { ["helperConnected"] = true, ["gameFrameReadable"] = false, ["accountWriteEnabled"] = false },
-            ["config"] = new JsonObject { ["scopeLabel"] = "完整驱动盘仓库 · 当场读取数量", ["localOnly"] = true, ["reviewPolicyLabel"] = "领域证据不足时保留检查", ["safeStopAvailable"] = true }
-        };
-
-        private static void AddCors(HttpListenerResponse response, string? origin)
-        {
-            if (IsAllowedOrigin(origin)) response.Headers["Access-Control-Allow-Origin"] = origin;
-            response.Headers["Vary"] = "Origin"; response.Headers["Access-Control-Allow-Headers"] = "Content-Type, X-Soda-Scanner-Token"; response.Headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"; response.Headers["Access-Control-Allow-Private-Network"] = "true";
-        }
-        private static async Task JsonAsync(HttpListenerResponse response, int status, JsonObject value, CancellationToken token) => await BytesAsync(response, status, Encoding.UTF8.GetBytes(value.ToJsonString()), token);
-        private static async Task NodeAsync(HttpListenerResponse response, int status, JsonNode value, CancellationToken token) => await BytesAsync(response, status, Encoding.UTF8.GetBytes(value.ToJsonString()), token);
-        private static async Task BytesAsync(HttpListenerResponse response, int status, byte[] bytes, CancellationToken token) { response.StatusCode = status; response.ContentType = "application/json; charset=utf-8"; response.Headers["Cache-Control"] = "no-store"; response.ContentLength64 = bytes.Length; await response.OutputStream.WriteAsync(bytes, token); response.Close(); }
-        private Task EventAsync(HttpListenerResponse response, JsonNode value, CancellationToken token)
-        {
-            SemaphoreSlim gate;
-            lock (_gate)
-            {
-                if (!_eventWriteGates.TryGetValue(response, out gate!)) _eventWriteGates[response] = gate = new SemaphoreSlim(1, 1);
-            }
-            return WriteDirectForkEventAsync(response.OutputStream, gate, value, token);
-        }
 
         public void Dispose()
         {
@@ -484,8 +416,11 @@ internal static partial class Program
     }
 
     internal static async Task WriteDirectForkEventAsync(Stream stream, SemaphoreSlim gate, JsonNode value, CancellationToken token)
+        => await WriteDirectForkFrameAsync(stream, gate, $"data: {value.ToJsonString()}\n\n", token);
+
+    internal static async Task WriteDirectForkFrameAsync(Stream stream, SemaphoreSlim gate, string frame, CancellationToken token)
     {
-        var bytes = Encoding.UTF8.GetBytes($"data: {value.ToJsonString()}\n\n");
+        var bytes = Encoding.UTF8.GetBytes(frame);
         await gate.WaitAsync(token);
         try { await stream.WriteAsync(bytes, token); await stream.FlushAsync(token); }
         finally { gate.Release(); }
@@ -496,5 +431,10 @@ internal static partial class Program
         using var server = new DirectForkHttpHelperServer(null);
         return server.RecoverCompletedResultForTests(root);
     }
+
+    internal static string[] DirectForkScanArguments(SodaRuntimeIdentity runtime, string outputRoot) =>
+        ["--scan-once", "--output-root", outputRoot, "--max-items", "0", "--rarities", "S", "--include-non15",
+         "--capture-mode", "gdi", "--ocr-engine", "ppocrv6", "--ppocrv6-worker", runtime.PpOcrV6.WorkerPath,
+         "--ppocrv6-model", runtime.PpOcrV6.ModelPath, "--ppocrv6-config", runtime.PpOcrV6.ConfigPath];
 
 }

@@ -3,9 +3,10 @@ using ZZZScannerNext.Cleaning;
 using ZZZScannerNext.Interop;
 using ZZZScannerNext.Scanning;
 
-namespace ZZZScannerNext.Ui;
+namespace ZZZScannerNext.Ui
+{
 
-public sealed class MainForm : Form
+public sealed partial class MainForm : Form
 {
     private const int StopHotKeyId = 0x5A5A;
 
@@ -435,7 +436,15 @@ public sealed class MainForm : Form
             ? PanelAcceptMode.AdaptiveEarlyFullRoi
             : PanelAcceptMode.Safe;
     }
+}
 
+}
+
+namespace ZZZScannerNext.Ui
+{
+
+public sealed partial class MainForm : Form
+{
     private PostScrollPanelAcceptMode SelectedPostScrollPanelAcceptMode()
     {
         return string.Equals(_postScrollPanelAcceptModeCombo.SelectedItem?.ToString(), "adaptive-after-scroll", StringComparison.OrdinalIgnoreCase)
@@ -658,4 +667,6 @@ public sealed class MainForm : Form
             value.DebugImage?.Dispose();
         }
     }
+}
+
 }

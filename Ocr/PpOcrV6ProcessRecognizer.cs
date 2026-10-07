@@ -13,14 +13,33 @@ public sealed class PpOcrV6ProcessRecognizer : IOcrRecognizer
 {
     private readonly Process _process;
     private readonly string _scratchDirectory;
+    private readonly TimeSpan _responseTimeout;
+    private readonly CancellationToken _cancellationToken;
+    private readonly Task _stderrDrain;
     private int _requestId;
 
     public PpOcrV6ProcessRecognizer(
         string workerPath,
         string modelPath,
         string configPath,
-        string scratchDirectory)
+        string scratchDirectory,
+        CancellationToken cancellationToken = default)
+        : this(workerPath, modelPath, configPath, scratchDirectory, TimeSpan.FromSeconds(120), cancellationToken)
     {
+    }
+
+    internal PpOcrV6ProcessRecognizer(
+        string workerPath,
+        string modelPath,
+        string configPath,
+        string scratchDirectory,
+        TimeSpan responseTimeout,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (responseTimeout <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(responseTimeout));
+        _responseTimeout = responseTimeout;
+        _cancellationToken = cancellationToken;
         foreach (var path in new[] { workerPath, modelPath, configPath })
         {
             if (!File.Exists(path))
@@ -44,6 +63,9 @@ public sealed class PpOcrV6ProcessRecognizer : IOcrRecognizer
         start.ArgumentList.Add(modelPath);
         start.ArgumentList.Add(configPath);
         _process = Process.Start(start) ?? throw new InvalidOperationException("ppocrv6_worker_start_failed");
+        // A persistent worker can fill its stderr pipe after many batches. Drain it
+        // continuously without retaining or exposing arbitrary native output.
+        _stderrDrain = DrainStderrAsync(_process.StandardError);
     }
 
     public IReadOnlyList<OcrResult> Recognize(Bitmap source, IReadOnlyList<Rectangle> rois) =>
@@ -107,13 +129,10 @@ public sealed class PpOcrV6ProcessRecognizer : IOcrRecognizer
                 }
             }
 
-            _process.StandardInput.WriteLine(JsonSerializer.Serialize(new { images }));
-            _process.StandardInput.Flush();
-            var line = _process.StandardOutput.ReadLine();
+            var line = ExchangeAsync(JsonSerializer.Serialize(new { images })).GetAwaiter().GetResult();
             if (string.IsNullOrWhiteSpace(line))
             {
-                var error = _process.HasExited ? _process.StandardError.ReadToEnd() : "empty_response";
-                throw new InvalidDataException($"ppocrv6_worker_empty_response:{error}");
+                throw new InvalidDataException("ppocrv6_worker_empty_response");
             }
 
             using var document = JsonDocument.Parse(line);
@@ -171,13 +190,54 @@ public sealed class PpOcrV6ProcessRecognizer : IOcrRecognizer
         }
     }
 
+    private async Task<string?> ExchangeAsync(string request)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_cancellationToken);
+        timeout.CancelAfter(_responseTimeout);
+        try
+        {
+            await _process.StandardInput.WriteLineAsync(request.AsMemory(), timeout.Token);
+            await _process.StandardInput.FlushAsync(timeout.Token);
+            return await _process.StandardOutput.ReadLineAsync(timeout.Token);
+        }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        {
+            // This worker cannot safely accept another request after an interrupted
+            // exchange: a late response could otherwise be assigned to another disc.
+            TerminateWorker();
+            _cancellationToken.ThrowIfCancellationRequested();
+            throw new TimeoutException("ppocrv6_worker_response_timeout");
+        }
+        catch (IOException ex)
+        {
+            TerminateWorker();
+            throw new InvalidDataException("ppocrv6_worker_transport_failed", ex);
+        }
+    }
+
+    private static async Task DrainStderrAsync(StreamReader reader)
+    {
+        var buffer = new char[4096];
+        try { while (await reader.ReadAsync(buffer.AsMemory()) > 0) { } }
+        catch (IOException) { }
+        catch (ObjectDisposedException) { }
+    }
+
+    private void TerminateWorker()
+    {
+        try { if (!_process.HasExited) _process.Kill(entireProcessTree: true); }
+        catch (InvalidOperationException) { }
+        catch (System.ComponentModel.Win32Exception) { }
+    }
+
     public void Dispose()
     {
         try { _process.StandardInput.Close(); } catch { }
         if (!_process.WaitForExit(3000))
         {
-            try { _process.Kill(entireProcessTree: true); } catch { }
+            TerminateWorker();
         }
+        try { _stderrDrain.Wait(TimeSpan.FromSeconds(3)); } catch (AggregateException) { }
         _process.Dispose();
     }
 

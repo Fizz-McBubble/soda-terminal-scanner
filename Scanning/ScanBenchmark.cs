@@ -1,12 +1,13 @@
 using System.Globalization;
-using System.Text.RegularExpressions;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using ZZZScannerNext.Cleaning;
 using ZZZScannerNext.Core;
 
-namespace ZZZScannerNext.Scanning;
+namespace ZZZScannerNext.Scanning
+{
 
-public static class ScanBenchmark
+public static partial class ScanBenchmark
 {
     private const double RecommendationBaselineCompletedPerSecond = 3.593;
     private const double RecommendationMinimumP10CompletedPerSecond = 3.65;
@@ -217,7 +218,15 @@ public static class ScanBenchmark
             yield return directory;
         }
     }
+}
 
+}
+
+namespace ZZZScannerNext.Scanning
+{
+
+public static partial class ScanBenchmark
+{
     private static ScanReport Analyze(string scanDirectory)
     {
         var logFile = Path.Combine(scanDirectory, "scan.log");
@@ -634,7 +643,15 @@ public static class ScanBenchmark
 
         return timings;
     }
+}
 
+}
+
+namespace ZZZScannerNext.Scanning
+{
+
+public static partial class ScanBenchmark
+{
     private static List<ClickInterval> BuildClickIntervals(IReadOnlyList<ScanEvent> events)
     {
         var intervals = new List<ClickInterval>();
@@ -1063,7 +1080,15 @@ public static class ScanBenchmark
             ? complete
             : Path.Combine(scanDirectory, "export.partial.json");
     }
+}
 
+}
+
+namespace ZZZScannerNext.Scanning
+{
+
+public static partial class ScanBenchmark
+{
     private static string ExportFingerprint(JsonElement element)
     {
         return element.ValueKind switch
@@ -1452,7 +1477,15 @@ public static class ScanBenchmark
             PercentValue(current.EffectiveFallbackCount, Math.Max(current.CellTimingCount, current.ClickAll.Count)),
             PercentValue(baseline.EffectiveFallbackCount, Math.Max(baseline.CellTimingCount, baseline.ClickAll.Count)));
     }
+}
 
+}
+
+namespace ZZZScannerNext.Scanning
+{
+
+public static partial class ScanBenchmark
+{
     private static void WriteDiagnosis(ScanReport report)
     {
         var panelHigh = report.PanelWait.HasData && report.PanelWait.Average >= 180;
@@ -1720,7 +1753,15 @@ public static class ScanBenchmark
         return backlogMax <= 4
             && report.CompletedPerSecond.Value >= report.CaptureQueuedPerSecond.Value * 0.90;
     }
+}
 
+}
+
+namespace ZZZScannerNext.Scanning
+{
+
+public static partial class ScanBenchmark
+{
     private sealed class ScanReport
     {
         public ScanReport(string scanDirectory)
@@ -1996,4 +2037,6 @@ public static class ScanBenchmark
             return sorted[index];
         }
     }
+}
+
 }

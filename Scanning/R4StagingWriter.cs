@@ -6,10 +6,11 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using ZZZScannerNext.Cleaning;
-using ZZZScannerNext.Ocr;
 using ZZZScannerNext.Core;
+using ZZZScannerNext.Ocr;
 
-namespace ZZZScannerNext.Scanning;
+namespace ZZZScannerNext.Scanning
+{
 
 internal sealed record R4ScanRecord(
     int Sequence,
@@ -428,7 +429,15 @@ internal static partial class R4StagingWriter
 
         return new R4Issue("review", "parser_root_unknown", "解析诊断无法唯一归入产品复核根因。");
     }
+}
 
+}
+
+namespace ZZZScannerNext.Scanning
+{
+
+internal static partial class R4StagingWriter
+{
     private static IReadOnlyList<string> ParserEvidence(
         DriveDiscParseDiagnostic? diagnostic,
         R4Issue? root) => diagnostic is null || root is null
@@ -616,4 +625,6 @@ internal static partial class R4StagingWriter
     private sealed record R4Issue(string Field, string Code, string Message);
     private sealed record R4Catalog(string GameVersion, string DataVersion, IReadOnlyList<R4Set> Sets);
     private sealed record R4Set(string Id, string Name, IReadOnlyList<string> Aliases);
+}
+
 }

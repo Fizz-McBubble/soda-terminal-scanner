@@ -3,7 +3,8 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using ZZZScannerNext.Core;
 
-namespace ZZZScannerNext.Scanning;
+namespace ZZZScannerNext.Scanning
+{
 
 public enum VisualTransformClass
 {
@@ -277,6 +278,11 @@ internal readonly record struct ScrollTopResetResult(
     Color LastActualColor,
     int StableMatches,
     long ElapsedMilliseconds);
+
+}
+
+namespace ZZZScannerNext.Scanning
+{
 
 internal static class ScrollTopResetCoordinator
 {
@@ -655,6 +661,11 @@ internal readonly record struct RowAdvanceEvidence(
     };
 }
 
+}
+
+namespace ZZZScannerNext.Scanning
+{
+
 internal static class RowAdvanceEvaluator
 {
     public const int MatchTolerance = 48;
@@ -910,6 +921,11 @@ internal static class RowScrollReleasePolicy
         return true;
     }
 }
+
+}
+
+namespace ZZZScannerNext.Scanning
+{
 
 internal static class RowScrollCoordinator
 {
@@ -1314,7 +1330,12 @@ public static class SelectionRefreshWaiter
     }
 }
 
-public static class VisualProbeEvaluator
+}
+
+namespace ZZZScannerNext.Scanning
+{
+
+public static partial class VisualProbeEvaluator
 {
     public static ChromaticProbeResult EvaluateChromaticAnchor(
         Bitmap image,
@@ -1739,7 +1760,15 @@ public static class VisualProbeEvaluator
         var delta = Math.Abs(left - right);
         return Math.Min(delta, 360f - delta);
     }
+}
 
+}
+
+namespace ZZZScannerNext.Scanning
+{
+
+public static partial class VisualProbeEvaluator
+{
     private static HsvColor ToHsv(Color color)
     {
         var r = color.R / 255f;
@@ -1793,4 +1822,6 @@ public static class VisualProbeEvaluator
             }
         }
     }
+}
+
 }

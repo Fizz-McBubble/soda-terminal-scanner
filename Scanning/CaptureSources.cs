@@ -1,14 +1,15 @@
+using SharpGen.Runtime;
+using static Vortice.Direct3D11.D3D11;
+using static Vortice.DXGI.DXGI;
 using System.Buffers;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
-using SharpGen.Runtime;
 using Vortice.Direct3D;
 using Vortice.Direct3D11;
 using Vortice.DXGI;
-using static Vortice.Direct3D11.D3D11;
-using static Vortice.DXGI.DXGI;
 
-namespace ZZZScannerNext.Scanning;
+namespace ZZZScannerNext.Scanning
+{
 
 internal interface IWindowCaptureSource : IDisposable
 {
@@ -237,6 +238,11 @@ internal sealed class GdiCaptureSource : IWindowCaptureSource
     {
     }
 }
+
+}
+
+namespace ZZZScannerNext.Scanning
+{
 
 internal sealed class DxgiDesktopCaptureSource : IWindowCaptureSource
 {
@@ -650,6 +656,11 @@ internal sealed class BitmapCapturedFrame : CapturedFrame
     }
 }
 
+}
+
+namespace ZZZScannerNext.Scanning
+{
+
 internal sealed class BgraCapturedFrame : CapturedFrame
 {
     private byte[]? _buffer;
@@ -710,4 +721,6 @@ internal sealed class BgraCapturedFrame : CapturedFrame
             ArrayPool<byte>.Shared.Return(buffer);
         }
     }
+}
+
 }

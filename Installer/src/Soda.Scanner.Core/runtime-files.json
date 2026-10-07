@@ -6,8 +6,8 @@
   },
   {
     "path": "helper\\ZZZ-Scanner-Helper.exe",
-    "size": 8208384,
-    "sha256": "5939e1c27d918cd0da8ee723ae5a5a45cd55d093e41f9756856fb17d2b49eac4"
+    "size": 8226816,
+    "sha256": "d27f668704eb2b3d6fbeaf0af67e36163d7cb337ce0a458dd1cdd407060d036c"
   },
   {
     "path": "LICENSE-ZZZ-Scanner.Next-MIT.txt",
@@ -41,8 +41,8 @@
   },
   {
     "path": "native\\Data\\soda-drive-disc-data.v1.json",
-    "size": 19502,
-    "sha256": "bc12a3531ab338e4cff086ddfc547b1a212b792bc829c4036f567a703349c088"
+    "size": 19694,
+    "sha256": "2a10914c97431f3490db4af1fa632757d5af9822bd17e8e3ef5f818b2b4200d9"
   },
   {
     "path": "native\\Data\\stat_rules.json",
@@ -51,8 +51,8 @@
   },
   {
     "path": "native\\ZZZ-Scanner.Next.Soda.exe",
-    "size": 184512035,
-    "sha256": "6defec2f1149d27007d8453c79acd37da3d154a0e3c6058a9fc0fe9588c5841f"
+    "size": 167972314,
+    "sha256": "e031a05086999a5994cd732020f7a15af9c386a317aef30dac85d71d598dddad"
   },
   {
     "path": "notices\\DotNet-8-LICENSE.txt",
@@ -68,6 +68,11 @@
     "path": "notices\\DotNet-NuGet-9.0-ThirdPartyNotices.txt",
     "size": 75640,
     "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+  },
+  {
+    "path": "notices\\Microsoft-VisualStudio-2022-REDIST.txt",
+    "size": 187,
+    "sha256": "da53b097e02b08e0fc69706102a60bc384fe756426ae4dc4a855e96f95cb2b9c"
   },
   {
     "path": "notices\\Microsoft.VisualBasic-10.3.0-ThirdPartyNotices.txt",
@@ -135,41 +140,6 @@
     "sha256": "556ab734f87bd3a2de1150cfc446524721405aa5d7667c22766a6995ecbc6689"
   },
   {
-    "path": "ocr\\onnxruntime_providers_shared.dll",
-    "size": 22048,
-    "sha256": "1206da7ba61438470f3bce2b26ea3e78713bd59feb708a046493291a4dcee51f"
-  },
-  {
-    "path": "ocr\\onnxruntime.dll",
-    "size": 14180904,
-    "sha256": "a59e26d1eec191ce049a9754a5f7e53bfe095c1b2a9276c7510e33f1fb76c84c"
-  },
-  {
-    "path": "ocr\\Soda.ScannerPpOcrV6.exe",
-    "size": 35660734,
-    "sha256": "8f11e9d67b0d28c494ed45d7b3d125f49705f39b0cd9be6468902b4dd8f7a32e"
-  },
-  {
-    "path": "scanner-runtime.json",
-    "size": 5968,
-    "sha256": "5d0d52bf559364794a616d4f2a9d2ec3ddd66d095a260f8179b394a3be0fc65b"
-  },
-  {
-    "path": "notices\\Microsoft-VisualStudio-2022-REDIST.txt",
-    "size": 187,
-    "sha256": "da53b097e02b08e0fc69706102a60bc384fe756426ae4dc4a855e96f95cb2b9c"
-  },
-  {
-    "path": "ocr\\VC-RUNTIME-NOTICE.txt",
-    "size": 489,
-    "sha256": "3e3b250920eb81d8176f5b37494d3588a6c77b4974affd6a9d157e80639d692d"
-  },
-  {
-    "path": "ocr\\msvcp140.dll",
-    "size": 557728,
-    "sha256": "0f885b509a685d2bbfa652fed26b5fb31d88fbdab0a978c641d1c7b8aa460aa9"
-  },
-  {
     "path": "ocr\\msvcp140_1.dll",
     "size": 35952,
     "sha256": "bfad5aef4c63a669e3c140655cdfdf395b6c979b400a447bd5dcb65ed8826c3d"
@@ -190,9 +160,29 @@
     "sha256": "f2069a52880ec885ee7f0511186100eb7fada0411a2b4948fafea7735b878a18"
   },
   {
-    "path": "ocr\\vcruntime140.dll",
-    "size": 124544,
-    "sha256": "d5e4d9a3e835fa679450145d6a7d94e36573a509317111904d9b3712c30d9066"
+    "path": "ocr\\msvcp140.dll",
+    "size": 557728,
+    "sha256": "0f885b509a685d2bbfa652fed26b5fb31d88fbdab0a978c641d1c7b8aa460aa9"
+  },
+  {
+    "path": "ocr\\onnxruntime_providers_shared.dll",
+    "size": 22048,
+    "sha256": "1206da7ba61438470f3bce2b26ea3e78713bd59feb708a046493291a4dcee51f"
+  },
+  {
+    "path": "ocr\\onnxruntime.dll",
+    "size": 14180904,
+    "sha256": "a59e26d1eec191ce049a9754a5f7e53bfe095c1b2a9276c7510e33f1fb76c84c"
+  },
+  {
+    "path": "ocr\\Soda.ScannerPpOcrV6.exe",
+    "size": 35660734,
+    "sha256": "8f11e9d67b0d28c494ed45d7b3d125f49705f39b0cd9be6468902b4dd8f7a32e"
+  },
+  {
+    "path": "ocr\\VC-RUNTIME-NOTICE.txt",
+    "size": 489,
+    "sha256": "3e3b250920eb81d8176f5b37494d3588a6c77b4974affd6a9d157e80639d692d"
   },
   {
     "path": "ocr\\vcruntime140_1.dll",
@@ -203,5 +193,15 @@
     "path": "ocr\\vcruntime140_threads.dll",
     "size": 38528,
     "sha256": "219915cf20822f34d5e7c1fdd4e21ae7f3396881096c51036225fb8f84b47afa"
+  },
+  {
+    "path": "ocr\\vcruntime140.dll",
+    "size": 124544,
+    "sha256": "d5e4d9a3e835fa679450145d6a7d94e36573a509317111904d9b3712c30d9066"
+  },
+  {
+    "path": "scanner-runtime.json",
+    "size": 7626,
+    "sha256": "1f2a8c9e0344a399e525abedd71181e0164ad3cb5b1e71de1af40050877b2e11"
   }
 ]

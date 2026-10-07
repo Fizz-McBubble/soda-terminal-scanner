@@ -9,9 +9,8 @@ using ZZZScannerNext.Scanning;
 using ZZZScannerNext.Ui;
 using ZZZScannerNext.WebSocket;
 
-static class Program
-{
-    [STAThread]
+static partial class Program
+{    [STAThread]
     static int Main(string[] args)
     {
         var outputRoot = ReadOption(args, "--output-root");
@@ -210,7 +209,7 @@ static class Program
             Console.WriteLine(JsonSerializer.Serialize(new
             {
                 ok,
-                runtime = "ZZZ-Scanner.Next-1.0.49-soda-r22",
+                runtime = "ZZZ-Scanner.Next-1.0.49-soda-r23",
                 upstreamCommit = "ff90891140016d3f1b738d73cb6cd9b291e17cec",
                 accountWriteEnabled = false,
                 importAccess = false
@@ -377,7 +376,10 @@ static class Program
             _ => []
         };
     }
+}
 
+static partial class Program
+{
     private static string RunScanProcessAndWait(IReadOnlyList<string> scanArgs, TimeSpan timeout)
     {
         var executable = Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "ZZZ-Scanner.Next.exe");
@@ -508,18 +510,7 @@ static class Program
 
             var controller = new ScanController(ScanProfileFile.Load(), WikiData.Load());
             var result = controller.ScanAsync(options, progress, cts.Token).GetAwaiter().GetResult();
-            var runResult = new ScanRunResult
-            {
-                Success = result.Failed == 0,
-                Status = result.Failed == 0 ? "completed" : "completed_with_errors",
-                OutputDirectory = result.OutputDirectory,
-                ExportFile = result.ExportFile,
-                Items = result.Items.Count,
-                Visited = result.Visited,
-                Queued = result.Queued,
-                Completed = result.Completed,
-                Failed = result.Failed
-            };
+            var runResult = ScanRunResultFactory.FromSession(result);
             var resultFile = WriteScanRunResult(runResult);
             Console.WriteLine($"output_dir={result.OutputDirectory}");
             Console.WriteLine($"export_file={result.ExportFile}");
@@ -529,7 +520,7 @@ static class Program
             Console.WriteLine($"completed={result.Completed}");
             Console.WriteLine($"failed={result.Failed}");
             Console.WriteLine($"result_file={resultFile}");
-            return result.Failed == 0 ? 0 : 1;
+            return runResult.Success ? 0 : 1;
         }
         catch (OperationCanceledException)
         {
@@ -620,7 +611,10 @@ static class Program
             }
         }
     }
+}
 
+static partial class Program
+{
     private static ScanRunCommand ParseScanRunCommand(string[] args)
     {
         var configPath = ReadOption(args, "--config");
@@ -1030,7 +1024,10 @@ static class Program
 
         return options;
     }
+}
 
+static partial class Program
+{
     private static int RunWebSocketHost(
         int port,
         string? connectionToken,

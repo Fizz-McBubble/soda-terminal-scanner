@@ -7,9 +7,10 @@ using ZZZScannerNext.Cleaning;
 using ZZZScannerNext.Core;
 using ZZZScannerNext.Scanning;
 
-namespace ZZZScannerNext.WebSocket;
+namespace ZZZScannerNext.WebSocket
+{
 
-public sealed class WebSocketHost : IDisposable
+public sealed partial class WebSocketHost : IDisposable
 {
     private const int MaxMessageBytes = 256 * 1024;
 
@@ -259,7 +260,15 @@ public sealed class WebSocketHost : IDisposable
             _scanGate.Release();
         }
     }
+}
 
+}
+
+namespace ZZZScannerNext.WebSocket
+{
+
+public sealed partial class WebSocketHost : IDisposable
+{
     private async Task RunScanAsync(System.Net.WebSockets.WebSocket socket, SemaphoreSlim sendGate, ScanRequestPayload payload, CancellationToken token)
     {
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -674,7 +683,15 @@ public sealed class WebSocketHost : IDisposable
             ? mode
             : ProfileRoutingMode.Strict;
     }
+}
 
+}
+
+namespace ZZZScannerNext.WebSocket
+{
+
+public sealed partial class WebSocketHost : IDisposable
+{
     private static async Task SendProgressAsync(System.Net.WebSockets.WebSocket socket, SemaphoreSlim sendGate, ScanProgress progress, CancellationToken token)
     {
         await SendAsync(socket, sendGate, "scan_progress", new
@@ -916,4 +933,6 @@ public sealed class WebSocketHost : IDisposable
         public string ProfileRouting { get; set; } = "";
         public string CollectVisualProfile { get; set; } = "";
     }
+}
+
 }

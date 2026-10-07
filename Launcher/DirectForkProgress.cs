@@ -7,6 +7,26 @@ namespace ZZZScannerHelper;
 
 internal static class DirectForkProgress
 {
+    internal static string ReadLogFile(string path)
+    {
+        // Long scans produce large logs. Keep startup metadata and the latest
+        // counters, without repeatedly allocating/regex-scanning the whole file.
+        const int window = 65536;
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        if (stream.Length <= window * 2)
+        {
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
+        }
+        var head = new byte[window];
+        var tail = new byte[window];
+        var headLength = stream.Read(head);
+        stream.Seek(-window, SeekOrigin.End);
+        var tailLength = stream.Read(tail);
+        return System.Text.Encoding.UTF8.GetString(head, 0, headLength) + "\n" +
+            System.Text.Encoding.UTF8.GetString(tail, 0, tailLength);
+    }
+
     internal static string ReadFile(string path)
     {
         // The fork keeps its StreamWriter open throughout capture. Readers must
@@ -19,27 +39,32 @@ internal static class DirectForkProgress
     // Reuses established native log counters; no observed total means unknown.
     internal static JsonObject? Read(string log, string? terminalJson, int? previousTotal)
     {
-        var totals = Regex.Matches(log, @"\b(?:inventoryCount|expectedTotal)=(\d+)\b");
+        var totals = Regex.Matches(log, @"\b(?:inventoryCount|warehouseTotal)=(\d+)\b");
+        if (totals.Count == 0) totals = Regex.Matches(log, @"\bexpectedTotal=(\d+)\b");
         int? total = totals.Count > 0 && int.TryParse(totals[^1].Groups[1].Value, out var observed) && observed > 0 ? observed : previousTotal;
         var counters = Regex.Matches(log, @"\bcompleted=(\d+)\b", RegexOptions.IgnoreCase);
         var visited = Regex.Matches(log, @"\bvisited=(\d+)\b", RegexOptions.IgnoreCase);
-        int? processed = counters.Count > 0 ? int.Parse(counters[^1].Groups[1].Value) : visited.Count > 0 ? int.Parse(visited[^1].Groups[1].Value) : null;
+        int? completed = counters.Count > 0 ? int.Parse(counters[^1].Groups[1].Value) : null;
+        int? processed = visited.Count > 0 ? int.Parse(visited[^1].Groups[1].Value) : completed;
         JsonObject? error = null;
         if (terminalJson is not null)
         {
             using var terminal = JsonDocument.Parse(terminalJson);
             var result = terminal.RootElement;
-            processed = result.GetProperty("Completed").GetInt32();
+            completed = result.GetProperty("Completed").GetInt32();
+            processed = result.TryGetProperty("Visited", out var visitedNode) ? visitedNode.GetInt32() : completed;
             if (!result.GetProperty("Success").GetBoolean())
             {
                 var detail = result.TryGetProperty("Error", out var errorNode) ? errorNode.GetString() ?? "" : "";
                 var panelTimeout = log.Contains("terminationCode=panel_capture_timeout", StringComparison.Ordinal) || detail.Contains("StalePanel", StringComparison.Ordinal);
                 var gameMissing = detail.Contains("未找到游戏窗口进程", StringComparison.Ordinal);
+                var noSelected = detail.Contains("scan_no_importable_s_discs", StringComparison.Ordinal)
+                    || detail.Contains("未发现选中的 S 级驱动盘", StringComparison.Ordinal);
                 error = new JsonObject
                 {
-                    ["userMessage"] = gameMissing ? "请先启动绝区零并保持游戏窗口可用，然后重新扫描。" : panelTimeout
-                        ? $"扫描在驱动盘详情切换时超时，已识别 {processed} 张；请检查游戏窗口与盘面后重试，本次结果未进入正式导入。"
-                        : $"扫描中断，已识别 {processed} 张；结果未进入正式导入，请检查游戏窗口后重新扫描。",
+                    ["userMessage"] = noSelected ? "没有可导入的 S 级驱动盘；本次未生成导入结果。" : gameMissing ? "请先启动绝区零并保持游戏窗口可用，然后重新扫描。" : panelTimeout
+                        ? $"扫描在驱动盘详情切换时超时，已识别 {completed} 张；请检查游戏窗口与盘面后重试，本次结果未进入正式导入。"
+                        : $"扫描中断，已识别 {completed} 张；结果未进入正式导入，请检查游戏窗口后重新扫描。",
                     ["recoveryAction"] = "retry", ["diagnosticCode"] = gameMissing ? "game_process_not_found" : panelTimeout ? "panel_capture_timeout" : "direct_fork_terminal_failed"
                 };
             }
@@ -52,7 +77,7 @@ internal static class DirectForkProgress
             ["progress"] = new JsonObject
             {
                 ["processed"] = processed ?? 0, ["total"] = total,
-                ["stageLabel"] = error is null ? "正在读取并识别驱动盘" : "扫描已中断，保留已读取进度", ["etaSeconds"] = null
+                ["stageLabel"] = error is null ? total.HasValue && processed >= total ? "列表已遍历，正在完成识别" : "正在读取并识别驱动盘" : "扫描已中断，保留已读取进度", ["etaSeconds"] = null
             }
         };
     }
@@ -90,7 +115,7 @@ internal static partial class Program
                     var staging = Path.Combine(scanDirectory, "scanner-r10c-r4-staging.json");
                     var resultPath = Path.Combine(scanDirectory, "scan-once-result.json");
                     var logPath = Path.Combine(scanDirectory, "scan.log");
-                    var log = File.Exists(logPath) ? DirectForkProgress.ReadFile(logPath) : "";
+                    var log = File.Exists(logPath) ? DirectForkProgress.ReadLogFile(logPath) : "";
                     recoveryProgress = DirectForkProgress.Read(log, null, null);
                     if (!File.Exists(resultPath)) throw new InvalidDataException("recovered_scan_completion_missing");
                     var terminalJson = File.ReadAllText(resultPath);
@@ -173,7 +198,9 @@ internal static partial class Program
                 if (_snapshot["diagnostics"] is JsonObject report) DirectForkDiagnostics.Finish(report, "completed", "none", job is not null ? DiagnosticElapsedMilliseconds() : null);
                 var seconds = (_snapshot["diagnostics"]?["durationMs"]?.GetValue<long>() ?? 0) / 1000.0;
                 _snapshot["summary"] = new JsonObject { ["reliable"] = ready, ["needsReview"] = review, ["unreadable"] = invalid, ["resultFileHandle"] = _resultHandle, ["resultStatus"] = invalid > 0 ? "blocked_import" : review > 0 ? "needs_review" : "ready_for_review", ["uniqueRecords"] = items.Count, ["totalSeconds"] = seconds };
-                _snapshot["progress"] = new JsonObject { ["processed"] = items.Count, ["total"] = items.Count, ["stageLabel"] = "等待玩家检查", ["etaSeconds"] = null };
+                var warehouseTotal = _snapshot["diagnostics"]?["counts"]?["total"]?.GetValue<int>() ?? items.Count;
+                var visited = _snapshot["diagnostics"]?["counts"]?["visited"]?.GetValue<int>() ?? warehouseTotal;
+                _snapshot["progress"] = new JsonObject { ["processed"] = visited, ["total"] = warehouseTotal, ["stageLabel"] = "等待玩家检查", ["etaSeconds"] = null };
                 Publish();
             }
             if (job is long generation) _jobs.Complete(generation, Commit);

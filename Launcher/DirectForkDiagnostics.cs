@@ -62,7 +62,7 @@ internal static class DirectForkDiagnostics
         // Metadata is at the start and current failures/counters at the end. Bound every
         // extra diagnostic regex pass so instrumentation does not scale with the whole scan.
         if (log.Length > 131072) log = log[..65536] + "\n" + log[^65536..];
-        var counts = new JsonObject { ["processed"] = Number(log, "completed", 100000), ["total"] = Number(log, "inventoryCount|expectedTotal", 100000) };
+        var counts = new JsonObject { ["processed"] = Number(log, "completed", 100000), ["total"] = Number(log, "inventoryCount|warehouseTotal", 100000) ?? Number(log, "expectedTotal", 100000) };
         if (counts["total"] is null && previousTotal is > 0 and <= 100000) counts["total"] = previousTotal;
         foreach (var key in new[] { "visited", "queued", "failed" })
             if (Number(log, key, 100000) is int value) counts[key] = value;

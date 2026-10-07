@@ -20,10 +20,7 @@ internal static class SodaRuntimeLocator
     internal const string RelativePpOcrV6ModelPath = "models/PP-OCRv6_small_rec_onnx/inference.onnx";
     internal const string RelativePpOcrV6ConfigPath = "models/PP-OCRv6_small_rec_onnx/inference.yml";
 
-    public static string DefaultInstallRoot() => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "SodaTerminal",
-        "Scanner");
+    public static string DefaultInstallRoot() => HelperStorageManager.DefaultDataRoot();
 
     public static SodaRuntimeIdentity Load(string? installRoot = null)
     {

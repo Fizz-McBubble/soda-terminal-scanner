@@ -3,7 +3,7 @@
   "gameVersion": "3.0",
   "dataVersion": "zzz-drive-disc-3.0-s4.1",
   "updatedAt": "2026-06-29T00:00:00.000Z",
-  "contentHash": "1y2g9ub",
+  "contentHash": "1xt0qxt",
   "sources": [
     {
       "id": "adepti-2.7-metadata",
@@ -173,7 +173,7 @@
       "englishName": "Astral Voice",
       "aliases": ["静听嘉音", "Astral Voice", "AstralVoice", "嘉音"],
       "twoPieceEffect": "攻击力提升10%。",
-      "fourPieceEffect": "任意角色通过快速支援入场时获得嘉音，最多3层；每层使该角色造成的伤害提升8%。",
+      "fourPieceEffect": "任意队员通过快速支援入场时，全队获得1层星语，最多3层，持续15秒，重复触发刷新持续时间；每层使通过快速支援入场的角色造成的伤害提升8%。同名被动效果不叠加。",
       "version": "1.4"
     },
     {
@@ -227,7 +227,7 @@
       "englishName": "Moonlight Lullaby",
       "aliases": ["月光骑士颂", "Moonlight Lullaby", "MoonlightLullaby"],
       "twoPieceEffect": "能量自动回复提升20%。",
-      "fourPieceEffect": "支援角色发动强化特殊技或终结技时，全队造成的伤害提升18%，持续25秒。",
+      "fourPieceEffect": "装备者为支援角色且发动强化特殊技或终结技时，全队造成的伤害提升18%，持续25秒，重复触发刷新持续时间。同名被动效果不叠加。",
       "version": "2.2"
     },
     {

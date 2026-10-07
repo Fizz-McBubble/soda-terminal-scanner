@@ -307,6 +307,24 @@ internal sealed record ScanTerminalSnapshot(
 
 internal static class ScanRunResultFactory
 {
+    public static ScanRunResult FromSession(ScanSessionResult result)
+    {
+        var complete = !result.Partial && result.Failed == 0 && string.IsNullOrWhiteSpace(result.TerminationCode);
+        return new ScanRunResult
+        {
+            Success = complete,
+            Status = complete ? "completed" : result.Partial ? "partial" : "completed_with_errors",
+            OutputDirectory = result.OutputDirectory,
+            ExportFile = result.ExportFile,
+            Items = result.Items.Count,
+            Visited = result.Visited,
+            Queued = result.Queued,
+            Completed = result.Completed,
+            Failed = result.Failed,
+            Error = complete ? "" : result.TerminationCode
+        };
+    }
+
     public static ScanRunResult FromFailure(Exception exception, string fallbackOutputDirectory)
     {
         var terminal = (exception as ScanSessionDiagnosticException)?.TerminalSnapshot;

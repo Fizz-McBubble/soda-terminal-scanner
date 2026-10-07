@@ -1,10 +1,11 @@
+using System.Text.RegularExpressions;
 using ZZZScannerNext.Ocr;
 using ZZZScannerNext.Scanning;
-using System.Text.RegularExpressions;
 
-namespace ZZZScannerNext.Cleaning;
+namespace ZZZScannerNext.Cleaning
+{
 
-public sealed class DriveDiscCleaner
+public sealed partial class DriveDiscCleaner
 {
     private readonly WikiData _wikiData;
     private readonly List<string> _levelCandidates = new();
@@ -432,7 +433,15 @@ public sealed class DriveDiscCleaner
                 System.Globalization.CultureInfo.InvariantCulture, out var expected)
             && Math.Abs(observed - expected) <= 0.051f);
     }
+}
 
+}
+
+namespace ZZZScannerNext.Cleaning
+{
+
+public sealed partial class DriveDiscCleaner
+{
     private static bool IsOneCharacterNumericRepair(
         StatValueRange range,
         string token,
@@ -595,4 +604,6 @@ public sealed class DriveDiscCleaner
 
         return keys.Distinct().ToArray();
     }
+}
+
 }

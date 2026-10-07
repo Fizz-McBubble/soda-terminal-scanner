@@ -6,9 +6,10 @@ using System.Text.Json;
 using ZZZScannerNext.Core;
 using ZZZScannerNext.Scanning;
 
-namespace ZZZScannerNext.Ocr;
+namespace ZZZScannerNext.Ocr
+{
 
-public sealed class FastOcrTemplateIndex
+public sealed partial class FastOcrTemplateIndex
 {
     public const string CurrentVersion = "6";
     public const string LegacyFeature = "ahash-16x16-grayscale-v1";
@@ -393,7 +394,15 @@ public sealed class FastOcrTemplateIndex
             missingLabels,
             route.Reason);
     }
+}
 
+}
+
+namespace ZZZScannerNext.Ocr
+{
+
+public sealed partial class FastOcrTemplateIndex
+{
     private TemplateRoute ResolveTemplateRoute(string fieldKey, string visualProfileId, ProfileRoutingMode routingMode)
     {
         var normalizedProfileId = NormalizeProfileId(visualProfileId);
@@ -799,6 +808,11 @@ public sealed record FastOcrTemplateCoverage(
     public bool IsComplete => MissingLabels.Count == 0;
 }
 
+}
+
+namespace ZZZScannerNext.Ocr
+{
+
 public sealed class FastOcrImageFeature
 {
     public const int Size = 16;
@@ -1152,4 +1166,6 @@ public sealed class FastOcrImageFeature
             ? parsed
             : 0;
     }
+}
+
 }
