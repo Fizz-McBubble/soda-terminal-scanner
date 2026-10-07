@@ -1,0 +1,2 @@
+# Preserve the upstream license bytes, including its original trailing spaces.
+Installer/NSIS-COPYING.txt -whitespace
