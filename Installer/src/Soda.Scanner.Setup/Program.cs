@@ -60,7 +60,7 @@ static class Program
                     throw new InvalidOperationException("test_preview_required");
                 FileSystemSafety.AssertSafePath(installRoot, renderPreview);
                 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(renderPreview))!);
-                using var preview = new InstallerForm(installRoot, publicOrigin, testMode, true, overrideArchive);
+                using var preview = new InstallerForm(installRoot, publicOrigin, testMode, true, overrideArchive, autoInstallEnabled: false);
                 preview.ShowInTaskbar = false;
                 preview.StartPosition = FormStartPosition.Manual;
                 preview.Location = new System.Drawing.Point(-32000, -32000);

@@ -17,7 +17,7 @@ public static class InstallEngine
     public static InstallResult ExecuteInstall(string installRoot, string publicOrigin,
         Func<Stream> offlineArchiveStreamProvider, Func<Stream> uninstallStubStreamProvider,
         bool testMode = false, bool noLaunch = false, Action<string, int>? progressCallback = null,
-        string faultInjection = "none")
+        string faultInjection = "none", bool firstRunOnly = false)
     {
         var root = FileSystemSafety.ValidateRoot(installRoot, testMode);
         if (!ScannerConstants.AllowedOrigins.Contains(publicOrigin, StringComparer.Ordinal))
@@ -25,6 +25,8 @@ public static class InstallEngine
         if (faultInjection != "none" && (!testMode || !new[] { "components", "registration", "previous", "active" }.Contains(faultInjection)))
             throw new InvalidOperationException("runtime_fault_injection_forbidden");
         using var operationLock = FileSystemSafety.AcquireOperationLock(root);
+        if (firstRunOnly && InstallerStartup.HasInstallationTraces(root, RegistryHelper.HasInstallationRegistration(testMode)))
+            throw new InvalidOperationException("scanner_setup_existing_installation");
         Directory.CreateDirectory(root);
         var work = FileSystemSafety.SafePath(root, ".setup-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(work);

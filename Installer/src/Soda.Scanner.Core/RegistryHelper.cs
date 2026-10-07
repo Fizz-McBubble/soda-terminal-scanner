@@ -56,6 +56,20 @@ public sealed class RegistrySnapshot
 
 public static class RegistryHelper
 {
+    public static bool HasInstallationRegistration(bool testMode = false)
+    {
+        if (testMode) return false;
+        try
+        {
+            using var protocol = Registry.CurrentUser.OpenSubKey(ScannerConstants.ProtocolRegistryKeyPath);
+            using var uninstall = Registry.CurrentUser.OpenSubKey(ScannerConstants.UninstallRegistryKeyPath);
+            return protocol != null || uninstall != null;
+        }
+        catch (System.Security.SecurityException) { return true; }
+        catch (UnauthorizedAccessException) { return true; }
+        catch (IOException) { return true; }
+    }
+
     public static bool ProtocolCommandMatches(string? command, string managedHelperPath)
     {
         if (string.IsNullOrWhiteSpace(command) || string.IsNullOrWhiteSpace(managedHelperPath)) return false;

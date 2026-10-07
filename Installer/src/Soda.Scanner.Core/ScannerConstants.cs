@@ -9,7 +9,7 @@ public static class ScannerConstants
     public const string LockedAssetSha256 = "de2735bb619a5a679a0b16e11637ade350fc2d4ab846aa48e81a61f474ce801b";
 
     public const string DisplayName = "Soda Terminal 扫描助手";
-    public const string DisplayVersion = "1.0.2";
+    public const string DisplayVersion = "1.0.3";
     public const string Publisher = "Soda Terminal";
     public const string UninstallRegistryKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\SodaTerminalScanner";
     public const string ProtocolRegistryKeyPath = @"Software\Classes\soda-terminal-scanner";

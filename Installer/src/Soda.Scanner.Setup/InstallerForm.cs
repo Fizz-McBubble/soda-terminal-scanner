@@ -12,6 +12,8 @@ public class InstallerForm : Form
     private readonly bool _testMode;
     private readonly bool _noLaunch;
     private readonly string? _overrideArchive;
+    private readonly bool _autoInstallEnabled;
+    private readonly Func<Action<string, int>, Task<InstallResult>>? _testInstall;
 
     private Label _titleLabel = null!;
     private Label _subtitleLabel = null!;
@@ -22,18 +24,41 @@ public class InstallerForm : Form
     private Button _cancelButton = null!;
     private Panel _cardPanel = null!;
     private bool _busy;
+    private bool _automaticAttemptConsumed;
+    private bool _completed;
 
     public InstallerForm(string installRoot, string publicOrigin, bool testMode, bool noLaunch, string? overrideArchive = null)
+        : this(installRoot, publicOrigin, testMode, noLaunch, overrideArchive, true) { }
+
+    internal InstallerForm(string installRoot, string publicOrigin, bool testMode, bool noLaunch, string? overrideArchive,
+        bool autoInstallEnabled, Func<Action<string, int>, Task<InstallResult>>? testInstall = null)
     {
+        if (testInstall != null && !testMode) throw new InvalidOperationException("test_install_override_forbidden");
         _installRoot = installRoot;
         _publicOrigin = publicOrigin;
         _testMode = testMode;
         _noLaunch = noLaunch;
         _overrideArchive = overrideArchive;
+        _autoInstallEnabled = autoInstallEnabled;
+        _testInstall = testInstall;
 
         InitializeComponent();
         FormClosing += (_, e) => { if (_busy) e.Cancel = true; };
         CheckInitialState();
+    }
+
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        if (!_autoInstallEnabled || _automaticAttemptConsumed) return;
+        _automaticAttemptConsumed = true;
+        // Queue after the first paint so progress is visible before work begins.
+        BeginInvoke(async () =>
+        {
+            if (IsDisposed || Disposing || _busy || _completed) return;
+            if (HasInstallationTraces()) { CheckInitialState(); return; }
+            await InstallAsync(firstRunOnly: true);
+        });
     }
 
     private void InitializeComponent()
@@ -141,32 +166,59 @@ public class InstallerForm : Form
 
     private void CheckInitialState()
     {
-        if (Directory.Exists(Path.Combine(_installRoot, "helper")) || File.Exists(Path.Combine(_installRoot, "active.json")))
+        if (HasInstallationTraces())
         {
-            _statusLabel.Text = "已安装。可修复安装或卸载。";
+            _statusLabel.Text = "检测到已有安装或残留组件。可修复安装或卸载。";
             _actionButton.Text = "修复安装";
+            _actionButton.Enabled = true;
             _uninstallButton.Visible = true;
+        }
+        else if (_autoInstallEnabled)
+        {
+            _statusLabel.Text = "正在准备首次安装，完成后将自动启动扫描助手。";
+            _actionButton.Text = "正在准备";
+            _actionButton.Enabled = false;
         }
     }
 
+    private bool HasInstallationTraces() => InstallerStartup.HasInstallationTraces(
+        _installRoot, RegistryHelper.HasInstallationRegistration(_testMode));
+
     private async void OnActionClick(object? sender, EventArgs e)
     {
-        if (_actionButton.Text == "完成")
+        if (_busy) return;
+        if (_completed)
         {
             Close();
             return;
         }
 
+        await InstallAsync();
+    }
+
+    private async Task InstallAsync(bool firstRunOnly = false)
+    {
+        if (_busy || _completed) return;
         _actionButton.Enabled = false;
         _busy = true;
         _uninstallButton.Enabled = false;
         _cancelButton.Enabled = false;
+        _cancelButton.Text = "安装中";
         _progressBar.Visible = true;
         _progressBar.Value = 0;
 
         try
         {
-            var result = await Task.Run(() =>
+            Action<string, int> progress = (msg, percent) =>
+            {
+                BeginInvoke(() =>
+                {
+                    if (!_busy) return;
+                    _statusLabel.Text = msg;
+                    _progressBar.Value = Math.Clamp(percent, 0, 100);
+                });
+            };
+            var result = _testInstall != null ? await _testInstall(progress) : await Task.Run(() =>
             {
                 return InstallEngine.ExecuteInstall(
                     _installRoot,
@@ -191,23 +243,20 @@ public class InstallerForm : Form
                     },
                     testMode: _testMode,
                     noLaunch: _noLaunch,
-                    progressCallback: (msg, percent) =>
-                    {
-                        BeginInvoke(() =>
-                        {
-                            _statusLabel.Text = msg;
-                            _progressBar.Value = Math.Clamp(percent, 0, 100);
-                        });
-                    }
+                    progressCallback: progress,
+                    firstRunOnly: firstRunOnly
                 );
             });
 
             _statusLabel.Text = result.Message;
             _busy = false;
+            _completed = true;
             _progressBar.Value = 100;
             _actionButton.Text = "完成";
             _actionButton.BackColor = Color.FromArgb(25, 135, 84);
             _actionButton.Enabled = true;
+            _cancelButton.Text = "关闭";
+            _cancelButton.Enabled = true;
         }
         catch (Exception ex)
         {
@@ -217,11 +266,16 @@ public class InstallerForm : Form
             _actionButton.Text = "重试";
             _actionButton.Enabled = true;
             _cancelButton.Enabled = true;
+            _cancelButton.Text = "关闭";
+            _uninstallButton.Visible = HasInstallationTraces();
+            _uninstallButton.Enabled = true;
+            if (ex.Message == "scanner_setup_existing_installation") CheckInitialState();
         }
     }
 
     private async void OnUninstallClick(object? sender, EventArgs e)
     {
+        if (_busy || _completed) return;
         var confirm = MessageBox.Show(
             "卸载扫描助手？\n扫描结果会保留。",
             "确认卸载",
@@ -234,6 +288,7 @@ public class InstallerForm : Form
         _actionButton.Enabled = false;
         _uninstallButton.Enabled = false;
         _cancelButton.Enabled = false;
+        _cancelButton.Text = "卸载中";
         _progressBar.Visible = true;
         _progressBar.Value = 50;
 
@@ -252,8 +307,8 @@ public class InstallerForm : Form
             _progressBar.Value = 100;
             _actionButton.Visible = false;
             _uninstallButton.Visible = false;
-            _cancelButton.Text = "完成";
             _cancelButton.Enabled = true;
+            _cancelButton.Text = "关闭";
         }
         catch (Exception)
         {
@@ -263,6 +318,7 @@ public class InstallerForm : Form
             _actionButton.Enabled = true;
             _uninstallButton.Enabled = true;
             _cancelButton.Enabled = true;
+            _cancelButton.Text = "关闭";
         }
     }
 }

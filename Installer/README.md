@@ -1,8 +1,8 @@
 # 扫描助手安装程序
 
-发布入口为 `Soda-Scanner-Setup.exe`（Windows x64）。打开后安装并启动扫描助手；再次打开可修复或卸载，也可从 Windows“已安装的应用”卸载。卸载保留扫描结果、日志、未知文件和用户替换的文件。
+发布入口为 `Soda-Scanner-Setup.exe`（Windows x64）。玩家下载并打开 EXE 后，首次安装自动准备组件并启动扫描助手，无需再点击“开始安装”。窗口展示准备、安装与完成进度，安装事务执行期间不能关闭；失败后可手动重试。已有安装、残留文件或协议/卸载登记时保留修复和卸载入口，不自动覆盖。也可从 Windows“已安装的应用”卸载。卸载保留扫描结果、日志、未知文件和用户替换的文件。
 
-1.0.2 安装包内置 RC8.4 的完整锁定 ZIP：Helper 2.3.7、锁定 1.0.49 Soda fork（capture r23）、PP-OCRv6 与 Microsoft release VC runtime 14.44.35211.0 的应用本地依赖和许可证。此次运行包包含等待、OCR 队列、完整性与 S-only/跳过 A/B 的可靠性修复；协议 5 和数据 schema 2 保持兼容。
+1.0.3 安装包内置 RC8.4 的完整锁定 ZIP：Helper 2.3.7、锁定 1.0.49 Soda fork（capture r23）、PP-OCRv6 与 Microsoft release VC runtime 14.44.35211.0 的应用本地依赖和许可证。此次运行包包含等待、OCR 队列、完整性与 S-only/跳过 A/B 的可靠性修复；协议 5 和数据 schema 2 保持兼容。
 
 ## 构建
 
@@ -13,7 +13,7 @@
 
 执行 `./Installer/build.ps1 -RuntimeArchive <ZIP> -VCRuntimeArchive <VC-ZIP> -NsisPath <makensis.exe>`。脚本检查固定输入和编译器 SHA256，不自动下载或运行安装器。NSIS 3.13 的精确来源见 `nsis-toolchain.json`；仅解压官方便携 ZIP，不要求系统安装。中间文件与产物默认写在 `Installer/outputs`。输入、产物与 SDK 依赖不进入源码提交。
 
-1.0.2 继续使用 NSIS 的完整无损压缩，打开时自动解压并进入原安装界面。安装、修复、卸载使用同一安全引擎；启动参数和子程序退出码透传，临时组件在子程序退出后清理。
+1.0.3 继续使用 NSIS 的完整无损压缩，打开时自动解压并进入原安装界面。安装、修复、卸载使用同一安全引擎；启动参数和子程序退出码透传，临时组件在子程序退出后清理。
 
 ## 验证与文件边界
 
