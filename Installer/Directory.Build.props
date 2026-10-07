@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <InstallerArtifactsRoot Condition="'$(InstallerArtifactsRoot)' == ''">$(MSBuildThisFileDirectory)outputs\</InstallerArtifactsRoot>
+    <BaseIntermediateOutputPath>$(InstallerArtifactsRoot)obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(InstallerArtifactsRoot)bin\$(MSBuildProjectName)\</BaseOutputPath>
+  </PropertyGroup>
+</Project>

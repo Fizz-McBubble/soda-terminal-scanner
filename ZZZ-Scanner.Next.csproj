@@ -19,6 +19,8 @@
     <Compile Remove="Launcher\**\*.cs" />
     <Compile Remove="OcrCli\**\*.cs" />
     <Compile Remove="Tests\**\*.cs" />
+    <Compile Remove="Installer\**\*.cs" />
+    <None Remove="Installer\**\*" />
     <None Remove="Launcher\**\*" />
     <None Remove="OcrCli\**\*" />
     <None Remove="Tests\**\*" />

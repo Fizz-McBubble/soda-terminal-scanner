@@ -1,0 +1,6 @@
+**/bin/
+**/obj/
+Installer/outputs/
+Installer/src/Soda.Scanner.Setup/Resources/
+Installer/src/Soda.Scanner.Core/*.zip
+outputs/

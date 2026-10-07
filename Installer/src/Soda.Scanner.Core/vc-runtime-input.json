@@ -1,0 +1,19 @@
+{
+  "fileName": "vc-runtime-14.44.35211-x64.zip",
+  "size": 463369,
+  "sha256": "0724c20bb5ca05d3d5e502761b1e161b10442b25857c106c8223a293443c8148",
+  "files": [
+    "notices/Microsoft-VisualStudio-2022-REDIST.txt",
+    "ocr/VC-RUNTIME-NOTICE.txt",
+    "ocr/msvcp140.dll",
+    "ocr/msvcp140_1.dll",
+    "ocr/msvcp140_2.dll",
+    "ocr/msvcp140_atomic_wait.dll",
+    "ocr/msvcp140_codecvt_ids.dll",
+    "ocr/vcruntime140.dll",
+    "ocr/vcruntime140_1.dll",
+    "ocr/vcruntime140_threads.dll"
+  ],
+  "source": "Microsoft release Redist 14.44.35211.0",
+  "license": "https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution"
+}

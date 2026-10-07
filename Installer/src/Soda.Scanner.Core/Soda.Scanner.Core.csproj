@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="runtime-files.json" />
+    <EmbeddedResource Include="vc-runtime-input.json" />
+    <EmbeddedResource Include="vc-runtime-14.44.35211-x64.zip" />
+  </ItemGroup>
+</Project>
