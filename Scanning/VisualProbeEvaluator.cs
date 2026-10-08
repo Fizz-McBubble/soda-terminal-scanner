@@ -92,6 +92,10 @@ internal static class SelectionVisualProbe
     private const int EdgeBandPixels = 24;
     private const int SampleStride = 2;
 
+    private static int EdgeBand(int extent, int referenceExtent) =>
+        Math.Min(Math.Max(1, (int)Math.Ceiling(EdgeBandPixels * (double)extent / referenceExtent)),
+            Math.Max(1, extent / 3));
+
     public static int[] CreateSamples(Bitmap image)
     {
         ArgumentNullException.ThrowIfNull(image);
@@ -100,8 +104,10 @@ internal static class SelectionVisualProbe
             return [];
         }
 
-        var bandX = Math.Min(EdgeBandPixels, Math.Max(1, image.Width / 3));
-        var bandY = Math.Min(EdgeBandPixels, Math.Max(1, image.Height / 3));
+        // The selection probe is 144x168 at 1080p; its card border must stay
+        // inside the sampled band when the game and probe scale together.
+        var bandX = EdgeBand(image.Width, 144);
+        var bandY = EdgeBand(image.Height, 168);
         var samples = new List<int>();
         for (var y = 0; y < image.Height; y += SampleStride)
         {
@@ -142,8 +148,8 @@ internal static class SelectionVisualProbe
 
         // Keep the Bitmap sampling grid and order; only the pixel reader and
         // repeated dimension lookups change for an immutable captured frame.
-        var bandX = Math.Min(EdgeBandPixels, Math.Max(1, width / 3));
-        var bandY = Math.Min(EdgeBandPixels, Math.Max(1, height / 3));
+        var bandX = EdgeBand(width, 144);
+        var bandY = EdgeBand(height, 168);
         var samples = new List<int>();
         for (var y = 0; y < height; y += SampleStride)
         {

@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ZZZ-Scanner-Helper</AssemblyName>
     <RootNamespace>ZZZScannerHelper</RootNamespace>
-    <Version>2.3.8</Version>
+    <Version>2.3.9</Version>
     <!-- Publishing outside the source tree must not make historical local obj/bin outputs compile inputs. -->
     <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**</DefaultItemExcludes>
   </PropertyGroup>

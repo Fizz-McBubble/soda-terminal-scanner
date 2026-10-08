@@ -54,8 +54,13 @@ internal enum TargetVerificationKind
 
 internal static class TargetVerificationPolicy
 {
-    public static bool AllowsAdjacentIdentical(TargetVerificationKind kind) =>
-        kind == TargetVerificationKind.IdenticalNeighborRoundTrip;
+    // A completed away/return check remains valid even when returning to the
+    // target produces a strong detail change. OCR equality must not erase it.
+    public static TargetVerificationKind ResolveAccepted(bool selectionRoundTripReady, bool targetSelectionStable) =>
+        selectionRoundTripReady && targetSelectionStable
+            ? TargetVerificationKind.IdenticalNeighborRoundTrip
+            : TargetVerificationKind.ChangedText;
+
 }
 
 public enum PostScrollPanelAcceptMode
@@ -246,6 +251,7 @@ public sealed class ScanRunResult
     public int Completed { get; set; }
     public int Failed { get; set; }
     public string Error { get; set; } = "";
+    public string ErrorCode { get; set; } = "";
 }
 
 public sealed class EdgeScrollProbeResult
@@ -321,7 +327,8 @@ internal static class ScanRunResultFactory
             Queued = result.Queued,
             Completed = result.Completed,
             Failed = result.Failed,
-            Error = complete ? "" : result.TerminationCode
+            Error = complete ? "" : result.TerminationCode,
+            ErrorCode = complete ? "" : result.TerminationCode
         };
     }
 
@@ -339,7 +346,8 @@ internal static class ScanRunResultFactory
             Queued = terminal?.Queued ?? 0,
             Completed = terminal?.Completed ?? 0,
             Failed = terminal?.Failed ?? 0,
-            Error = exception.ToString()
+            Error = exception.ToString(),
+            ErrorCode = (exception as IScannerFailureException)?.Code ?? "scanner_failure"
         };
     }
 }

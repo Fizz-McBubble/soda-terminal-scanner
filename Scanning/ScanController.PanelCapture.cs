@@ -235,6 +235,27 @@ public sealed partial class ScanController
                 return changeProbeSignatures;
             }
 
+            ImageSignature[] EnsureAcceptedChangeProbeSignatures()
+            {
+                var signatures = EnsureCurrentChangeProbeSignatures();
+                var finalDistance = previousPanelSignatures is null
+                    ? int.MaxValue
+                    : ProbeChangeDistance(previousPanelSignatures, signatures);
+                // A click animation can change and then return to the previous
+                // disc's exact detail image. A latched transient is not final
+                // target evidence; reuse the bounded neighbor retry in that case.
+                if (PanelCaptureGate.RequiresFinalFrameRefresh(
+                    previousPanelSignatures is not null, finalDistance, PanelChangeTolerance,
+                    selectionRoundTripReady && tracker.EvidenceGate.Stable,
+                    preselectedTargetEvidence && preselectedSelectionPresent))
+                {
+                    scanLog.WriteEvent("PANEL_FINAL_UNCHANGED",
+                        $"finalChangeDistance={finalDistance}, tolerance={PanelChangeTolerance}, elapsedMs={elapsedMilliseconds:F1}, action=neighbor_roundtrip");
+                    throw new StalePanelException("最终详情与上一张相同，需要邻格往返确认目标。");
+                }
+                return signatures;
+            }
+
             var visibleWatch = Stopwatch.StartNew();
             var roiVisibility = EvaluateVisibleRois(
                 image,
@@ -310,7 +331,7 @@ public sealed partial class ScanController
                         window.VerifyTraversalPosition();
                         return CreateAcceptedPanelCapture(
                             image,
-                            EnsureCurrentChangeProbeSignatures,
+                            EnsureAcceptedChangeProbeSignatures,
                             visibleCount,
                             start,
                             frameCount,
@@ -332,7 +353,7 @@ public sealed partial class ScanController
                             panelTiming,
                             panelFloorReason,
                             () => "quick_changed_stable_full_roi",
-                            () => TargetVerificationKind.ChangedText,
+                            () => TargetVerificationPolicy.ResolveAccepted(selectionRoundTripReady, tracker.EvidenceGate.Stable),
                             quickAccept: true,
                             quickRejectReason: "accepted",
                             roiCompleteFrames,
@@ -360,7 +381,7 @@ public sealed partial class ScanController
                     window.VerifyTraversalPosition();
                     return CreateAcceptedPanelCapture(
                         image,
-                        EnsureCurrentChangeProbeSignatures,
+                        EnsureAcceptedChangeProbeSignatures,
                         visibleCount,
                         start,
                         frameCount,
@@ -395,9 +416,7 @@ public sealed partial class ScanController
 
                             return finalAcceptReason;
                         },
-                        () => tracker.SelectionAttestedPanel
-                            ? TargetVerificationKind.IdenticalNeighborRoundTrip
-                            : TargetVerificationKind.ChangedText,
+                        () => TargetVerificationPolicy.ResolveAccepted(selectionRoundTripReady, tracker.EvidenceGate.Stable),
                         quickAccept: false,
                         quickRejectReason,
                         roiCompleteFrames,

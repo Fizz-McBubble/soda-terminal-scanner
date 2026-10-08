@@ -224,6 +224,7 @@ public sealed partial class ScanController
         var fallbackResetAction = "not_run";
         var lastResetThumb = default(ScrollbarThumbProbe);
         var resetThumbHeight = 0;
+        var resetClientHeight = window.ClientScreenRect.Height;
         var maximumThumbHeight = ScrollbarTopResetPlanner.MaximumScrollableThumbHeight(
             scrollTop.Y, scrollBottom.Y, inventoryCount, profile.VisibleColumns, profile.VisibleRows);
         const int resetWheelDelta = 120 * 16;
@@ -246,7 +247,7 @@ public sealed partial class ScanController
                 case ScrollTopResetTraceKind.Probe:
                     scanLog.WriteEvent(
                         "RESET_TOP_COLOR_PROBE",
-                        $"phase={trace.Phase}, batch={trace.Batch}, sample={trace.Sample}/{ScrollTopResetCoordinator.ProbeSampleCount}, tick={trace.WheelTicks}/{maximumWheelTicks}, actual={ColorText(trace.ActualColor)}, expected={ColorText(trace.ExpectedColor)}, delta=({Math.Abs(trace.ActualColor.R - trace.ExpectedColor.R)},{Math.Abs(trace.ActualColor.G - trace.ExpectedColor.G)},{Math.Abs(trace.ActualColor.B - trace.ExpectedColor.B)}), tolerance={trace.Tolerance}, matched={trace.Matched}, matchReason={trace.MatchReason}, stableMatches={trace.StableMatches}/{ScrollTopResetCoordinator.RequiredStableMatches}, thumbFound={lastResetThumb.Found}, thumbX={lastResetThumb.CenterX}, thumb={lastResetThumb.StartY}-{lastResetThumb.EndY}, elapsedMs={trace.ElapsedMilliseconds}");
+                        $"phase={trace.Phase}, batch={trace.Batch}, sample={trace.Sample}/{ScrollTopResetCoordinator.ProbeSampleCount}, tick={trace.WheelTicks}/{maximumWheelTicks}, actual={ColorText(trace.ActualColor)}, expected={ColorText(trace.ExpectedColor)}, delta=({Math.Abs(trace.ActualColor.R - trace.ExpectedColor.R)},{Math.Abs(trace.ActualColor.G - trace.ExpectedColor.G)},{Math.Abs(trace.ActualColor.B - trace.ExpectedColor.B)}), tolerance={trace.Tolerance}, matched={trace.Matched}, matchReason={trace.MatchReason}, stableMatches={trace.StableMatches}/{ScrollTopResetCoordinator.RequiredStableMatches}, thumbFound={lastResetThumb.Found}, thumbX={lastResetThumb.CenterX}, thumb={lastResetThumb.StartY}-{lastResetThumb.EndY}, thumbReferenceHeight={resetThumbHeight}, thumbHeightTolerance={ScrollbarTopResetPlanner.HeightTolerancePixels(resetClientHeight)}, elapsedMs={trace.ElapsedMilliseconds}");
                     break;
                 case ScrollTopResetTraceKind.Wheel:
                     scanLog.WriteEvent(
@@ -300,7 +301,7 @@ public sealed partial class ScanController
             captureTopPosition: () =>
                 IsValidResetThumb(lastResetThumb)
                 && ScrollbarTopResetPlanner.HasConsistentHeight(
-                    resetThumbHeight, lastResetThumb.StartY, lastResetThumb.EndY)
+                    resetThumbHeight, lastResetThumb.StartY, lastResetThumb.EndY, resetClientHeight)
                 && ScrollbarTopResetPlanner.IsAtTop(
                     scrollTop.Y,
                     scrollBottom.Y,

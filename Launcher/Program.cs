@@ -16,7 +16,7 @@ namespace ZZZScannerHelper;
 internal static partial class Program
 {
     private const string ServiceName = "soda-terminal-scanner-helper";
-    internal const string HelperVersion = "2.3.8";
+    internal const string HelperVersion = "2.3.9";
     internal const int ProtocolVersion = 5;
     private const int HelperPort = 43127;
     private const string ProtocolName = SodaProtocolRegistration.Scheme;

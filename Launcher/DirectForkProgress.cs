@@ -56,7 +56,7 @@ internal static class DirectForkProgress
             processed = result.TryGetProperty("Visited", out var visitedNode) ? visitedNode.GetInt32() : completed;
             if (!result.GetProperty("Success").GetBoolean())
             {
-                var detail = result.TryGetProperty("Error", out var errorNode) ? errorNode.GetString() ?? "" : "";
+                var detail = result.TryGetProperty("Error", out var errorNode) && errorNode.ValueKind == JsonValueKind.String ? errorNode.GetString() ?? "" : "";
                 var panelTimeout = log.Contains("terminationCode=panel_capture_timeout", StringComparison.Ordinal) || detail.Contains("StalePanel", StringComparison.Ordinal);
                 var gameMissing = detail.Contains("未找到游戏窗口进程", StringComparison.Ordinal);
                 var noSelected = detail.Contains("scan_no_importable_s_discs", StringComparison.Ordinal)
@@ -67,8 +67,9 @@ internal static class DirectForkProgress
                     "game_window_not_foreground" => "游戏已离开前台。请回到驱动仓库后重新扫描，期间保持游戏在前台。",
                     "game_window_not_visible" => "游戏窗口不可见。请恢复窗口，完整显示驱动仓库后重新扫描。",
                     "window_geometry_changed" => "游戏窗口位置、大小或显示缩放发生变化。请将窗口放好并保持大小不变，再重新扫描。",
-                    "ppocrv6_detail_geometry_incompatible" => "当前游戏画面尺寸不兼容。建议将游戏设为 1920 × 1080 窗口或无边框模式后重新扫描。",
+                    "ppocrv6_detail_geometry_incompatible" => "当前游戏画面尺寸不兼容。在游戏中选择 1920 × 1080 的窗口模式后重新扫描。",
                     "warehouse_context_lost" => "暂时无法确认驱动仓库画面。请关闭遮挡并保持游戏在前台，再重新扫描。",
+                    "duplicate_guard" => "连续读到相同驱动盘，但无法确认已切换到下一张，扫描已保护性停止。本次结果未进入正式导入；保持驱动仓库在前台重试，若再次停止请反馈此问题。",
                     _ => null
                 };
                 error = new JsonObject

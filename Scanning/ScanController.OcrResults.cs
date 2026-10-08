@@ -25,7 +25,6 @@ public sealed partial class ScanController
         string outputDir,
         IProgress<ScanProgress> progress,
         ScanLog scanLog,
-        DuplicateGuard duplicateGuard,
         ScanOptions options,
         CancellationTokenSource linked)
     {
@@ -39,10 +38,10 @@ public sealed partial class ScanController
             }
 
             pending[result.Index] = result;
-            nextIndex = FlushOcrResults(pending, nextIndex, allowGaps: false, results, r4Records, counters, outputDir, progress, scanLog, duplicateGuard, options, linked);
+            nextIndex = FlushOcrResults(pending, nextIndex, allowGaps: false, results, r4Records, counters, outputDir, progress, scanLog, options, linked);
         }
 
-        _ = FlushOcrResults(pending, nextIndex, allowGaps: true, results, r4Records, counters, outputDir, progress, scanLog, duplicateGuard, options, linked);
+        _ = FlushOcrResults(pending, nextIndex, allowGaps: true, results, r4Records, counters, outputDir, progress, scanLog, options, linked);
     }
 
     private static int FlushOcrResults(
@@ -55,7 +54,6 @@ public sealed partial class ScanController
         string outputDir,
         IProgress<ScanProgress> progress,
         ScanLog scanLog,
-        DuplicateGuard duplicateGuard,
         ScanOptions options,
         CancellationTokenSource linked)
     {
@@ -96,16 +94,9 @@ public sealed partial class ScanController
                     return nextIndex;
                 }
 
-                if (!duplicateGuard.Observe(result.Export, result.TargetVerificationKind, out var duplicateReason))
-                {
-                    Interlocked.CompareExchange(ref counters.StopAfterIndex, result.Index, 0);
-                    Interlocked.CompareExchange(ref counters.StopReason, "duplicate_guard", null);
-                    scanLog.Write($"Duplicate guard canceled scan at #{result.Index}: {duplicateReason}");
-                    Report(progress, counters, $"重复保护触发：{duplicateReason}");
-                    linked.Cancel();
-                    return nextIndex;
-                }
-
+                // Stats are not a disc identity. Capture and traversal verify
+                // the physical target; distinct sequence numbers retain even
+                // fully identical discs without a content-based stop limit.
                 scanLog.WriteEvent(
                     "ITEM_TARGET_VERIFICATION",
                     $"index={result.Index}, kind={result.TargetVerificationKind}");

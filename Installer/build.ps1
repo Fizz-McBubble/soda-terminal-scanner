@@ -19,7 +19,7 @@ $catalog = Get-Content -LiteralPath (Join-Path $source 'src/Soda.Scanner.Core/vc
 function Verify-Input([string]$Path, [long]$Size, [string]$Hash) {
     if ((Get-Item -LiteralPath $Path).Length -ne $Size -or (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $Hash) { throw 'Pinned input does not match the source release.' }
 }
-Verify-Input $RuntimeArchive 133941203 '47b9472664e01ce47ae9590bedd2ccced54165ed73af6941219320696d9f6b71'
+Verify-Input $RuntimeArchive 133944562 '474855cd91163828c02a992d263c7d9d9ac6169d857dfcc8b8c2250e6c949235'
 Verify-Input $VCRuntimeArchive $catalog.size $catalog.sha256
 Copy-Item -LiteralPath $VCRuntimeArchive -Destination (Join-Path $source ('src/Soda.Scanner.Core/' + $catalog.fileName)) -Force
 [IO.Directory]::CreateDirectory($OutputRoot) | Out-Null

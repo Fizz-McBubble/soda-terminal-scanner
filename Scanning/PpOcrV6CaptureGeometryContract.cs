@@ -69,7 +69,7 @@ internal sealed class PpOcrV6CaptureGeometryContract
             "ppocrv6_detail_geometry_incompatible",
             "游戏窗口尺寸不兼容",
             $"当前游戏窗口为 {clientSize.Width}×{clientSize.Height}，暂不支持扫描。",
-            $"请使用本地客户端 16:9、1280×720 至 3840×2160 的窗口或无边框模式；推荐 {_referenceClient.Width}×{_referenceClient.Height}，再重新扫描。",
+            $"请在游戏的全屏或窗口模式中选择 16:9 分辨率（1280×720 至 3840×2160）；推荐 {_referenceClient.Width}×{_referenceClient.Height}，再重新扫描。",
             new Dictionary<string, object?>
             {
                 ["clientWidth"] = clientSize.Width,

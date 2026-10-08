@@ -287,10 +287,15 @@ internal static class ScrollbarTopResetPlanner
             && height >= 3 && height < trackEnd - trackStart + 1;
     }
 
-    public static bool HasConsistentHeight(int referenceHeight, int thumbStartY, int thumbEndY) =>
-        referenceHeight >= 3
-        // The colour-matching run can lose its rounded end pixels at the edge.
-        && Math.Abs(referenceHeight - (Math.Abs(thumbEndY - thumbStartY) + 1)) <= 4;
+    public static int HeightTolerancePixels(int clientHeight) =>
+        Math.Max(1, (int)Math.Ceiling(4d * clientHeight / 1080));
+
+    public static bool HasConsistentHeight(int referenceHeight, int thumbStartY, int thumbEndY, int clientHeight) =>
+        referenceHeight >= 3 && clientHeight > 0
+        // The probe anchors clip the rounded thumb at the track ends. Scale
+        // that clipping allowance with the game image, not desktop DPI. This
+        // does not relax the exact top-position check below.
+        && Math.Abs(referenceHeight - (Math.Abs(thumbEndY - thumbStartY) + 1)) <= HeightTolerancePixels(clientHeight);
 
     public static int MaximumScrollableThumbHeight(
         int trackEndpointAY, int trackEndpointBY, int? inventoryCount, int columns, int visibleRows)

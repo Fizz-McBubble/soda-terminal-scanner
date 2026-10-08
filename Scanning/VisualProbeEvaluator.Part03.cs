@@ -340,6 +340,15 @@ public static class PanelCaptureGate
 
     public static bool RequiresFirstCellNeighborRoundTrip(bool firstQueuedItem) => firstQueuedItem;
 
+    public static bool RequiresFinalFrameRefresh(
+        bool hasPanelBaseline,
+        int finalChangeDistance,
+        int changeTolerance,
+        bool roundTripVerified,
+        bool preselectedTargetVerified) =>
+        hasPanelBaseline && finalChangeDistance <= changeTolerance
+        && !roundTripVerified && !preselectedTargetVerified;
+
     public static bool IsStrongChangeCurrentFrame(
         int changeDistance,
         double elapsedMilliseconds,

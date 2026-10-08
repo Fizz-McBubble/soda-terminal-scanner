@@ -31,6 +31,7 @@
     "ppocrv6_detail_geometry_incompatible",
     "warehouse_context_lost",
     "panel_capture_timeout",
+    "duplicate_guard",
     "scan_navigation_failed",
     "visual_preflight_failed",
     "ocr_worker_failed",
@@ -65,6 +66,7 @@
   "captureModes": ["gdi", "dxgi", "unknown"],
   "browsers": ["edge", "chrome", "firefox", "safari", "other", "unknown"],
   "evidenceLimits": {
+    "itemIndex": 100000,
     "logicalRow": 100000,
     "visualRow": 100,
     "column": 100,
@@ -82,6 +84,7 @@
     "warehouseHeaderDetected",
     "inventoryCountDetected"
   ],
+  "targetVerificationKinds": ["ChangedText", "IdenticalNeighborRoundTrip", "Unknown"],
   "missingRois": [
     "level",
     "mainStatLabel",

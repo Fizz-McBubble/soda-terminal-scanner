@@ -30,7 +30,6 @@ public sealed partial class ScanController
     private const int VerifiedScrollHoverSettleMilliseconds = 40;
     private const int VerifiedScrollReleaseSamples = 6;
     private const int VerifiedScrollReleaseStableFrames = 2;
-    private const int ConsecutiveIdenticalDuplicateThreshold = 3;
     private const int SignatureColumns = 8;
     private const int SignatureRows = 4;
 
@@ -120,7 +119,6 @@ public sealed partial class ScanController
         {
             throw new ArgumentException("NativeEdgeClick row advance requires OverlapSignaturePage traversal.");
         }
-        var duplicateGuard = new DuplicateGuard(Math.Max(1, profile.DuplicateRowThreshold));
         var adaptiveTimingActive = options.AdaptiveTiming ?? requestedFastMode;
         var panelStability = new PanelStabilitySelector(options.PanelStabilityMode);
         var runtimeState = new ScanRuntimeState(
@@ -316,7 +314,7 @@ public sealed partial class ScanController
                 // keep the existing shifted-environment-only behavior.
                 var normalizedRetryEnabled = shiftedVisualEnvironment || options.OcrEngine == OcrEngine.PpOcrV6;
                 ocrWorkers = StartOcrWorkers(queue, ocrResults, outputDir, options, scanLog, ocrWorkerCount, ocrIntraOpThreads, counters, ocrDiagnostics, ocrShadowDataset, fastOcrShadow, fastOcrAssist, fastOcrAssistRecorder, normalizedRetryEnabled, linked);
-                resultConsumer = StartGuardedOcrTask(() => ConsumeOcrResults(ocrResults, results, r4Records, counters, outputDir, progress, scanLog, duplicateGuard, options, linked), linked);
+                resultConsumer = StartGuardedOcrTask(() => ConsumeOcrResults(ocrResults, results, r4Records, counters, outputDir, progress, scanLog, options, linked), linked);
                 await ProduceCapturesAsync(window, profile, queue, options, runtimeState, counters, progress, scanLog, preflight.InventoryCount, traversalMode, linked.Token);
                 captureCompleted = true;
                 Report(progress, counters, "截图采集完成，后台 OCR 正在收尾。");

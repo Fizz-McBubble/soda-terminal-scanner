@@ -11,10 +11,10 @@ RequestExecutionLevel user
 SilentInstall silent
 CRCCheck force
 ManifestDPIAware true
-VIProductVersion "1.0.6.0"
+VIProductVersion "1.0.7.0"
 VIAddVersionKey "ProductName" "Soda Terminal 扫描助手"
 VIAddVersionKey "FileDescription" "扫描助手安装程序"
-VIAddVersionKey "FileVersion" "1.0.6"
+VIAddVersionKey "FileVersion" "1.0.7"
 VIAddVersionKey "LegalCopyright" "Soda Terminal contributors; NSIS contributors"
 !include "FileFunc.nsh"
 Section
