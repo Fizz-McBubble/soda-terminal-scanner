@@ -40,7 +40,7 @@ Section
   ; Keep the two .NET bundles close enough for the 128 MB solid dictionary.
   File /oname=Soda-Scanner-Uninstall.exe "${STUB_EXE}"
   IfErrors extract_failed
-  File /oname=soda-scanner-runtime-18-rc8-6-win-x64.zip "${RUNTIME_ARCHIVE}"
+  File /oname=soda-scanner-runtime-18-rc8-7-win-x64.zip "${RUNTIME_ARCHIVE}"
   IfErrors extract_failed
   FileOpen $1 "$PLUGINSDIR\payload\ready.tmp" w
   IfErrors extract_failed
