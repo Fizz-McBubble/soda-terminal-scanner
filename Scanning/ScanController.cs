@@ -33,9 +33,6 @@ public sealed partial class ScanController
     private const int ConsecutiveIdenticalDuplicateThreshold = 3;
     private const int SignatureColumns = 8;
     private const int SignatureRows = 4;
-    private const int NativeEdgeClickTimeoutMilliseconds = 800;
-    private const int NativeEdgeClickNoMoveDecisionMilliseconds = 300;
-    private const int NativeEdgeClickStableFrames = 2;
 
     private readonly ScanProfileFile _profiles;
     private readonly WikiData _wikiData;

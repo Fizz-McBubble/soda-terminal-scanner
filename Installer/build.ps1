@@ -19,11 +19,12 @@ $catalog = Get-Content -LiteralPath (Join-Path $source 'src/Soda.Scanner.Core/vc
 function Verify-Input([string]$Path, [long]$Size, [string]$Hash) {
     if ((Get-Item -LiteralPath $Path).Length -ne $Size -or (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $Hash) { throw 'Pinned input does not match the source release.' }
 }
-Verify-Input $RuntimeArchive 128548618 'de2735bb619a5a679a0b16e11637ade350fc2d4ab846aa48e81a61f474ce801b'
+Verify-Input $RuntimeArchive 133910367 'eb31c9084ef15d19906aed0929b5772389f1d40190ef1a9adf6b3216b46294d7'
 Verify-Input $VCRuntimeArchive $catalog.size $catalog.sha256
 Copy-Item -LiteralPath $VCRuntimeArchive -Destination (Join-Path $source ('src/Soda.Scanner.Core/' + $catalog.fileName)) -Force
 [IO.Directory]::CreateDirectory($OutputRoot) | Out-Null
 $artifacts = Join-Path $OutputRoot 'artifacts/'
+[IO.Directory]::CreateDirectory($artifacts) | Out-Null
 $stubOutput = Join-Path $OutputRoot 'stub'
 $setupOutput = Join-Path $OutputRoot 'setup'
 & $dotnet publish (Join-Path $source 'src/Soda.Scanner.UninstallStub/Soda.Scanner.UninstallStub.csproj') -c Release -r win-x64 --self-contained true "-p:InstallerArtifactsRoot=$artifacts" -o $stubOutput

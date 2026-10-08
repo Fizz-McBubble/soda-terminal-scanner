@@ -88,7 +88,10 @@ internal sealed record OcrBatchResponse(
     string SchemaVersion,
     string Engine,
     IReadOnlyList<OcrImageResult> Images,
-    OcrTiming Timing);
+    OcrTiming Timing,
+    OcrRuntimeConfiguration Runtime);
+internal sealed record OcrRuntimeConfiguration(
+    int IntraOpThreads, int InterOpThreads, bool AllowSpinning, string ExecutionMode, int CacheCapacity);
 internal sealed record OcrTiming(
     int ImageCount,
     int RoiCount,
@@ -96,13 +99,18 @@ internal sealed record OcrTiming(
     double PreprocessMs,
     double InferenceMs,
     double DecodeMs,
-    double TotalMs);
+    double TotalMs,
+    int CacheHits,
+    int CacheEntries,
+    int InferenceRoiCount);
 
 internal sealed class PpOcrV6Recognizer : IDisposable
 {
     private const int Height = 48;
     private readonly string[] _characters;
     private readonly InferenceSession _session;
+    private readonly OcrRuntimeConfiguration _runtime;
+    private readonly ExactRecognitionCache _cache;
 
     internal PpOcrV6Recognizer(string modelPath, string modelConfigPath)
     {
@@ -118,14 +126,37 @@ internal sealed class PpOcrV6Recognizer : IDisposable
                 ?? throw new InvalidDataException("ppocrv6_dictionary_missing"))
             .Append(" ")
             .ToArray();
-        var options = new SessionOptions
+        var threadsSetting = Environment.GetEnvironmentVariable("SODA_PPOCRV6_INTRA_OP_THREADS");
+        var intraOpThreads = Math.Max(1, Math.Min(4, Environment.ProcessorCount));
+        if (threadsSetting is not null)
+        {
+            if (!int.TryParse(threadsSetting, out intraOpThreads) || intraOpThreads is < 1 or > 8)
+                throw new InvalidDataException("ppocrv6_intra_op_threads_invalid");
+        }
+        var spinningSetting = Environment.GetEnvironmentVariable("SODA_PPOCRV6_ALLOW_SPINNING");
+        if (spinningSetting is not null and not "0" and not "1")
+            throw new InvalidDataException("ppocrv6_allow_spinning_invalid");
+        var capacitySetting = Environment.GetEnvironmentVariable("SODA_PPOCRV6_CACHE_CAPACITY");
+        var cacheCapacity = 0; // Production explicitly supplies its bounded cache policy.
+        if (capacitySetting is not null && (!int.TryParse(capacitySetting, out cacheCapacity)
+            || cacheCapacity is < 0 or > ExactRecognitionCache.MaximumCapacity))
+            throw new InvalidDataException("ppocrv6_cache_capacity_invalid");
+        _cache = new ExactRecognitionCache(cacheCapacity);
+        using var options = new SessionOptions
         {
             GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
-            IntraOpNumThreads = Math.Max(1, Math.Min(4, Environment.ProcessorCount)),
+            IntraOpNumThreads = intraOpThreads,
             InterOpNumThreads = 1,
             ExecutionMode = ExecutionMode.ORT_SEQUENTIAL,
         };
+        var allowSpinning = spinningSetting != "0";
+        options.AddSessionConfigEntry("session.intra_op.allow_spinning", allowSpinning ? "1" : "0");
+        options.AddSessionConfigEntry("session.inter_op.allow_spinning", allowSpinning ? "1" : "0");
         _session = new InferenceSession(modelPath, options);
+        // Report the options of the successfully initialized session, not the
+        // requested parent settings. This keeps offline contract checks honest.
+        _runtime = new OcrRuntimeConfiguration(options.IntraOpNumThreads,
+            options.InterOpNumThreads, allowSpinning, options.ExecutionMode.ToString(), cacheCapacity);
     }
 
     internal OcrBatchResponse Recognize(OcrBatchRequest request)
@@ -144,21 +175,54 @@ internal sealed class PpOcrV6Recognizer : IDisposable
         var inferenceMs = 0d;
         var decodeMs = 0d;
         var inferenceRuns = 0;
+        var cacheHits = 0;
+        var inferenceRoiCount = 0;
 
         foreach (var bucket in BuildBuckets(flat))
         {
             var prepare = Stopwatch.StartNew();
             using var images = new BitmapSet(bucket.Items.Select(item => item.Image.ImagePath));
             var input = CreateInput(bucket.Items, images);
+            var width = input.Dimensions[3];
+            var stride = 3 * Height * width;
+            var misses = new List<int>();
+            var keys = new string[bucket.Items.Count];
+            for (var index = 0; index < bucket.Items.Count; index++)
+            {
+                if (_cache.Capacity > 0)
+                {
+                    keys[index] = ExactRecognitionCache.ContentKey(input.Buffer.Span.Slice(index * stride, stride), width, Height);
+                    var hit = _cache.Get(keys[index]);
+                    if (hit is not null)
+                    {
+                        decoded[bucket.OriginalIndices[index]] = new OcrTextResult(bucket.Items[index].Roi.Key, hit.Text, hit.Confidence);
+                        cacheHits++;
+                        continue;
+                    }
+                }
+                misses.Add(index);
+            }
+            // Preserve the original bucket's padding width and complete per-ROI
+            // tensor. Rebuilding from only misses would change model input.
+            var inferenceInput = input;
+            if (misses.Count > 0 && misses.Count != bucket.Items.Count)
+            {
+                inferenceInput = new DenseTensor<float>(new[] { misses.Count, 3, Height, width });
+                for (var index = 0; index < misses.Count; index++)
+                    input.Buffer.Span.Slice(misses[index] * stride, stride)
+                        .CopyTo(inferenceInput.Buffer.Span.Slice(index * stride, stride));
+            }
             prepare.Stop();
             preprocessMs += prepare.Elapsed.TotalMilliseconds;
+            if (misses.Count == 0) continue;
 
             var infer = Stopwatch.StartNew();
             using var outputs = _session.Run(
-                new[] { NamedOnnxValue.CreateFromTensor("x", input) });
+                new[] { NamedOnnxValue.CreateFromTensor("x", inferenceInput) });
             infer.Stop();
             inferenceMs += infer.Elapsed.TotalMilliseconds;
             inferenceRuns++;
+            inferenceRoiCount += misses.Count;
 
             var decode = Stopwatch.StartNew();
             var bucketResults = Decode(outputs);
@@ -166,10 +230,13 @@ internal sealed class PpOcrV6Recognizer : IDisposable
             decodeMs += decode.Elapsed.TotalMilliseconds;
             for (var index = 0; index < bucketResults.Count; index++)
             {
-                decoded[bucket.OriginalIndices[index]] = new OcrTextResult(
-                    bucket.Items[index].Roi.Key,
+                var original = misses[index];
+                decoded[bucket.OriginalIndices[original]] = new OcrTextResult(
+                    bucket.Items[original].Roi.Key,
                     bucketResults[index].Text,
                     bucketResults[index].Confidence);
+                if (_cache.Capacity > 0)
+                    _cache.Put(keys[original], bucketResults[index].Text, bucketResults[index].Confidence);
             }
         }
 
@@ -194,7 +261,9 @@ internal sealed class PpOcrV6Recognizer : IDisposable
                 Math.Round(preprocessMs, 3),
                 Math.Round(inferenceMs, 3),
                 Math.Round(decodeMs, 3),
-                Math.Round(total.Elapsed.TotalMilliseconds, 3)));
+                Math.Round(total.Elapsed.TotalMilliseconds, 3),
+                cacheHits, _cache.Count, inferenceRoiCount),
+            _runtime);
     }
 
     public void Dispose() => _session.Dispose();

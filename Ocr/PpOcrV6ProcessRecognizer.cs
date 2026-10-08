@@ -23,8 +23,11 @@ public sealed class PpOcrV6ProcessRecognizer : IOcrRecognizer
         string modelPath,
         string configPath,
         string scratchDirectory,
-        CancellationToken cancellationToken = default)
-        : this(workerPath, modelPath, configPath, scratchDirectory, TimeSpan.FromSeconds(120), cancellationToken)
+        CancellationToken cancellationToken = default,
+        int? intraOpThreads = null,
+        bool? allowSpinning = null,
+        int cacheCapacity = 0)
+        : this(workerPath, modelPath, configPath, scratchDirectory, TimeSpan.FromSeconds(120), cancellationToken, intraOpThreads, allowSpinning, cacheCapacity)
     {
     }
 
@@ -34,10 +37,15 @@ public sealed class PpOcrV6ProcessRecognizer : IOcrRecognizer
         string configPath,
         string scratchDirectory,
         TimeSpan responseTimeout,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int? intraOpThreads = null,
+        bool? allowSpinning = null,
+        int cacheCapacity = 0)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (responseTimeout <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(responseTimeout));
+        if (intraOpThreads is < 1 or > 8) throw new ArgumentOutOfRangeException(nameof(intraOpThreads));
+        if (cacheCapacity is < 0 or > 2048) throw new ArgumentOutOfRangeException(nameof(cacheCapacity));
         _responseTimeout = responseTimeout;
         _cancellationToken = cancellationToken;
         foreach (var path in new[] { workerPath, modelPath, configPath })
@@ -62,6 +70,15 @@ public sealed class PpOcrV6ProcessRecognizer : IOcrRecognizer
         start.ArgumentList.Add("recognize-stream");
         start.ArgumentList.Add(modelPath);
         start.ArgumentList.Add(configPath);
+        // Keep the existing three-argument stream protocol. These settings belong
+        // to this child only, so simultaneous workers cannot race on global env.
+        start.Environment.Remove("SODA_PPOCRV6_INTRA_OP_THREADS");
+        start.Environment.Remove("SODA_PPOCRV6_ALLOW_SPINNING");
+        start.Environment["SODA_PPOCRV6_CACHE_CAPACITY"] = cacheCapacity.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (intraOpThreads is not null)
+            start.Environment["SODA_PPOCRV6_INTRA_OP_THREADS"] = intraOpThreads.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (allowSpinning is not null)
+            start.Environment["SODA_PPOCRV6_ALLOW_SPINNING"] = allowSpinning.Value ? "1" : "0";
         _process = Process.Start(start) ?? throw new InvalidOperationException("ppocrv6_worker_start_failed");
         // A persistent worker can fill its stderr pipe after many batches. Drain it
         // continuously without retaining or exposing arbitrary native output.
@@ -179,7 +196,18 @@ public sealed class PpOcrV6ProcessRecognizer : IOcrRecognizer
                     timing.GetProperty("preprocessMs").GetDouble(),
                     timing.GetProperty("inferenceMs").GetDouble(),
                     timing.GetProperty("decodeMs").GetDouble(),
-                    timing.GetProperty("totalMs").GetDouble()));
+                    timing.GetProperty("totalMs").GetDouble(),
+                    document.RootElement.TryGetProperty("runtime", out var runtime)
+                        ? new PpOcrV6RuntimeConfiguration(
+                            runtime.GetProperty("intraOpThreads").GetInt32(),
+                            runtime.GetProperty("interOpThreads").GetInt32(),
+                            runtime.GetProperty("allowSpinning").GetBoolean(),
+                            runtime.GetProperty("executionMode").GetString() ?? "",
+                            runtime.TryGetProperty("cacheCapacity", out var capacity) ? capacity.GetInt32() : 0)
+                        : null,
+                    timing.TryGetProperty("cacheHits", out var hits) ? hits.GetInt32() : 0,
+                    timing.TryGetProperty("cacheEntries", out var entries) ? entries.GetInt32() : 0,
+                    timing.TryGetProperty("inferenceRoiCount", out var inferred) ? inferred.GetInt32() : timing.GetProperty("roiCount").GetInt32()));
         }
         finally
         {
@@ -252,5 +280,11 @@ public sealed class PpOcrV6ProcessRecognizer : IOcrRecognizer
         double PreprocessMs,
         double InferenceMs,
         double DecodeMs,
-        double TotalMs);
+        double TotalMs,
+        PpOcrV6RuntimeConfiguration? Runtime = null,
+        int CacheHits = 0,
+        int CacheEntries = 0,
+        int InferenceRoiCount = 0);
+    public sealed record PpOcrV6RuntimeConfiguration(
+        int IntraOpThreads, int InterOpThreads, bool AllowSpinning, string ExecutionMode, int CacheCapacity = 0);
 }

@@ -51,8 +51,8 @@
   },
   {
     "path": "native\\ZZZ-Scanner.Next.Soda.exe",
-    "size": 167972314,
-    "sha256": "e031a05086999a5994cd732020f7a15af9c386a317aef30dac85d71d598dddad"
+    "size": 167980506,
+    "sha256": "5f261559210d72c8d5a3c1034afcaa2c5a99720e3aed9ede0385287da57a19dd"
   },
   {
     "path": "notices\\DotNet-8-LICENSE.txt",
@@ -176,8 +176,8 @@
   },
   {
     "path": "ocr\\Soda.ScannerPpOcrV6.exe",
-    "size": 35660734,
-    "sha256": "8f11e9d67b0d28c494ed45d7b3d125f49705f39b0cd9be6468902b4dd8f7a32e"
+    "size": 41054562,
+    "sha256": "b0cb05b350f3381f972ef8312b2c9f1a3698872afbf06b043464eefd57ac2338"
   },
   {
     "path": "ocr\\VC-RUNTIME-NOTICE.txt",
@@ -202,6 +202,6 @@
   {
     "path": "scanner-runtime.json",
     "size": 7626,
-    "sha256": "1f2a8c9e0344a399e525abedd71181e0164ad3cb5b1e71de1af40050877b2e11"
+    "sha256": "ec27b6f94f166eea343c8cad2259583db0cd40bd72d494a2ae0fac70d99f5679"
   }
 ]

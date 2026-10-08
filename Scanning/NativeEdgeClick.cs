@@ -22,7 +22,41 @@ internal readonly record struct NativeEdgeClickSettleResult(
     string Reason,
     Point TargetPoint,
     string BeforeListHash,
-    string AfterListHash);
+    string AfterListHash,
+    int TimeoutMilliseconds = NativeEdgeClickSettleTracker.InitialTimeoutMilliseconds);
+
+// A slow game frame must not trigger a second click: it could advance another
+// row. Keep observing the original click when movement has already begun.
+internal sealed class NativeEdgeClickSettleTracker(int movementTolerance, int stabilityTolerance)
+{
+    internal const int InitialTimeoutMilliseconds = 800;
+    internal const int MovingTimeoutMilliseconds = 3000;
+    internal const int NoMoveDecisionMilliseconds = 300;
+    internal const int RequiredStableFrames = 2;
+
+    public bool SawMovement { get; private set; }
+    public int MovementDistance { get; private set; }
+    public int StableFrames { get; private set; }
+    public int Samples { get; private set; }
+    public bool Settled { get; private set; }
+    public int TimeoutMilliseconds => SawMovement ? MovingTimeoutMilliseconds : InitialTimeoutMilliseconds;
+
+    public bool CanObserve(double elapsedMilliseconds) => !Settled && elapsedMilliseconds < TimeoutMilliseconds;
+
+    public bool Observe(int movementDistance, int frameDistance, double elapsedMilliseconds)
+    {
+        Samples++;
+        // Check the existing deadline before accepting a new sample. A capture
+        // can finish after its deadline; that frame cannot establish success.
+        if (!CanObserve(elapsedMilliseconds)) return false;
+        MovementDistance = Math.Max(MovementDistance, movementDistance);
+        SawMovement |= movementDistance > movementTolerance;
+        StableFrames = frameDistance <= stabilityTolerance ? StableFrames + 1 : 0;
+        Settled = StableFrames >= RequiredStableFrames
+            && (SawMovement || elapsedMilliseconds >= NoMoveDecisionMilliseconds);
+        return Settled;
+    }
+}
 
 internal static class NativeEdgeClickPolicy
 {

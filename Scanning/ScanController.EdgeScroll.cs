@@ -205,51 +205,53 @@ public sealed partial class ScanController
         var beforeListHash = FormatNativeEdgeListHash(beforeRows);
         var previousRows = beforeRows;
         var watch = Stopwatch.StartNew();
-        var samples = 0;
-        var stableFrames = 0;
-        var movementDistance = 0;
-        var sawMovement = false;
+        var settle = new NativeEdgeClickSettleTracker(ListMovementTolerance, ListStableTolerance);
+        var extended = false;
         var pollMilliseconds = Math.Max(10, profile.LoadPollMs);
         scanLog.WriteEvent(
             "EDGE_CLICK_START",
-            $"visibleTopLogicalRow={visibleTopLogicalRow}, maxVisibleTop={maxVisibleTop}, targetVisualRow=4, targetColumn=1, targetPoint={targetPoint}, targetRarity={rarity}, stableFrames=0, movementDistance=0, beforeListHash={beforeListHash}, afterListHash=pending, previousRowHash=unknown, currentRowHash=unknown, inventoryCount={inventoryCount}, scannedRows={scannedRows}, timeoutMs={NativeEdgeClickTimeoutMilliseconds}");
+            $"visibleTopLogicalRow={visibleTopLogicalRow}, maxVisibleTop={maxVisibleTop}, targetVisualRow=4, targetColumn=1, targetPoint={targetPoint}, targetRarity={rarity}, stableFrames=0, movementDistance=0, beforeListHash={beforeListHash}, afterListHash=pending, previousRowHash=unknown, currentRowHash=unknown, inventoryCount={inventoryCount}, scannedRows={scannedRows}, timeoutMs={settle.TimeoutMilliseconds}, movingTimeoutMs={NativeEdgeClickSettleTracker.MovingTimeoutMilliseconds}");
         window.LeftClickCurrent();
 
-        while (watch.ElapsedMilliseconds < NativeEdgeClickTimeoutMilliseconds)
+        while (settle.CanObserve(watch.Elapsed.TotalMilliseconds))
         {
             token.ThrowIfCancellationRequested();
             await Task.Delay(pollMilliseconds, token);
-            samples++;
+            if (!settle.CanObserve(watch.Elapsed.TotalMilliseconds)) break;
             var currentRows = CaptureRowSignatures(window, rowSignatureRects);
+            token.ThrowIfCancellationRequested();
             var currentMovementDistance = AverageSignatureDistance(
                 beforeRows,
                 currentRows,
                 [(0, 0), (1, 1), (2, 2)]);
-            movementDistance = Math.Max(movementDistance, currentMovementDistance);
             var frameDistance = AverageSignatureDistance(
                 previousRows,
                 currentRows,
                 [(0, 0), (1, 1), (2, 2)]);
             previousRows = currentRows;
-            sawMovement |= currentMovementDistance > ListMovementTolerance;
-            stableFrames = frameDistance <= ListStableTolerance
-                ? stableFrames + 1
-                : 0;
-            var mayDecideNoMove = watch.ElapsedMilliseconds >= NativeEdgeClickNoMoveDecisionMilliseconds;
-            if (stableFrames >= NativeEdgeClickStableFrames && (sawMovement || mayDecideNoMove))
+            var settled = settle.Observe(currentMovementDistance, frameDistance, watch.Elapsed.TotalMilliseconds);
+            if (!extended && settle.SawMovement
+                && watch.ElapsedMilliseconds >= NativeEdgeClickSettleTracker.InitialTimeoutMilliseconds)
+            {
+                extended = true;
+                scanLog.WriteEvent("EDGE_CLICK_SETTLE_EXTENDED",
+                    $"visibleTopLogicalRow={visibleTopLogicalRow}, elapsedMs={watch.Elapsed.TotalMilliseconds:F1}, movementDistance={settle.MovementDistance}, stableFrames={settle.StableFrames}, timeoutMs={settle.TimeoutMilliseconds}, reason=continue_original_click_observation");
+            }
+            if (settled)
             {
                 watch.Stop();
                 var result = new NativeEdgeClickSettleResult(
                     true,
-                    sawMovement,
-                    movementDistance,
-                    stableFrames,
-                    samples,
+                    settle.SawMovement,
+                    settle.MovementDistance,
+                    settle.StableFrames,
+                    settle.Samples,
                     watch.Elapsed.TotalMilliseconds,
-                    sawMovement ? "native_edge_click_changed_assume_one" : "native_edge_click_stable_unchanged",
+                    settle.SawMovement ? "native_edge_click_changed_assume_one" : "native_edge_click_stable_unchanged",
                     targetPoint,
                     beforeListHash,
-                    FormatNativeEdgeListHash(currentRows));
+                    FormatNativeEdgeListHash(currentRows),
+                    settle.TimeoutMilliseconds);
                 scanLog.WriteEvent(
                     "EDGE_CLICK_SETTLED",
                     $"visibleTopLogicalRow={visibleTopLogicalRow}, targetPoint={targetPoint}, settled=True, changed={result.Changed}, movementDistance={result.MovementDistance}, frameDistance={frameDistance}, stableFrames={result.StableFrames}, samples={result.Samples}, elapsedMs={result.ElapsedMilliseconds:F1}, beforeListHash={result.BeforeListHash}, afterListHash={result.AfterListHash}, previousRowHash=unknown, currentRowHash=unknown, inventoryCount={inventoryCount}, scannedRows={scannedRows}, reason={result.Reason}");
@@ -260,15 +262,16 @@ public sealed partial class ScanController
         watch.Stop();
         return new NativeEdgeClickSettleResult(
             false,
-            sawMovement,
-            movementDistance,
-            stableFrames,
-            samples,
+            settle.SawMovement,
+            settle.MovementDistance,
+            settle.StableFrames,
+            settle.Samples,
             watch.Elapsed.TotalMilliseconds,
             "native_edge_click_settle_timeout",
             targetPoint,
             beforeListHash,
-            FormatNativeEdgeListHash(previousRows));
+            FormatNativeEdgeListHash(previousRows),
+            settle.TimeoutMilliseconds);
     }
 
     private static string FormatNativeEdgeListHash(IEnumerable<RowVisualSignature> signatures) =>

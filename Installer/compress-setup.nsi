@@ -11,10 +11,10 @@ RequestExecutionLevel user
 SilentInstall silent
 CRCCheck force
 ManifestDPIAware true
-VIProductVersion "1.0.4.0"
+VIProductVersion "1.0.5.0"
 VIAddVersionKey "ProductName" "Soda Terminal 扫描助手"
 VIAddVersionKey "FileDescription" "扫描助手安装程序"
-VIAddVersionKey "FileVersion" "1.0.4"
+VIAddVersionKey "FileVersion" "1.0.5"
 VIAddVersionKey "LegalCopyright" "Soda Terminal contributors; NSIS contributors"
 !include "FileFunc.nsh"
 Section
@@ -40,7 +40,7 @@ Section
   ; Keep the two .NET bundles close enough for the 128 MB solid dictionary.
   File /oname=Soda-Scanner-Uninstall.exe "${STUB_EXE}"
   IfErrors extract_failed
-  File /oname=soda-scanner-runtime-18-rc8-4-win-x64.zip "${RUNTIME_ARCHIVE}"
+  File /oname=soda-scanner-runtime-18-rc8-5-win-x64.zip "${RUNTIME_ARCHIVE}"
   IfErrors extract_failed
   FileOpen $1 "$PLUGINSDIR\payload\ready.tmp" w
   IfErrors extract_failed

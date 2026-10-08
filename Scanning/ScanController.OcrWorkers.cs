@@ -92,7 +92,8 @@ public sealed partial class ScanController
                 Path.GetFullPath(options.PpOcrV6WorkerPath),
                 Path.GetFullPath(options.PpOcrV6ModelPath),
                 Path.GetFullPath(options.PpOcrV6ConfigPath),
-                Path.Combine(outputDirectory, ".ppocrv6", instanceName), cancellationToken);
+                Path.Combine(outputDirectory, ".ppocrv6", instanceName), cancellationToken, intraOpThreads,
+                allowSpinning: false, cacheCapacity: 2048);
         }
 
         // Explicit oracle-only mode. There is deliberately no automatic fallback from v6.
@@ -132,6 +133,9 @@ public sealed partial class ScanController
     {
         using var recognizer = CreateOcrRecognizer(options, outputDir, $"worker-{workerId}", ocrIntraOpThreads, token);
         var cleaner = new DriveDiscCleaner(_wikiData);
+        var productionRois = options.OcrEngine == OcrEngine.PpOcrV6
+            ? PpOcrV6DetailGeometry.LoadProductionRois()
+            : null;
         scanLog.Write($"OCR worker {workerId} started. IntraOpThreads={ocrIntraOpThreads}.");
         while (TryTakeBatch(queue, options.OcrBatchSize, out var batch))
         {
@@ -166,7 +170,7 @@ public sealed partial class ScanController
                 var roisByCapture = batch
                     .Select((capture, index) => (IReadOnlyList<CvRect>)(
                         options.OcrEngine == OcrEngine.PpOcrV6
-                            ? PpOcrV6DetailGeometry.LoadProductionRois()
+                            ? productionRois!
                             : assistPlans?[index]?.PpOcrRois ?? capture.Rois))
                     .ToArray();
                 var evidenceByCapture = options.OcrEngine == OcrEngine.PpOcrV6
@@ -235,7 +239,7 @@ public sealed partial class ScanController
                                 using var normalized = VisualProbeEvaluator.NormalizeLuminance(capture.Image);
                                 var retry = TryCleanPpOcrV6NormalizedRetry(
                                     ocr,
-                                    () => ((PpOcrV6ProcessRecognizer)recognizer).Recognize(normalized, PpOcrV6DetailGeometry.LoadProductionRois()),
+                                    () => ((PpOcrV6ProcessRecognizer)recognizer).Recognize(normalized, productionRois!),
                                     cleaner,
                                     capture.Index,
                                     capture.Rarity);

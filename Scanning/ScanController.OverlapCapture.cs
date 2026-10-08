@@ -270,7 +270,7 @@ public sealed partial class ScanController
                 if (edgeDecision == NativeEdgeClickDecision.Stop)
                 {
                     scanLog.WriteEvent("EDGE_CLICK_STOP", $"iteration={iteration}, visibleTopLogicalRow={visibleTopLogicalRow}, targetPoint={edgeClick.TargetPoint}, movementDistance={edgeClick.MovementDistance}, stableFrames={edgeClick.StableFrames}, samples={edgeClick.Samples}, elapsedMs={edgeClick.ElapsedMilliseconds:F1}, beforeListHash={edgeClick.BeforeListHash}, afterListHash={edgeClick.AfterListHash}, previousRowHash={lastNativeMiddleRowHash ?? "unknown"}, currentRowHash=unknown, inventoryCount={inventoryCount}, scannedRows={scannedLogicalRows.Count}/{totalRows}, reason={edgeClick.Reason}");
-                    throw NavigationFailure($"底行点击后列表未在 {NativeEdgeClickTimeoutMilliseconds}ms 内稳定：{edgeClick.Reason}。");
+                    throw NavigationFailure($"底行点击后列表未在 {edgeClick.TimeoutMilliseconds}ms 内稳定：{edgeClick.Reason}。");
                 }
 
                 if (string.IsNullOrWhiteSpace(lastNativeMiddleRowHash))
