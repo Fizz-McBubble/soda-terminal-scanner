@@ -18,7 +18,7 @@ public class InstallerForm : Form
     private Label _titleLabel = null!;
     private Label _subtitleLabel = null!;
     private Label _statusLabel = null!;
-    private ProgressBar _progressBar = null!;
+    private SodaProgressBar _progressBar = null!;
     private Button _actionButton = null!;
     private Button _uninstallButton = null!;
     private Button _cancelButton = null!;
@@ -61,123 +61,194 @@ public class InstallerForm : Form
         });
     }
 
+    private readonly Color _purple = Color.FromArgb(107, 89, 148);
+    private LinkLabel _detailsButton = null!;
+    private TextBox _detailsLabel = null!;
+    private string _details = "";
+
     private void InitializeComponent()
     {
-        Text = "安装扫描助手";
-        ClientSize = new Size(500, 320);
+        SuspendLayout();
+        Text = "Soda Terminal · 扫描助手";
+        ClientSize = new Size(520, 284);
+
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        BackColor = Color.FromArgb(248, 249, 250);
-        Font = new Font("Microsoft YaHei UI", 9.5f, FontStyle.Regular, GraphicsUnit.Point);
+        BackColor = Color.White;
+        Font = new Font("Microsoft YaHei UI", 9f, FontStyle.Regular, GraphicsUnit.Point);
+        Padding = new Padding(32);
 
-        _cardPanel = new Panel
-        {
-            Location = new Point(24, 20),
-            Size = new Size(452, 220),
-            BackColor = Color.White,
-            BorderStyle = BorderStyle.FixedSingle
-        };
+        _cardPanel = new Panel { Location = new Point(32, 24), Size = new Size(456, 180), BackColor = Color.White };
         Controls.Add(_cardPanel);
-
-        _titleLabel = new Label
+        var brandName = Assembly.GetExecutingAssembly().GetManifestResourceNames().FirstOrDefault(n => n.EndsWith("soda-brand-icon.png", StringComparison.Ordinal));
+        using var brandStream = brandName == null ? null : Assembly.GetExecutingAssembly().GetManifestResourceStream(brandName);
+        if (brandStream != null)
         {
-            Location = new Point(20, 18),
-            Size = new Size(410, 28),
-            Font = new Font("Microsoft YaHei UI", 12f, FontStyle.Bold, GraphicsUnit.Point),
-            ForeColor = Color.FromArgb(33, 37, 41),
-            Text = "Soda Terminal 扫描助手"
-        };
-        _cardPanel.Controls.Add(_titleLabel);
+            var image = new Bitmap(brandStream);
+            _cardPanel.Controls.Add(new PictureBox { Location = new Point(0, 0), Size = new Size(44, 44),
+                SizeMode = PictureBoxSizeMode.Zoom, Image = image, AccessibleName = "Soda Terminal" });
+            using var iconBitmap = new Bitmap(image, new Size(32, 32));
+            var handle = iconBitmap.GetHicon();
+            try { Icon = (Icon)Icon.FromHandle(handle).Clone(); }
+            finally { DestroyIcon(handle); }
+        }
+        _titleLabel = new Label { Location = new Point(58, 0), Size = new Size(398, 30),
+            Font = new Font("Microsoft YaHei UI", 17f, FontStyle.Bold), ForeColor = Color.FromArgb(34, 30, 43), Text = "扫描助手" };
+        _subtitleLabel = new Label { Location = new Point(59, 32), Size = new Size(395, 22),
+            ForeColor = Color.FromArgb(108, 101, 120), Text = "Soda Terminal  /  Windows" };
+        _statusLabel = new Label { Location = new Point(0, 82), Size = new Size(454, 36),
+            Font = new Font("Microsoft YaHei UI", 10.5f), ForeColor = Color.FromArgb(55, 48, 67),
+            Text = "安装后，返回网页连接即可扫描。", AccessibleRole = AccessibleRole.StaticText };
+        _progressBar = new SodaProgressBar { Location = new Point(0, 130), Size = new Size(456, 6),
+            Minimum = 0, Maximum = 100, Visible = false, AccessibleName = "安装进度" };
+        _detailsButton = new LinkLabel { Location = new Point(0, 146), Size = new Size(100, 24), Text = "安装详情",
+            LinkColor = Color.FromArgb(108, 101, 120), ActiveLinkColor = _purple, VisitedLinkColor = _purple,
+            LinkBehavior = LinkBehavior.HoverUnderline, TabIndex = 3, AccessibleName = "显示安装详情" };
+        _detailsLabel = new TextBox { Location = new Point(0, 176), Size = new Size(456, 60),
+            ForeColor = Color.FromArgb(108, 101, 120), BackColor = Color.White, BorderStyle = BorderStyle.None,
+            Visible = false, ReadOnly = true, Multiline = true, ScrollBars = ScrollBars.Vertical,
+            AccessibleName = "安装详情", TabIndex = 4 };
+        _details = "扫描组件将安装到当前用户目录。无需管理员权限。";
+        _detailsButton.LinkClicked += (_, _) => ToggleDetails();
+        _cardPanel.Controls.AddRange([_titleLabel, _subtitleLabel, _statusLabel, _progressBar, _detailsButton, _detailsLabel]);
 
-        _subtitleLabel = new Label
-        {
-            Location = new Point(22, 50),
-            Size = new Size(410, 20),
-            ForeColor = Color.FromArgb(108, 117, 125),
-            Text = "Windows 版《绝区零》驱动盘扫描"
-        };
-        _cardPanel.Controls.Add(_subtitleLabel);
-
-        _statusLabel = new Label
-        {
-            Location = new Point(22, 90),
-            Size = new Size(410, 50),
-            ForeColor = Color.FromArgb(73, 80, 87),
-            Text = "安装后即可在网页连接使用。"
-        };
-        _cardPanel.Controls.Add(_statusLabel);
-
-        _progressBar = new ProgressBar
-        {
-            Location = new Point(22, 160),
-            Size = new Size(408, 18),
-            Visible = false,
-            Minimum = 0,
-            Maximum = 100
-        };
-        _cardPanel.Controls.Add(_progressBar);
-
-        _actionButton = new Button
-        {
-            Location = new Point(356, 260),
-            Size = new Size(120, 36),
-            BackColor = Color.FromArgb(107, 89, 148),
-            ForeColor = Color.White,
-            FlatStyle = FlatStyle.Flat,
-            Font = new Font("Microsoft YaHei UI", 9.5f, FontStyle.Bold, GraphicsUnit.Point),
-            Text = "开始安装",
-            Cursor = Cursors.Hand
-        };
-        _actionButton.FlatAppearance.BorderSize = 0;
+        _actionButton = MakeButton("开始安装", true);
+        _actionButton.TabIndex = 0;
         _actionButton.Click += OnActionClick;
-        Controls.Add(_actionButton);
-
-        _uninstallButton = new Button
-        {
-            Location = new Point(226, 260),
-            Size = new Size(120, 36),
-            BackColor = Color.FromArgb(220, 53, 69),
-            ForeColor = Color.White,
-            FlatStyle = FlatStyle.Flat,
-            Text = "卸载",
-            Visible = false,
-            Cursor = Cursors.Hand
-        };
-        _uninstallButton.FlatAppearance.BorderSize = 0;
+        _uninstallButton = MakeButton("卸载", false);
+        _uninstallButton.TabIndex = 2;
+        _uninstallButton.Visible = false;
         _uninstallButton.Click += OnUninstallClick;
-        Controls.Add(_uninstallButton);
+        _cancelButton = MakeButton("关闭", false);
+        _cancelButton.TabIndex = 1;
+        _cancelButton.Click += (_, _) => Close();
+        Controls.AddRange([_actionButton, _uninstallButton, _cancelButton]);
+        AcceptButton = _actionButton;
+        CancelButton = _cancelButton;
+        AutoScaleDimensions = new SizeF(96, 96);
+        AutoScaleMode = AutoScaleMode.Dpi;
+        ResumeLayout(false);
+        PerformLayout();
+        LayoutFooter();
+        Shown += (_, _) => LayoutFooter();
+        DpiChanged += (_, _) => BeginInvoke(LayoutFooter);
+    }
 
-        _cancelButton = new Button
+    // The panel width reflects both normal WinForms DPI scaling and isolated
+    // render scaling; dynamic dimensions must follow that same physical scale.
+    private int Unit(int logical) => (int)Math.Round(logical * _cardPanel.Width / 456f);
+
+    private void UpdateDetails(string text)
+    {
+        _details = text;
+        _detailsLabel.Text = text;
+    }
+
+    internal void ToggleDetails()
+    {
+        _detailsLabel.Visible = !_detailsLabel.Visible;
+        _detailsLabel.Text = _details;
+        _detailsButton.Text = _detailsLabel.Visible ? "收起详情" : "安装详情";
+        _cardPanel.Height = Unit(_detailsLabel.Visible ? 244 : 180);
+        ClientSize = new Size(ClientSize.Width, Unit(_detailsLabel.Visible ? 348 : 284));
+        LayoutFooter();
+    }
+
+    private Button MakeButton(string text, bool primary)
+    {
+        var button = new Button { Size = new Size(primary ? 124 : 84, 36), Text = text,
+            BackColor = primary ? _purple : Color.White, ForeColor = primary ? Color.White : Color.FromArgb(108, 101, 120),
+            FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, UseVisualStyleBackColor = false };
+        button.FlatAppearance.BorderSize = primary ? 0 : 1;
+        button.FlatAppearance.BorderColor = primary ? _purple : Color.FromArgb(236, 233, 242);
+        button.FlatAppearance.MouseOverBackColor = primary ? Color.FromArgb(91, 73, 132) : Color.FromArgb(248, 246, 252);
+        return button;
+    }
+
+    private void LayoutFooter()
+    {
+        _actionButton.Location = new Point(ClientSize.Width - Unit(32) - _actionButton.Width, ClientSize.Height - Unit(58));
+        _cancelButton.Location = new Point(Unit(32), ClientSize.Height - Unit(58));
+        _uninstallButton.Location = new Point(Unit(126), ClientSize.Height - Unit(58));
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool DestroyIcon(IntPtr handle);
+
+    private sealed class SodaProgressBar : ProgressBar
+    {
+        private readonly System.Windows.Forms.Timer _animation = new() { Interval = 40 };
+        private int _offset;
+        private bool _indeterminate;
+        public bool Indeterminate
         {
-            Location = new Point(24, 260),
-            Size = new Size(90, 36),
-            BackColor = Color.FromArgb(233, 236, 239),
-            ForeColor = Color.FromArgb(33, 37, 41),
-            FlatStyle = FlatStyle.Flat,
-            Text = "取消",
-            Cursor = Cursors.Hand
-        };
-        _cancelButton.FlatAppearance.BorderSize = 0;
-        _cancelButton.Click += (s, e) => Close();
-        Controls.Add(_cancelButton);
+            get => _indeterminate;
+            set { _indeterminate = value; _animation.Enabled = value; Invalidate(); }
+        }
+        public SodaProgressBar()
+        {
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            _animation.Tick += (_, _) => { _offset = (_offset + 7) % Math.Max(1, Width + Width / 3); Invalidate(); };
+        }
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.Clear(Color.FromArgb(239, 235, 247));
+            using var fill = new SolidBrush(Color.FromArgb(107, 89, 148));
+            if (_indeterminate) e.Graphics.FillRectangle(fill, _offset - Width / 3, 0, Width / 3, Height);
+            else e.Graphics.FillRectangle(fill, 0, 0, Width * Value / Math.Max(1, Maximum), Height);
+        }
+        protected override void Dispose(bool disposing) { if (disposing) _animation.Dispose(); base.Dispose(disposing); }
+        protected override void WndProc(ref Message m) { base.WndProc(ref m); if (m.Msg == 0x402) Invalidate(); }
+    }
+
+    internal void ApplyRenderFixture(string state)
+    {
+        if (!_testMode || _autoInstallEnabled) throw new InvalidOperationException("test_preview_required");
+        switch (state)
+        {
+            case "initial": break;
+            case "preparing":
+                _statusLabel.Text = "正在准备组件…"; _actionButton.Text = "安装中"; _actionButton.Enabled = false;
+                _progressBar.Indeterminate = true;
+                _actionButton.Visible = false;
+                _cancelButton.Visible = false; _uninstallButton.Visible = false;
+                _progressBar.Visible = true; _progressBar.Value = 5; break;
+            case "progress":
+                _statusLabel.Text = "正在安装扫描组件…"; _actionButton.Text = "安装中"; _actionButton.Enabled = false;
+                _actionButton.Visible = false;
+                _cancelButton.Visible = false; _uninstallButton.Visible = false;
+                _progressBar.Visible = true; _progressBar.Value = 47; break;
+            case "completion":
+                _statusLabel.Text = "安装完成，请返回网页连接助手。"; _actionButton.Text = "完成";
+                _cancelButton.Visible = false; _uninstallButton.Visible = false; _progressBar.Visible = true; _progressBar.Value = 100; break;
+            case "error":
+                _statusLabel.Text = "安装未完成，请关闭扫描助手后重试。"; _actionButton.Text = "重试";
+            _cancelButton.Visible = true;
+                UpdateDetails("本图为错误状态渲染测试，不代表真实安装失败。"); break;
+            case "repair":
+                _statusLabel.Text = "已检测到扫描助手，可以修复安装。"; _actionButton.Text = "修复安装"; _uninstallButton.Visible = true; break;
+            default: throw new InvalidOperationException("test_preview_state_invalid");
+        }
     }
 
     private void CheckInitialState()
     {
         if (HasInstallationTraces())
         {
-            _statusLabel.Text = "检测到已有安装或残留组件。可修复安装或卸载。";
+            _statusLabel.Text = "已检测到扫描助手，可以修复安装。";
             _actionButton.Text = "修复安装";
             _actionButton.Enabled = true;
+            _actionButton.Visible = true;
             _uninstallButton.Visible = true;
         }
         else if (_autoInstallEnabled)
         {
-            _statusLabel.Text = "正在准备首次安装，完成后将自动启动扫描助手。";
+            _statusLabel.Text = "正在准备组件…";
             _actionButton.Text = "正在准备";
             _actionButton.Enabled = false;
+            _actionButton.Visible = false;
         }
     }
 
@@ -200,12 +271,16 @@ public class InstallerForm : Form
     {
         if (_busy || _completed) return;
         _actionButton.Enabled = false;
+        _actionButton.Visible = false;
         _busy = true;
         _uninstallButton.Enabled = false;
         _cancelButton.Enabled = false;
-        _cancelButton.Text = "安装中";
+        _cancelButton.Visible = false;
+        _actionButton.Text = "安装中";
         _progressBar.Visible = true;
         _progressBar.Value = 0;
+        _statusLabel.Text = "正在准备组件…";
+        _progressBar.Indeterminate = true;
 
         try
         {
@@ -215,32 +290,19 @@ public class InstallerForm : Form
                 {
                     if (!_busy) return;
                     _statusLabel.Text = msg;
+                    _progressBar.Indeterminate = false;
                     _progressBar.Value = Math.Clamp(percent, 0, 100);
+                    _progressBar.Invalidate();
                 });
             };
             var result = _testInstall != null ? await _testInstall(progress) : await Task.Run(() =>
             {
+                if (_overrideArchive == null) PayloadFiles.WaitUntilReady();
                 return InstallEngine.ExecuteInstall(
                     _installRoot,
                     _publicOrigin,
-                    offlineArchiveStreamProvider: () =>
-                    {
-                        if (!string.IsNullOrEmpty(_overrideArchive) && File.Exists(_overrideArchive))
-                        {
-                            return File.OpenRead(_overrideArchive);
-                        }
-                        var asm = Assembly.GetExecutingAssembly();
-                        var resourceName = asm.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith(ScannerConstants.LockedAssetName, StringComparison.OrdinalIgnoreCase));
-                        if (resourceName == null) throw new InvalidOperationException("Embedded locked asset not found in setup executable.");
-                        return asm.GetManifestResourceStream(resourceName) ?? throw new InvalidOperationException("Failed to open embedded asset stream.");
-                    },
-                    uninstallStubStreamProvider: () =>
-                    {
-                        var asm = Assembly.GetExecutingAssembly();
-                        var resourceName = asm.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith("Soda-Scanner-Uninstall.exe", StringComparison.OrdinalIgnoreCase));
-                        if (resourceName == null) throw new InvalidOperationException("Embedded uninstall stub not found in setup executable.");
-                        return asm.GetManifestResourceStream(resourceName) ?? throw new InvalidOperationException("Failed to open embedded uninstall stub stream.");
-                    },
+                    offlineArchiveStreamProvider: () => SetupResources.OpenArchive(_overrideArchive),
+                    uninstallStubStreamProvider: SetupResources.OpenUninstaller,
                     testMode: _testMode,
                     noLaunch: _noLaunch,
                     progressCallback: progress,
@@ -249,11 +311,15 @@ public class InstallerForm : Form
             });
 
             _statusLabel.Text = result.Message;
+            UpdateDetails("扫描助手已安装。返回 Soda Terminal 网页连接即可使用。");
             _busy = false;
+            _progressBar.Indeterminate = false;
             _completed = true;
             _progressBar.Value = 100;
             _actionButton.Text = "完成";
-            _actionButton.BackColor = Color.FromArgb(25, 135, 84);
+            _actionButton.Visible = true;
+            _cancelButton.Visible = false;
+            _uninstallButton.Visible = false;
             _actionButton.Enabled = true;
             _cancelButton.Text = "关闭";
             _cancelButton.Enabled = true;
@@ -261,9 +327,18 @@ public class InstallerForm : Form
         catch (Exception ex)
         {
             _busy = false;
-            _statusLabel.Text = ex.Message.Contains("asset") ? "安装包不完整，请重新下载。" : "安装未完成，请关闭扫描助手后重试。";
+            _progressBar.Indeterminate = false;
+            UpdateDetails(ex.Message);
+            _statusLabel.Text = ex.Message.StartsWith("setup_asset_parent", StringComparison.Ordinal) ||
+                ex.Message.StartsWith("setup_asset_apphost", StringComparison.Ordinal) ||
+                ex.Message is "setup_asset_prepare_timeout" or "setup_asset_extract_failed"
+                ? "安装准备中断，请重新打开安装包。"
+                : ex.Message.Contains("asset") || ex.Message.Contains("uninstaller_identity")
+                    ? "安装包不完整，请重新下载。" : "安装未完成，请关闭扫描助手后重试。";
             _progressBar.Visible = false;
             _actionButton.Text = "重试";
+            _actionButton.Visible = true;
+            _cancelButton.Visible = true;
             _actionButton.Enabled = true;
             _cancelButton.Enabled = true;
             _cancelButton.Text = "关闭";
@@ -288,6 +363,9 @@ public class InstallerForm : Form
         _actionButton.Enabled = false;
         _uninstallButton.Enabled = false;
         _cancelButton.Enabled = false;
+        _actionButton.Visible = false;
+        _uninstallButton.Visible = false;
+        _cancelButton.Visible = false;
         _cancelButton.Text = "卸载中";
         _progressBar.Visible = true;
         _progressBar.Value = 50;
@@ -303,21 +381,29 @@ public class InstallerForm : Form
             });
 
             _statusLabel.Text = result.Message;
+            UpdateDetails("卸载完成。扫描结果和个人文件已保留。");
             _busy = false;
             _progressBar.Value = 100;
-            _actionButton.Visible = false;
+            _completed = true;
+            _actionButton.Visible = true;
+            _actionButton.Enabled = true;
+            _actionButton.Text = "完成";
             _uninstallButton.Visible = false;
             _cancelButton.Enabled = true;
             _cancelButton.Text = "关闭";
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             _busy = false;
+            UpdateDetails(ex.Message);
             _statusLabel.Text = "卸载未完成，请关闭扫描助手后重试。";
             _progressBar.Visible = false;
             _actionButton.Enabled = true;
+            _actionButton.Visible = true;
             _uninstallButton.Enabled = true;
+            _uninstallButton.Visible = true;
             _cancelButton.Enabled = true;
+            _cancelButton.Visible = true;
             _cancelButton.Text = "关闭";
         }
     }

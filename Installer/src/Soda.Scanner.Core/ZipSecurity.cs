@@ -4,7 +4,7 @@ namespace Soda.Scanner.Core;
 
 public static class ZipSecurity
 {
-    public static void ExtractSafe(string zipFilePath, string destinationDirectory, Action<int, int>? progressCallback = null)
+    public static void ExtractSafe(string zipFilePath, string destinationDirectory, Action<long, long>? progressCallback = null)
     {
         var destFullPath = Path.GetFullPath(destinationDirectory);
         if (!destFullPath.EndsWith(Path.DirectorySeparatorChar))
@@ -15,8 +15,8 @@ public static class ZipSecurity
         Directory.CreateDirectory(destFullPath);
 
         using var archive = ZipFile.OpenRead(zipFilePath);
-        var totalEntries = archive.Entries.Count;
-        var processed = 0;
+        var totalBytes = Math.Max(1, archive.Entries.Sum(entry => entry.Length));
+        long processed = 0;
 
         foreach (var entry in archive.Entries)
         {
@@ -44,8 +44,8 @@ public static class ZipSecurity
                 entry.ExtractToFile(destinationPath, overwrite: true);
             }
 
-            processed++;
-            progressCallback?.Invoke(processed, totalEntries);
+            processed += entry.Length;
+            progressCallback?.Invoke(processed, totalBytes);
         }
     }
 }

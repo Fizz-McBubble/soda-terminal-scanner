@@ -20,6 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources\**\*" />
+    <EmbeddedResource Include="Resources\soda-brand-icon.png" />
+    <EmbeddedResource Include="$(InstallerArtifactsRoot)setup-payload.json" Link="setup-payload.json" />
   </ItemGroup>
 </Project>

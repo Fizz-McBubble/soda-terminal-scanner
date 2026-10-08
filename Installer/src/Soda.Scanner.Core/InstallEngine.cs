@@ -49,7 +49,8 @@ public static class InstallEngine
                 Sha256Util.ComputeFileSha256(archive) != ScannerConstants.LockedAssetSha256)
                 throw new InvalidOperationException("runtime_asset_identity_mismatch");
             var stagedRuntime = FileSystemSafety.SafePath(work, "runtime");
-            ZipSecurity.ExtractSafe(archive, stagedRuntime, (done, total) => progressCallback?.Invoke("正在安装…", 10 + done * 55 / total));
+            ZipSecurity.ExtractSafe(archive, stagedRuntime, (done, total) => progressCallback?.Invoke("正在展开扫描组件…", 10 + (int)(done * 50 / total)));
+            progressCallback?.Invoke("正在校验扫描组件…", 62);
             RuntimeCatalog.StageSupplement(work, stagedRuntime);
             RuntimeCatalog.Verify(stagedRuntime);
             if (!testMode) ProbeRuntime(stagedRuntime);
@@ -62,8 +63,14 @@ public static class InstallEngine
             ProcessHelper.TerminateManagedComponents(root, testMode);
             var repeated = oldActive?.Version == ScannerConstants.LockedRuntimeVersion;
             // Replace only known program files; leave every extra installed file alone.
+            var totalBytes = Math.Max(1, RuntimeCatalog.Files.Sum(entry => entry.Size));
+            long installedBytes = 0;
             foreach (var entry in RuntimeCatalog.Files)
+            {
                 transaction.Copy(FileSystemSafety.SafePath(stagedRuntime, entry.Path), FileSystemSafety.SafePath(versionRoot, entry.Path), preserveReplaced: true);
+                installedBytes += entry.Size;
+                progressCallback?.Invoke("正在安装扫描组件…", 68 + (int)(installedBytes * 18 / totalBytes));
+            }
             foreach (var entry in RuntimeCatalog.Files.Where(entry => entry.Path.StartsWith("helper\\", StringComparison.Ordinal)))
                 transaction.Copy(FileSystemSafety.SafePath(stagedRuntime, entry.Path), FileSystemSafety.SafePath(root, entry.Path), preserveReplaced: true);
             transaction.Copy(stub, FileSystemSafety.SafePath(root, ScannerConstants.UninstallExecutableName), preserveReplaced: true);
@@ -96,7 +103,7 @@ public static class InstallEngine
             return new InstallResult
             {
                 Success = true, RepeatedInstall = repeated, Started = started, InstallRoot = root,
-                Message = started ? "安装完成，可返回网页开始扫描。" : "安装完成，可在网页连接扫描助手。"
+                Message = "安装完成，请返回网页连接助手。"
             };
         }
         catch

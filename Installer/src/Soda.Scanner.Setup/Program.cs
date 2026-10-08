@@ -19,6 +19,9 @@ static class Program
         string publicOrigin = ScannerConstants.DefaultPublicOrigin;
         string? overrideArchive = null;
         string? renderPreview = null;
+        string previewState = "initial";
+        float? previewScale = null;
+        bool previewDetails = false;
         string faultInjection = "none";
 
         for (int i = 0; i < args.Length; i++)
@@ -43,6 +46,9 @@ static class Program
             }
             else if (arg == "--fault-injection" && i + 1 < args.Length) faultInjection = args[++i];
             else if (arg == "--render-preview" && i + 1 < args.Length) renderPreview = args[++i];
+            else if (arg == "--preview-state" && i + 1 < args.Length) previewState = args[++i];
+            else if (arg == "--preview-scale" && i + 1 < args.Length) previewScale = float.Parse(args[++i], System.Globalization.CultureInfo.InvariantCulture);
+            else if (arg == "--preview-details") previewDetails = true;
         }
 
         if (string.IsNullOrWhiteSpace(installRoot))
@@ -65,7 +71,15 @@ static class Program
                 preview.StartPosition = FormStartPosition.Manual;
                 preview.Location = new System.Drawing.Point(-32000, -32000);
                 preview.Opacity = 0;
+                preview.ApplyRenderFixture(previewState);
                 preview.Show();
+                if (previewScale.HasValue)
+                {
+                    if (previewScale is not (1f or 1.25f or 1.5f or 2f)) throw new InvalidOperationException("test_preview_scale_invalid");
+                    var ratio = previewScale.Value / (preview.DeviceDpi / 96f);
+                    preview.Scale(new System.Drawing.SizeF(ratio, ratio));
+                }
+                if (previewDetails) preview.ToggleDetails();
                 preview.Update();
                 using var bitmap = new System.Drawing.Bitmap(preview.Width, preview.Height);
                 preview.DrawToBitmap(bitmap, new System.Drawing.Rectangle(System.Drawing.Point.Empty, preview.Size));
@@ -92,10 +106,7 @@ static class Program
                 }
                 else
                 {
-                    var asm = Assembly.GetExecutingAssembly();
-                    var resName = asm.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith(ScannerConstants.LockedAssetName, StringComparison.OrdinalIgnoreCase));
-                    if (resName == null) throw new InvalidOperationException("Embedded locked asset not found.");
-                    stream = asm.GetManifestResourceStream(resName) ?? throw new InvalidOperationException("Failed to open embedded stream.");
+                    stream = SetupResources.OpenArchive();
                 }
 
                 using (stream)
@@ -145,24 +156,8 @@ static class Program
                     var res = InstallEngine.ExecuteInstall(
                         installRoot,
                         publicOrigin,
-                        offlineArchiveStreamProvider: () =>
-                        {
-                            if (!string.IsNullOrEmpty(overrideArchive) && File.Exists(overrideArchive))
-                            {
-                                return File.OpenRead(overrideArchive);
-                            }
-                            var asm = Assembly.GetExecutingAssembly();
-                            var resourceName = asm.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith(ScannerConstants.LockedAssetName, StringComparison.OrdinalIgnoreCase));
-                            if (resourceName == null) throw new InvalidOperationException("Embedded locked asset not found in setup executable.");
-                            return asm.GetManifestResourceStream(resourceName) ?? throw new InvalidOperationException("Failed to open embedded asset stream.");
-                        },
-                        uninstallStubStreamProvider: () =>
-                        {
-                            var asm = Assembly.GetExecutingAssembly();
-                            var resourceName = asm.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith("Soda-Scanner-Uninstall.exe", StringComparison.OrdinalIgnoreCase));
-                            if (resourceName == null) throw new InvalidOperationException("Embedded uninstall stub not found in setup executable.");
-                            return asm.GetManifestResourceStream(resourceName) ?? throw new InvalidOperationException("Failed to open embedded uninstall stub stream.");
-                        },
+                        offlineArchiveStreamProvider: () => SetupResources.OpenArchive(overrideArchive),
+                        uninstallStubStreamProvider: SetupResources.OpenUninstaller,
                         testMode: testMode,
                         noLaunch: noLaunch,
                         progressCallback: (msg, percent) =>

@@ -30,14 +30,17 @@ $setupOutput = Join-Path $OutputRoot 'setup'
 if ($LASTEXITCODE -ne 0) { throw 'Uninstaller publish failed.' }
 $resources = Join-Path $source 'src/Soda.Scanner.Setup/Resources'
 [IO.Directory]::CreateDirectory($resources) | Out-Null
-Copy-Item -LiteralPath $RuntimeArchive -Destination (Join-Path $resources 'soda-scanner-runtime-18-rc8-4-win-x64.zip') -Force
-Copy-Item -LiteralPath (Join-Path $stubOutput 'Soda.Scanner.UninstallStub.exe') -Destination (Join-Path $resources 'Soda-Scanner-Uninstall.exe') -Force
+# NSIS stores payload files after the UI in its solid stream. They are not managed
+# resources, so opening the first window does not expand them.
+$stubPath = Join-Path $stubOutput 'Soda.Scanner.UninstallStub.exe'
+$stubMetadata = [ordered]@{ size=(Get-Item -LiteralPath $stubPath).Length; sha256=(Get-FileHash -LiteralPath $stubPath -Algorithm SHA256).Hash.ToLowerInvariant() } | ConvertTo-Json
+[IO.File]::WriteAllText((Join-Path $artifacts 'setup-payload.json'), $stubMetadata, [Text.UTF8Encoding]::new($false))
 & $dotnet publish (Join-Path $source 'src/Soda.Scanner.Setup/Soda.Scanner.Setup.csproj') -c Release -r win-x64 --self-contained true "-p:InstallerArtifactsRoot=$artifacts" -o $setupOutput
 if ($LASTEXITCODE -ne 0) { throw 'Installer publish failed.' }
 $innerSetup = Join-Path $OutputRoot 'Soda-Scanner-Setup-inner.exe'
 $finalSetup = Join-Path $OutputRoot 'Soda-Scanner-Setup.exe'
 Copy-Item -LiteralPath (Join-Path $setupOutput 'Soda.Scanner.Setup.exe') -Destination $innerSetup -Force
-& $nsis /NOCONFIG /INPUTCHARSET UTF8 /V3 "/DINNER_EXE=$innerSetup" "/DOUTPUT_EXE=$finalSetup" (Join-Path $source 'compress-setup.nsi')
+& $nsis /NOCONFIG /INPUTCHARSET UTF8 /V3 "/DINNER_EXE=$innerSetup" "/DOUTPUT_EXE=$finalSetup" "/DSTUB_EXE=$stubPath" "/DRUNTIME_ARCHIVE=$RuntimeArchive" (Join-Path $source 'compress-setup.nsi')
 if ($LASTEXITCODE -ne 0) { throw 'Compressed installer publish failed.' }
 Copy-Item -LiteralPath (Join-Path $stubOutput 'Soda.Scanner.UninstallStub.exe') -Destination (Join-Path $OutputRoot 'Soda-Scanner-Uninstall.exe') -Force
 Get-FileHash -LiteralPath (Join-Path $OutputRoot 'Soda-Scanner-Setup.exe'), (Join-Path $OutputRoot 'Soda-Scanner-Uninstall.exe') -Algorithm SHA256
