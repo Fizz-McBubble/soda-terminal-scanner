@@ -72,7 +72,17 @@ public sealed partial class ScanController
             graphics.CopyFromScreen(rect.Location, System.Drawing.Point.Empty, image.Size);
         }
 
-        return new ImageSignature(0, SelectionVisualProbe.CreateSamples(image), EmphasizeLocalizedChanges: true);
+        using var frame = new BitmapCapturedFrame(image, "bitmap-fallback");
+        return new ImageSignature(0, SelectionVisualProbe.CreateSamples(frame), EmphasizeLocalizedChanges: true);
+    }
+
+    private static ImageSignature[] CaptureSelectionSignatures(GameWindow window, params Rectangle[] regions)
+    {
+        var bounds = regions.Aggregate(Rectangle.Union);
+        using var frame = window.CaptureFrame(bounds);
+        return regions.Select(region => new ImageSignature(0,
+            SelectionVisualProbe.CreateSamples(frame, new Rectangle(region.Left - bounds.Left, region.Top - bounds.Top, region.Width, region.Height)),
+            EmphasizeLocalizedChanges: true)).ToArray();
     }
 
     private static Rectangle[] BuildPanelChangeProbeRects(Rectangle panelProbeRect, Rectangle panelRect, IReadOnlyList<CvRect> rois)

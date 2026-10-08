@@ -52,7 +52,6 @@ public sealed partial class ScanController
             : Math.Min(changedMinimumAcceptMs, 60);
         var requiredStableFrames = panelTiming.RequiredStableFrames;
         await Task.Delay(settleDelay, token);
-
         var start = DateTime.UtcNow;
         var roiCompleteFrames = 0;
         var probeScreenRect = PanelProbeScreenRect(panelRect, panelChangeProbeRect);
@@ -308,6 +307,7 @@ public sealed partial class ScanController
                 {
                     if (selectedStableFrames >= 1 && elapsedMilliseconds >= quickMinimumAcceptMs)
                     {
+                        window.VerifyTraversalPosition();
                         return CreateAcceptedPanelCapture(
                             image,
                             EnsureCurrentChangeProbeSignatures,
@@ -357,6 +357,7 @@ public sealed partial class ScanController
                     && elapsedMilliseconds >= changedMinimumAcceptMs
                     && stableEnough)
                 {
+                    window.VerifyTraversalPosition();
                     return CreateAcceptedPanelCapture(
                         image,
                         EnsureCurrentChangeProbeSignatures,

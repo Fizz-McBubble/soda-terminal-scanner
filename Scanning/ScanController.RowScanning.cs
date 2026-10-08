@@ -61,10 +61,10 @@ public sealed partial class ScanController
         {
             var refreshColumn = startColumn - 1;
             var refresh = new PointF(offset.X + step.X * refreshColumn, currentY);
-            var refreshPoint = window.ToScreenPoint(refresh);
+            var refreshPoint = DriveDiscSelectionGeometry.Center(window.ToScreenPoint(refresh), window.ClientScreenRect, profile);
             scanLog.WriteEvent("ROW_RESUME_SELECTION_REFRESH", $"pass={pass}, logicalRow={logicalRow?.ToString() ?? "unknown"}, visualRow={row}, startColumn={startColumn}, refreshColumn={refreshColumn}, point={refreshPoint}, visibleTopLogicalRow={visibleTopLogicalRow}, state={ViewportStateLabel(visibleTopLogicalRow, maxVisibleTop)}");
             window.MoveCursor(refreshPoint);
-            window.LeftClickCurrent();
+            window.LeftClick(refreshPoint);
             await Task.Delay(Math.Max(80, profile.ClickDelayMs), token);
             previousPanelSignatures = CaptureCurrentPanelSignatures(window, panelRect, panelChangeProbeRect, rois);
         }
@@ -74,6 +74,7 @@ public sealed partial class ScanController
         for (var col = startColumn; col <= maxColumns; col++)
         {
             token.ThrowIfCancellationRequested();
+            window.VerifyTraversalPosition();
             if (bootstrappedColumns.Remove(col))
             {
                 scanLog.WriteEvent("FIRST_PAIR_CONSUMED_CELL_SKIPPED", $"pass={pass}, logicalRow={logicalRow?.ToString() ?? "unknown"}, visualRow={row}, col={col}/{maxColumns}");
@@ -110,10 +111,11 @@ public sealed partial class ScanController
             var currentPostScrollFirstCell = postScrollFirstCellPending;
             var isPreselectedPostScrollCell = preselectedPostScrollCell?.Matches(logicalRow, row, col) == true;
             var current = new PointF(offset.X + step.X * col, currentY);
-            var clickPoint = window.ToScreenPoint(current);
+            var rarityAnchor = window.ToScreenPoint(current);
+            var clickPoint = DriveDiscSelectionGeometry.Center(rarityAnchor, window.ClientScreenRect, profile);
             var gridCellHash = rowFingerprint is null
                 ? 0UL
-                : CaptureGridCellFingerprint(window, clickPoint, step);
+                : CaptureGridCellFingerprint(window, rarityAnchor, step);
             var viewportKnown = logicalRow.HasValue && maxVisibleTop > 1;
             var visibleTopText = viewportKnown ? visibleTopLogicalRow.ToString() : "unknown";
             var viewportStateText = viewportKnown ? ViewportStateLabel(visibleTopLogicalRow, maxVisibleTop) : "unknown";
@@ -121,11 +123,11 @@ public sealed partial class ScanController
             window.MoveCursor(clickPoint);
 
             var rarityProbeWatch = Stopwatch.StartNew();
-            var rarityProbe = DetectRarityAround(window, profile, clickPoint);
+            var rarityProbe = DetectRarityAround(window, profile, rarityAnchor);
             if (rarityProbe.Rarity is null)
             {
                 await Task.Delay(25, token);
-                rarityProbe = DetectRarityAround(window, profile, clickPoint);
+                rarityProbe = DetectRarityAround(window, profile, rarityAnchor);
             }
             rarityProbeWatch.Stop();
 
@@ -279,26 +281,22 @@ public sealed partial class ScanController
             scanLog.WriteEvent(
                 isPreselectedPostScrollCell ? "CELL_PRESELECTED" : "CELL_CLICK",
                 $"pass={pass}, logicalRow={logicalRow?.ToString() ?? "unknown"}, visualRow={row}, col={col}/{maxColumns}, visibleTopLogicalRow={visibleTopText}, state={viewportStateText}, point={clickPoint}, preselected={isPreselectedPostScrollCell}");
-            var selectionProbeRect = SelectionProbeRect(window, clickPoint);
+            var selectionProbeRect = SelectionProbeRect(window, clickPoint, profile);
             var selectionProbeWatch = Stopwatch.StartNew();
             var beforeSelectionSignature = CaptureSelectionSignature(selectionProbeRect);
             selectionProbeWatch.Stop();
             if (!isPreselectedPostScrollCell)
             {
-                window.LeftClickCurrent();
+                window.LeftClick(clickPoint);
             }
             var selectionRoundTripReady = false;
             var sceneAdaptivePanelFloorEligible = !afterScroll && !currentPostScrollFirstCell && row != 2;
             System.Drawing.Point? selectionRefreshPoint = null;
-            var refreshCol = col > 1
-                ? col - 1
-                : col < maxColumns
-                    ? col + 1
-                    : 0;
+            var refreshCol = DriveDiscSelectionGeometry.WitnessColumn(col, maxColumns);
             if (refreshCol > 0)
             {
                 var refresh = new PointF(offset.X + step.X * refreshCol, currentY);
-                selectionRefreshPoint = window.ToScreenPoint(refresh);
+                selectionRefreshPoint = DriveDiscSelectionGeometry.Center(window.ToScreenPoint(refresh), window.ClientScreenRect, profile);
             }
             else
             {
@@ -317,13 +315,16 @@ public sealed partial class ScanController
                 if (refreshRowSafe)
                 {
                     var refresh = new PointF(offset.X + step.X, offset.Y + step.Y * refreshRow);
-                    selectionRefreshPoint = window.ToScreenPoint(refresh);
+                    selectionRefreshPoint = DriveDiscSelectionGeometry.Center(window.ToScreenPoint(refresh), window.ClientScreenRect, profile);
                 }
             }
 
-            if (!isPreselectedPostScrollCell && PanelCaptureGate.RequiresFirstCellNeighborRoundTrip(firstQueuedItem))
+            var nativeWheelRecovery = options.RowAdvanceMode == RowAdvanceMode.NativeEdgeClick
+                && currentPostScrollFirstCell && !isPreselectedPostScrollCell;
+            if (!isPreselectedPostScrollCell
+                && (PanelCaptureGate.RequiresFirstCellNeighborRoundTrip(firstQueuedItem) || nativeWheelRecovery))
             {
-                scanLog.WriteEvent("FIRST_CELL_REFRESH_REQUIRED", $"attempt=preflight, reason=deterministic_neighbor_round_trip, pass={pass}, logicalRow={logicalRow?.ToString() ?? "unknown"}, visualRow={row}, col={col}/{maxColumns}");
+                scanLog.WriteEvent("FIRST_CELL_REFRESH_REQUIRED", $"attempt=preflight, reason={(nativeWheelRecovery ? "native_zero_move_recovery_target_witness" : "deterministic_neighbor_round_trip")}, pass={pass}, logicalRow={logicalRow?.ToString() ?? "unknown"}, visualRow={row}, col={col}/{maxColumns}");
                 await Task.Delay(Math.Max(80, profile.ClickDelayMs), token);
                 var refresh = await RefreshSelectionForPanelRetryAsync(window, profile, panelRect, rois, panelChangeProbeRect, scanLog, clickPoint, selectionRefreshPoint, pass, row, col, maxColumns, logicalRow, visibleTopText, viewportStateText, token);
                 if (!refresh.RefreshReady)
@@ -396,7 +397,7 @@ public sealed partial class ScanController
                 continue;
             }
 
-            var lockEvidence = CaptureLockEvidence(window, profile, clickPoint, scanLog);
+            var lockEvidence = CaptureLockEvidence(window, profile, rarityAnchor, scanLog);
 
             if (bufferedRow is not null)
             {

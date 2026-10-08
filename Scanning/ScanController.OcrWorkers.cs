@@ -170,7 +170,7 @@ public sealed partial class ScanController
                 var roisByCapture = batch
                     .Select((capture, index) => (IReadOnlyList<CvRect>)(
                         options.OcrEngine == OcrEngine.PpOcrV6
-                            ? productionRois!
+                            ? PpOcrV6DetailGeometry.ResolveProductionRois(capture.Image.Size, productionRois!)
                             : assistPlans?[index]?.PpOcrRois ?? capture.Rois))
                     .ToArray();
                 var evidenceByCapture = options.OcrEngine == OcrEngine.PpOcrV6
@@ -239,7 +239,7 @@ public sealed partial class ScanController
                                 using var normalized = VisualProbeEvaluator.NormalizeLuminance(capture.Image);
                                 var retry = TryCleanPpOcrV6NormalizedRetry(
                                     ocr,
-                                    () => ((PpOcrV6ProcessRecognizer)recognizer).Recognize(normalized, productionRois!),
+                                    () => ((PpOcrV6ProcessRecognizer)recognizer).Recognize(normalized, roisByCapture[i]),
                                     cleaner,
                                     capture.Index,
                                     capture.Rarity);

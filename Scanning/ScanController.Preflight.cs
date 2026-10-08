@@ -200,8 +200,17 @@ public sealed partial class ScanController
         IProgress<ScanProgress> progress,
         Counters counters,
         ScanLog scanLog,
+        int? inventoryCount,
         CancellationToken token)
     {
+        var visibleCapacity = Math.Max(1, profile.VisibleColumns) * Math.Max(1, profile.VisibleRows);
+        if (inventoryCount is > 0 && inventoryCount <= visibleCapacity)
+        {
+            scanLog.WriteEvent("RESET_TOP_CONFIRMED",
+                $"phase=all_items_visible, inventoryCount={inventoryCount}, visibleCapacity={visibleCapacity}, wheelTicks=0, clicks=0");
+            return;
+        }
+
         Report(progress, counters, "正在将驱动盘列表拉到最上方。");
         var scrollTop = window.ToScreenPoint(profile.Point("scrollBarTop"));
         var scrollBottom = window.ToScreenPoint(profile.Point("scrollBarBottom"));
@@ -214,6 +223,21 @@ public sealed partial class ScanController
         var resetDelay = Math.Clamp(profile.ResetToTopWheelDelayMs, 20, 80);
         var fallbackResetAction = "not_run";
         var lastResetThumb = default(ScrollbarThumbProbe);
+        var resetThumbHeight = 0;
+        var maximumThumbHeight = ScrollbarTopResetPlanner.MaximumScrollableThumbHeight(
+            scrollTop.Y, scrollBottom.Y, inventoryCount, profile.VisibleColumns, profile.VisibleRows);
+        const int resetWheelDelta = 120 * 16;
+
+        bool IsValidResetThumb(ScrollbarThumbProbe thumb) => thumb.Found
+            && ScrollbarTopResetPlanner.IsScrollableThumb(
+                scrollTop.Y, scrollBottom.Y, thumb.StartY, thumb.EndY)
+            && thumb.EndY - thumb.StartY + 1 <= maximumThumbHeight;
+
+        void ObserveResetThumb(ScrollbarThumbProbe thumb)
+        {
+            if (resetThumbHeight == 0 && IsValidResetThumb(thumb))
+                resetThumbHeight = thumb.EndY - thumb.StartY + 1;
+        }
 
         void Trace(ScrollTopResetTrace trace)
         {
@@ -227,7 +251,7 @@ public sealed partial class ScanController
                 case ScrollTopResetTraceKind.Wheel:
                     scanLog.WriteEvent(
                         "RESET_WHEEL",
-                        $"batch={trace.Batch}, tick={trace.WheelTicks}/{maximumWheelTicks}, delta=120, cursor={wheelPoint}, elapsedMs={trace.ElapsedMilliseconds}");
+                        $"batch={trace.Batch}, event={trace.WheelTicks}/{maximumWheelTicks}, delta={resetWheelDelta}, cursor={wheelPoint}, elapsedMs={trace.ElapsedMilliseconds}");
                     break;
                 case ScrollTopResetTraceKind.Settle:
                     scanLog.WriteEvent(
@@ -235,18 +259,8 @@ public sealed partial class ScanController
                         $"phase={trace.Phase}, batch={trace.Batch}, tick={trace.WheelTicks}/{maximumWheelTicks}, delayMs={trace.DelayMilliseconds}, elapsedMs={trace.ElapsedMilliseconds}");
                     break;
                 case ScrollTopResetTraceKind.Click:
-                    if (fallbackResetAction.StartsWith("thumb_drag", StringComparison.Ordinal))
-                    {
-                        scanLog.WriteEvent(
-                            "RESET_TOP_THUMB_DRAG",
-                            $"{fallbackResetAction}, attempt={trace.TopClicks}, tick={trace.WheelTicks}/{maximumWheelTicks}, elapsedMs={trace.ElapsedMilliseconds}");
-                    }
-                    else
-                    {
-                        scanLog.WriteEvent(
-                            "RESET_TOP_CLICK",
-                            $"point={scrollTop}, click={trace.TopClicks}, tick={trace.WheelTicks}/{maximumWheelTicks}, action={fallbackResetAction}, elapsedMs={trace.ElapsedMilliseconds}");
-                    }
+                    scanLog.WriteEvent("RESET_TOP_FAST_WHEEL",
+                        $"phase={trace.Phase}, delta={resetWheelDelta}, cursor={wheelPoint}, attempt={trace.TopClicks}, wheelEvents={trace.WheelTicks}/{maximumWheelTicks}, elapsedMs={trace.ElapsedMilliseconds}");
                     break;
                 case ScrollTopResetTraceKind.Confirmed:
                     scanLog.WriteEvent(
@@ -256,7 +270,7 @@ public sealed partial class ScanController
                 case ScrollTopResetTraceKind.Failed:
                     scanLog.WriteEvent(
                         "RESET_TOP_FAILED",
-                        $"reason=scroll_top_color_unconfirmed, phase={trace.Phase}, batch={trace.Batch}, tick={trace.WheelTicks}/{maximumWheelTicks}, clicks={trace.TopClicks}, actual={ColorText(trace.ActualColor)}, expected={ColorText(trace.ExpectedColor)}, tolerance={trace.Tolerance}, elapsedMs={trace.ElapsedMilliseconds}");
+                        $"reason=scroll_top_position_unconfirmed, phase={trace.Phase}, batch={trace.Batch}, tick={trace.WheelTicks}/{maximumWheelTicks}, clicks={trace.TopClicks}, actual={ColorText(trace.ActualColor)}, expected={ColorText(trace.ExpectedColor)}, tolerance={trace.Tolerance}, elapsedMs={trace.ElapsedMilliseconds}");
                     break;
             }
         }
@@ -270,49 +284,37 @@ public sealed partial class ScanController
             () =>
             {
                 lastResetThumb = CaptureScrollbarThumbProbe(window, profile);
+                ObserveResetThumb(lastResetThumb);
                 return window.GetPixel(scrollTop);
             },
-            () => window.MouseWheel(120),
+            () => window.MouseWheel(resetWheelDelta),
             () =>
             {
-                var thumb = CaptureScrollbarThumbProbe(window, profile);
-                if (thumb.Found)
-                {
-                    var targetCenterY = ScrollbarTopResetPlanner.GetTopCenterY(
-                        scrollTop.Y,
-                        scrollBottom.Y,
-                        thumb.StartY,
-                        thumb.EndY);
-                    var start = new Point(thumb.CenterX, thumb.CenterY);
-                    var end = new Point(thumb.CenterX, targetCenterY);
-                    fallbackResetAction = $"thumb_drag, start={start}, end={end}, thumb={thumb.StartY}-{thumb.EndY}";
-                    window.LeftDrag(start, end, durationMs: 160);
-                }
-                else
-                {
-                    fallbackResetAction = "track_click_no_thumb";
-                    window.LeftClick(scrollTop, durationMs: 30);
-                }
-
+                token.ThrowIfCancellationRequested();
                 window.MoveCursor(wheelPoint);
+                fallbackResetAction = "fast_wheel";
+                window.MouseWheel(resetWheelDelta);
             },
             Trace,
             token,
             captureTopPosition: () =>
-                lastResetThumb.Found
+                IsValidResetThumb(lastResetThumb)
+                && ScrollbarTopResetPlanner.HasConsistentHeight(
+                    resetThumbHeight, lastResetThumb.StartY, lastResetThumb.EndY)
                 && ScrollbarTopResetPlanner.IsAtTop(
                     scrollTop.Y,
                     scrollBottom.Y,
                     lastResetThumb.StartY,
-                    lastResetThumb.EndY));
+                    lastResetThumb.EndY),
+            resetBeforeProbe: true);
         if (!result.Confirmed)
         {
             throw NavigationFailure(
-                "驱动盘列表顶部颜色探针在有界滚轮和顶部点击后仍未确认。为避免继续上滑或从错误位置扫描，本次已停止。",
+                "未能自动回到驱动盘列表顶部。请确认游戏窗口可操作后重试；本次已停止，扫描结果未导入。",
                 new Dictionary<string, object?>
                 {
                     ["phase"] = "reset_to_top",
-                    ["acceptGateReason"] = "scroll_top_color_unconfirmed",
+                    ["acceptGateReason"] = "scroll_top_position_unconfirmed",
                     ["wheelTicks"] = result.WheelTicks,
                     ["topClicks"] = result.TopClicks,
                     ["fallbackResetAction"] = fallbackResetAction,

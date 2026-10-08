@@ -360,16 +360,9 @@ public sealed partial class ScanController
             Math.Clamp(listGridRect.Top + (listGridRect.Height / 2), bounds.Top + 1, bounds.Bottom - 2));
     }
 
-    private static Rectangle SelectionProbeRect(GameWindow window, System.Drawing.Point clickPoint)
+    private static Rectangle SelectionProbeRect(GameWindow window, System.Drawing.Point clickPoint, ScanProfile? profile = null)
     {
-        var bounds = window.ClientScreenRect;
-        const int halfWidth = 72;
-        const int halfHeight = 84;
-        var left = Math.Clamp(clickPoint.X - halfWidth, bounds.Left, Math.Max(bounds.Left, bounds.Right - 1));
-        var top = Math.Clamp(clickPoint.Y - halfHeight, bounds.Top, Math.Max(bounds.Top, bounds.Bottom - 1));
-        var right = Math.Clamp(clickPoint.X + halfWidth, left + 1, bounds.Right);
-        var bottom = Math.Clamp(clickPoint.Y + halfHeight, top + 1, bounds.Bottom);
-        return Rectangle.FromLTRB(left, top, right, bottom);
+        return DriveDiscSelectionGeometry.Probe(clickPoint, window.ClientScreenRect, profile);
     }
 
     private static RowVisualSignature[] CaptureRowSignatures(GameWindow window, IReadOnlyList<Rectangle> rowSignatureRects)

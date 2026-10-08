@@ -46,8 +46,7 @@ public sealed partial class ScanController
             "FIRST_PAIR_BOOTSTRAP_START",
             $"pass={pass}, logicalRow={logicalRow?.ToString() ?? "unknown"}, visualRow={visualRow}, firstCol={firstColumn}, secondCol={secondColumn}, timeoutMs={timeoutMs}, visibleTopLogicalRow={visibleTopText}, state={viewportStateText}");
 
-        window.MoveCursor(firstPoint);
-        window.LeftClickCurrent();
+        window.LeftClick(DriveDiscSelectionGeometry.Center(firstPoint, window.ClientScreenRect, profile));
         await Task.Delay(Math.Max(80, profile.ClickDelayMs), token);
         var provisionalFirstSignatures = CaptureCurrentPanelSignatures(window, panelRect, panelChangeProbeRect, rois);
 
@@ -190,10 +189,11 @@ public sealed partial class ScanController
         int timeoutMs)
     {
         token.ThrowIfCancellationRequested();
-        var selectionProbeRect = SelectionProbeRect(window, clickPoint);
+        clickPoint = DriveDiscSelectionGeometry.Center(clickPoint, window.ClientScreenRect, profile);
+        var selectionProbeRect = SelectionProbeRect(window, clickPoint, profile);
         var beforeSelectionSignature = CaptureSelectionSignature(selectionProbeRect);
         window.MoveCursor(clickPoint);
-        window.LeftClickCurrent();
+        window.LeftClick(clickPoint);
         var capture = await CaptureStablePanelAsync(
             window, profile, panelRect, rois, statOffset, statRowBackground, panelChangeProbeRect,
             previousPanelSignatures, selectionProbeRect, beforeSelectionSignature, runtimeState, scanLog, token,
@@ -357,41 +357,42 @@ public sealed partial class ScanController
         if (selectionRefreshPoint is { } refreshPoint && refreshPoint != clickPoint)
         {
             scanLog.WriteEvent("PANEL_SELECTION_REFRESH", $"pass={pass}, logicalRow={logicalRow?.ToString() ?? "unknown"}, visualRow={row}, col={col}/{maxColumns}, visibleTopLogicalRow={visibleTopText}, state={viewportStateText}, refreshPoint={refreshPoint}, targetPoint={clickPoint}");
-            var targetSelectionProbeRect = SelectionProbeRect(window, clickPoint);
+            var targetSelectionProbeRect = SelectionProbeRect(window, clickPoint, profile);
+            var witnessSelectionProbeRect = SelectionProbeRect(window, refreshPoint, profile);
             window.MoveCursor(refreshPoint);
             await Task.Delay(Math.Max((int)PanelTargetEvidenceGate.MinimumReliableChangeMilliseconds, profile.LoadPollMs), token);
-            var targetSelectedSignature = CaptureSelectionSignature(targetSelectionProbeRect);
-            window.LeftClickCurrent();
+            var beforeWitnessAndTarget = CaptureSelectionSignatures(window, witnessSelectionProbeRect, targetSelectionProbeRect);
+            window.LeftClick(refreshPoint);
 
             var maximumWaitMs = SelectionRefreshTiming.ResolveMaximumWaitMilliseconds(profile.LoadTimeoutMs);
             var pollMs = Math.Max(5, profile.LoadPollMs);
-            ImageSignature[]? latestObservedSignatures = null;
-            ImageSignature? previousObservedTargetSelection = null;
+            ImageSignature[]? previousWitnessAndTarget = null;
             var latestTargetSelectionDistance = 0;
+            var latestWitnessSelectionDistance = 0;
             var result = await SelectionRefreshWaiter.WaitAsync(
                 () =>
                 {
-                    var currentSignatures = CaptureCurrentPanelSignatures(window, panelRect, panelChangeProbeRect, rois);
-                    latestObservedSignatures = currentSignatures;
-                    var currentTargetSelection = CaptureSelectionSignature(targetSelectionProbeRect);
-                    latestTargetSelectionDistance = SignatureDistance(targetSelectedSignature, currentTargetSelection);
-                    var changedFromTarget = latestTargetSelectionDistance > PanelChangeTolerance;
-                    var stableWithPrevious = previousObservedTargetSelection is not null
-                        && SignatureDistance(previousObservedTargetSelection.Value, currentTargetSelection) <= ListStableTolerance;
-                    previousObservedTargetSelection = currentTargetSelection;
-                    return new SelectionRefreshObservation(changedFromTarget, stableWithPrevious);
+                    var current = CaptureSelectionSignatures(window, witnessSelectionProbeRect, targetSelectionProbeRect);
+                    latestWitnessSelectionDistance = SignatureDistance(beforeWitnessAndTarget[0], current[0]);
+                    latestTargetSelectionDistance = SignatureDistance(beforeWitnessAndTarget[1], current[1]);
+                    var witnessChanged = latestWitnessSelectionDistance > PanelChangeTolerance;
+                    var stableWithPrevious = previousWitnessAndTarget is not null
+                        && SignatureDistance(previousWitnessAndTarget[0], current[0]) <= ListStableTolerance
+                        && SignatureDistance(previousWitnessAndTarget[1], current[1]) <= ListStableTolerance;
+                    previousWitnessAndTarget = current;
+                    return new SelectionRefreshObservation(witnessChanged, stableWithPrevious);
                 },
                 maximumWaitMs,
                 pollMs,
                 token);
-            if (result.Ready && latestObservedSignatures is not null)
+            if (result.Ready)
             {
                 refreshReady = true;
                 selectionRoundTripReady = true;
-                refreshedPanelSignatures = latestObservedSignatures;
+                refreshedPanelSignatures = CaptureCurrentPanelSignatures(window, panelRect, panelChangeProbeRect, rois);
                 scanLog.WriteEvent(
                     "PANEL_SELECTION_REFRESH_READY",
-                    $"pass={pass}, logicalRow={logicalRow?.ToString() ?? "unknown"}, visualRow={row}, col={col}/{maxColumns}, elapsedMs={result.ElapsedMilliseconds:F1}, selectionDistance={latestTargetSelectionDistance}, threshold={PanelChangeTolerance}, stableFrames={result.StableFrames}/2, frameCount={result.FrameCount}");
+                    $"pass={pass}, logicalRow={logicalRow?.ToString() ?? "unknown"}, visualRow={row}, col={col}/{maxColumns}, elapsedMs={result.ElapsedMilliseconds:F1}, witnessDistance={latestWitnessSelectionDistance}, targetDistance={latestTargetSelectionDistance}, threshold={PanelChangeTolerance}, stableFrames={result.StableFrames}/2, frameCount={result.FrameCount}, evidence=same_frame_witness_and_target");
                 scanLog.WriteEvent(
                     "PANEL_NEIGHBOR_ROUNDTRIP",
                     $"phase=away_ready, pass={pass}, logicalRow={logicalRow?.ToString() ?? "unknown"}, visualRow={row}, col={col}/{maxColumns}, elapsedMs={result.ElapsedMilliseconds:F1}, stableFrames={result.StableFrames}/2, refreshPoint={refreshPoint}, targetPoint={clickPoint}");
@@ -400,7 +401,7 @@ public sealed partial class ScanController
             {
                 scanLog.WriteEvent(
                     "PANEL_SELECTION_REFRESH_TIMEOUT",
-                    $"pass={pass}, logicalRow={logicalRow?.ToString() ?? "unknown"}, visualRow={row}, col={col}/{maxColumns}, elapsedMs={result.ElapsedMilliseconds:F1}, timeoutMs={maximumWaitMs}, changedFromTarget={result.ChangedFromTarget}, selectionDistance={latestTargetSelectionDistance}, threshold={PanelChangeTolerance}, stableFrames={result.StableFrames}/2, frameCount={result.FrameCount}, baseline=target_snapshot");
+                    $"pass={pass}, logicalRow={logicalRow?.ToString() ?? "unknown"}, visualRow={row}, col={col}/{maxColumns}, elapsedMs={result.ElapsedMilliseconds:F1}, timeoutMs={maximumWaitMs}, witnessChanged={result.ChangedFromTarget}, witnessDistance={latestWitnessSelectionDistance}, targetDistance={latestTargetSelectionDistance}, threshold={PanelChangeTolerance}, stableFrames={result.StableFrames}/2, frameCount={result.FrameCount}, baseline=witness_snapshot");
                 scanLog.WriteEvent(
                     "PANEL_NEIGHBOR_ROUNDTRIP",
                     $"phase=away_failed, pass={pass}, logicalRow={logicalRow?.ToString() ?? "unknown"}, visualRow={row}, col={col}/{maxColumns}, elapsedMs={result.ElapsedMilliseconds:F1}, changedFromTarget={result.ChangedFromTarget}, stableFrames={result.StableFrames}/2, refreshPoint={refreshPoint}, targetPoint={clickPoint}");
@@ -408,11 +409,11 @@ public sealed partial class ScanController
         }
 
         token.ThrowIfCancellationRequested();
-        var refreshedSelectionProbeRect = SelectionProbeRect(window, clickPoint);
+        var refreshedSelectionProbeRect = SelectionProbeRect(window, clickPoint, profile);
         window.MoveCursor(clickPoint);
         await Task.Delay(Math.Max((int)PanelTargetEvidenceGate.MinimumReliableChangeMilliseconds, profile.LoadPollMs), token);
         var refreshedSelectionSignature = CaptureSelectionSignature(refreshedSelectionProbeRect);
-        window.LeftClickCurrent();
+        window.LeftClick(clickPoint);
         return new SelectionRefreshCapture(
             refreshedPanelSignatures,
             refreshedSelectionProbeRect,

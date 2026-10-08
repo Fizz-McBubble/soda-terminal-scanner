@@ -9,6 +9,8 @@ public sealed class GameWindow : IDisposable
     private readonly IntPtr _handle;
     private readonly CaptureSourceCoordinator _captureSource = new(new GdiCaptureSource());
     private Action? _inputGuard;
+    private Action? _traversalPositionGuard;
+    private bool _captureContextBound;
     private Rectangle _clientScreenRect;
     private float _coordinateScale = 1f;
     private bool _disposed;
@@ -22,7 +24,7 @@ public sealed class GameWindow : IDisposable
     }
 
     public Rectangle ClientScreenRect => _clientScreenRect;
-    public int Dpi { get; }
+    public int Dpi { get; private set; }
     public float CoordinateScale => _coordinateScale;
     public string ActiveCaptureMode => _captureSource.Name;
     public string ActiveFrameBackend => _captureSource.FrameBackendName;
@@ -78,6 +80,7 @@ public sealed class GameWindow : IDisposable
         var metrics = GetClientMetrics(_handle);
         _clientScreenRect = metrics.ScreenRect;
         _coordinateScale = metrics.Scale;
+        Dpi = NativeMethods.TryGetDpiForWindow(_handle);
     }
 
     public void ConfigureCaptureMode(CaptureMode mode, Action<string>? log = null)
@@ -139,40 +142,51 @@ public sealed class GameWindow : IDisposable
         EnsureInputAllowed();
         NativeMethods.SetCursorPos(start.X, start.Y);
         NativeMethods.mouse_event(NativeMethods.MouseEventLeftDown, 0, 0, 0, UIntPtr.Zero);
-        var steps = Math.Max(4, durationMs / 16);
-        for (var i = 1; i <= steps; i++)
+        try
         {
-            var x = start.X + (end.X - start.X) * i / steps;
-            var y = start.Y + (end.Y - start.Y) * i / steps;
-            NativeMethods.SetCursorPos(x, y);
-            Thread.Sleep(Math.Max(1, durationMs / steps));
+            var steps = Math.Max(4, durationMs / 16);
+            for (var i = 1; i <= steps; i++)
+            {
+                EnsureCaptureContextCurrent();
+                var x = start.X + (end.X - start.X) * i / steps;
+                var y = start.Y + (end.Y - start.Y) * i / steps;
+                NativeMethods.SetCursorPos(x, y);
+                Thread.Sleep(Math.Max(1, durationMs / steps));
+            }
         }
-
-        NativeMethods.mouse_event(NativeMethods.MouseEventLeftUp, 0, 0, 0, UIntPtr.Zero);
+        finally
+        {
+            NativeMethods.mouse_event(NativeMethods.MouseEventLeftUp, 0, 0, 0, UIntPtr.Zero);
+        }
     }
 
     public void MoveCursor(Point point)
     {
+        EnsureCaptureContextCurrent();
         NativeMethods.SetCursorPos(point.X, point.Y);
     }
 
     public Bitmap Capture(Rectangle screenRect)
     {
+        VerifyBoundCaptureContext();
         return _captureSource.Capture(screenRect);
     }
 
     internal CapturedFrame CaptureFrame(Rectangle screenRect)
     {
+        VerifyBoundCaptureContext();
         return _captureSource.CaptureFrame(screenRect);
     }
 
     internal bool TryCapture(Rectangle screenRect, out Bitmap? image)
     {
+        VerifyBoundCaptureContext();
         return _captureSource.TryCapture(screenRect, out image);
     }
 
     public Color GetPixel(Point point)
     {
+        VerifyBoundCaptureContext();
         return _captureSource.GetPixel(point);
     }
 
@@ -186,9 +200,50 @@ public sealed class GameWindow : IDisposable
         _inputGuard = inputGuard;
     }
 
+    internal void ConfigureTraversalPositionGuard(Action? guard) => _traversalPositionGuard = guard;
+
+    internal bool IsCaptureContextCurrent() =>
+        WindowCaptureContextPolicy.Failure(_clientScreenRect, Dpi, ReadCaptureContext()) is null;
+
+    internal void BindCaptureContext()
+    {
+        EnsureCaptureContextCurrent();
+        _captureContextBound = true;
+    }
+
+    private WindowCaptureContext ReadCaptureContext()
+    {
+        var visible = NativeMethods.IsWindowVisible(_handle) && !NativeMethods.IsIconic(_handle);
+        if (!visible) return new(Rectangle.Empty, Dpi, false, false);
+        try
+        {
+            return new(GetClientMetrics(_handle).ScreenRect, NativeMethods.TryGetDpiForWindow(_handle),
+                true, NativeMethods.GetForegroundWindow() == _handle);
+        }
+        catch (InvalidOperationException)
+        {
+            return new(Rectangle.Empty, Dpi, false, false);
+        }
+    }
+
+    private void EnsureCaptureContextCurrent() =>
+        WindowCaptureContextPolicy.EnsureCurrent(_clientScreenRect, Dpi, ReadCaptureContext());
+
+    private void VerifyBoundCaptureContext()
+    {
+        if (_captureContextBound) EnsureCaptureContextCurrent();
+    }
+
+    internal void VerifyTraversalPosition() => _traversalPositionGuard?.Invoke();
+
     private void EnsureInputAllowed()
     {
+        EnsureCaptureContextCurrent();
         _inputGuard?.Invoke();
+        VerifyTraversalPosition();
+        // Guards can wait for fresh visual evidence. Recheck immediately before
+        // sending input rather than trusting the state from before that wait.
+        EnsureCaptureContextCurrent();
     }
 
     internal static Point MapToScreenPoint(

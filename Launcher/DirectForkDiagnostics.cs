@@ -39,7 +39,8 @@ internal static class DirectForkDiagnostics
     {
         "helper_unavailable" or "helper_incompatible" or "helper_pairing_denied" => "connection",
         "permission_denied" or "elevation_cancelled" => "permission",
-        "game_process_not_found" or "visual_preflight_failed" => "preflight",
+        "game_process_not_found" or "visual_preflight_failed" or "ppocrv6_detail_geometry_incompatible" => "preflight",
+        "game_window_not_foreground" or "game_window_not_visible" or "window_geometry_changed" or "warehouse_context_lost" => "capture",
         "panel_capture_timeout" => "capture", "scan_navigation_failed" => "scroll", "ocr_worker_failed" => "ocr",
         "direct_fork_result_missing" or "direct_fork_partial" or "previous_scan_recovery_failed" or "scan_result_timeout" or "scan_result_read_failed" or "scan_file_invalid" => "result",
         "scan_import_handoff_failed" or "scan_import_failed" => "import",
@@ -89,7 +90,7 @@ internal static class DirectForkDiagnostics
         var geometry = Regex.Match(log, @"Window client=\{[^\r\n]*?Width=(\d+),Height=(\d+)\}");
         if (geometry.Success)
             foreach (var (key, group) in new[] { ("width", 1), ("height", 2) })
-                if (int.TryParse(geometry.Groups[group].Value, out var size) && size is > 0 and <= 20000) environment[key] = size;
+                if (environment[key] is null && int.TryParse(geometry.Groups[group].Value, out var size) && size is > 0 and <= 20000) environment[key] = size;
         var capture = Token(log, "captureModeActive|captureMode").ToLowerInvariant();
         if (capture is "gdi" or "dxgi") environment["captureMode"] = capture;
         var evidence = new JsonObject();

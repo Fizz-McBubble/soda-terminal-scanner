@@ -17,26 +17,52 @@ namespace ZZZScannerNext.Scanning;
 
 public sealed partial class ScanController
 {
-    private readonly record struct ScrollbarThumbProbe(
+    internal readonly record struct ScrollbarThumbProbe(
         bool Found,
         int StartY,
         int EndY,
         int CenterX,
         int CenterY);
 
-    private static ScrollbarThumbProbe CaptureScrollbarThumbProbe(GameWindow window, ScanProfile profile)
+    private static ScrollbarThumbProbe CaptureScrollbarThumbProbe(GameWindow window, ScanProfile profile, bool includeThumbEnds = false)
+    {
+        var bounds = ScrollbarProbeBounds(window, profile, includeThumbEnds);
+        using var image = window.CaptureFrame(bounds);
+        return ExtractScrollbarThumbProbe(image, bounds, bounds, profile.Color("scrollBar"), Math.Max(0, profile.ColorTolerance));
+    }
+
+    private static Rectangle ScrollbarProbeBounds(GameWindow window, ScanProfile profile, bool includeThumbEnds = false)
     {
         var top = window.ToScreenPoint(profile.Point("scrollBarTop"));
         var bottom = window.ToScreenPoint(profile.Point("scrollBarBottom"));
-        var expected = profile.Color("scrollBar");
-        var tolerance = Math.Max(0, profile.ColorTolerance);
         var minY = Math.Min(top.Y, bottom.Y);
         var maxY = Math.Max(top.Y, bottom.Y);
-        var bounds = new Rectangle(top.X - 2, minY, 5, Math.Max(1, maxY - minY + 1));
-        using var image = window.CaptureFrame(bounds);
+        if (includeThumbEnds)
+        {
+            // The frozen top/bottom points are colour-probe anchors inside the
+            // thumb. Cropping there changes its measured height at the ends.
+            var padding = Math.Max(4, (int)Math.Ceiling(window.ClientScreenRect.Height * 16 / 1080d));
+            minY = Math.Max(window.ClientScreenRect.Top, minY - padding);
+            maxY = Math.Min(window.ClientScreenRect.Bottom - 1, maxY + padding);
+        }
+        return new Rectangle(top.X - 2, minY, 5, Math.Max(1, maxY - minY + 1));
+    }
+
+    internal static ScrollbarThumbProbe ExtractScrollbarThumbProbe(
+        CapturedFrame image, Rectangle frameBounds, Rectangle bounds, Color expected, int tolerance)
+    {
+        var minY = bounds.Top;
+        var maxY = bounds.Bottom - 1;
+        var localLeft = bounds.Left - frameBounds.Left;
+        var localTop = bounds.Top - frameBounds.Top;
+        if (localLeft < 0 || localTop < 0
+            || localLeft + bounds.Width > image.Width || localTop + bounds.Height > image.Height)
+        {
+            return default;
+        }
         var bestStart = -1;
         var bestEnd = -1;
-        var bestCenterX = top.X;
+        var bestCenterX = bounds.Left + bounds.Width / 2;
         var currentStart = -1;
         var currentXCounts = new int[bounds.Width];
 
@@ -73,7 +99,7 @@ public sealed partial class ScanController
             var matched = false;
             for (var localX = 0; localX < bounds.Width; localX++)
             {
-                if (image.GetPixel(localX, localY).IsCloseTo(expected, tolerance))
+                if (image.GetPixel(localLeft + localX, localTop + localY).IsCloseTo(expected, tolerance))
                 {
                     matched = true;
                     currentXCounts[localX]++;

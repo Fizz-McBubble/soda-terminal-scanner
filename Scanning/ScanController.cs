@@ -192,11 +192,19 @@ public sealed partial class ScanController
         {
             Report(progress, counters, $"加载窗口：{options.ProcessName}");
             using var window = GameWindow.Find(options.ProcessName);
+            var ppOcrGeometry = options.OcrEngine == OcrEngine.PpOcrV6
+                ? PpOcrV6CaptureGeometryContract.Load()
+                : null;
+            ppOcrGeometry?.EnsureCompatible(profile, window.ClientScreenRect.Size);
             if (options.BringToFront)
             {
                 window.BringToFront();
+                // Activation refreshes client metrics; reject any changed size
+                // before preflight can send navigation or selection input.
+                ppOcrGeometry?.EnsureCompatible(profile, window.ClientScreenRect.Size);
             }
 
+            window.BindCaptureContext();
             window.ConfigureCaptureMode(options.CaptureMode, scanLog.Write);
 
             Report(progress, counters, $"窗口客户区：{window.ClientScreenRect.Width} x {window.ClientScreenRect.Height}，DPI：{window.Dpi}，坐标倍率：{window.CoordinateScale:F2}");
@@ -300,7 +308,7 @@ public sealed partial class ScanController
                 window.ConfigureInputGuard(contextGuard.EnsureHealthy);
                 window.LeftClick(window.ToScreenPoint(profile.Point("driveDiscTab")));
                 await Task.Delay(profile.ClickDelayMs, linked.Token);
-                await ResetListToTopAsync(window, profile, progress, counters, scanLog, linked.Token);
+                await ResetListToTopAsync(window, profile, progress, counters, scanLog, preflight.InventoryCount, linked.Token);
                 Report(progress, counters, "已定位到驱动盘列表顶部。");
 
                 // v6's fixed production geometry uses the guarded field-wise

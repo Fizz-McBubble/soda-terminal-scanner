@@ -82,14 +82,14 @@ public sealed partial class ScanController
         for (var run = 1; run <= runs; run++)
         {
             token.ThrowIfCancellationRequested();
-            await ResetListToTopAsync(window, profile, progress, counters, scanLog, token);
+            await ResetListToTopAsync(window, profile, progress, counters, scanLog, preflight.InventoryCount, token);
             await WaitForListStableAsync(window, profile, listGridRect, scanLog, token);
             var armClientPoint = new PointF(
                 offset.X + step.X * columns,
                 offset.Y + step.Y * 3);
-            var armPoint = window.ToScreenPoint(armClientPoint);
+            var armPoint = DriveDiscSelectionGeometry.Center(window.ToScreenPoint(armClientPoint), window.ClientScreenRect, profile);
             window.MoveCursor(armPoint);
-            window.LeftClickCurrent();
+            window.LeftClick(armPoint);
             await Task.Delay(Math.Max(80, profile.ClickDelayMs), token);
             await WaitForListStableAsync(window, profile, listGridRect, scanLog, token);
             scanLog.WriteEvent(
@@ -109,11 +109,11 @@ public sealed partial class ScanController
                 scanLog,
                 token);
             var decision = NativeEdgeClickPolicy.ResolveSettle(result);
-            if (decision == NativeEdgeClickDecision.AdvanceAssumedOne)
+            if (decision == NativeEdgeClickDecision.AdvanceOne)
             {
                 changedRuns++;
             }
-            else if (decision == NativeEdgeClickDecision.HashFallback && totalRows is <= 4)
+            else if (decision == NativeEdgeClickDecision.NoMove && totalRows is <= 4)
             {
                 bottomRuns++;
             }
@@ -177,13 +177,14 @@ public sealed partial class ScanController
         }
 
         var targetClientPoint = new PointF(offset.X + step.X, offset.Y + step.Y * 4);
-        var targetPoint = window.ToScreenPoint(targetClientPoint);
+        var rarityAnchor = window.ToScreenPoint(targetClientPoint);
+        var targetPoint = DriveDiscSelectionGeometry.Center(rarityAnchor, window.ClientScreenRect, profile);
         window.MoveCursor(targetPoint);
-        var rarity = DetectRarityAround(window, profile, targetPoint).Rarity;
+        var rarity = DetectRarityAround(window, profile, rarityAnchor).Rarity;
         if (rarity is null)
         {
             await Task.Delay(25, token);
-            rarity = DetectRarityAround(window, profile, targetPoint).Rarity;
+            rarity = DetectRarityAround(window, profile, rarityAnchor).Rarity;
         }
 
         if (rarity is null)
@@ -201,35 +202,52 @@ public sealed partial class ScanController
                 "unknown");
         }
 
-        var beforeRows = CaptureRowSignatures(window, rowSignatureRects);
+        var before = CaptureNativeEdgeViewport(window, profile, listGridRect, rowSignatureRects);
+        var beforeRows = before.Rows;
         var beforeListHash = FormatNativeEdgeListHash(beforeRows);
-        var previousRows = beforeRows;
+        var pixelsPerRow = ScrollbarPixelsPerLogicalRow(window, profile, before.Scrollbar, maxVisibleTop);
+        var previous = before;
+        var latest = before;
         var watch = Stopwatch.StartNew();
         var settle = new NativeEdgeClickSettleTracker(ListMovementTolerance, ListStableTolerance);
         var extended = false;
         var pollMilliseconds = Math.Max(10, profile.LoadPollMs);
+        RowAdvanceEvidence latestEvidence = default;
+        RowAdvanceDecision? provisional = null;
+        RowAdvanceDecision? lastLoggedDecision = null;
         scanLog.WriteEvent(
             "EDGE_CLICK_START",
-            $"visibleTopLogicalRow={visibleTopLogicalRow}, maxVisibleTop={maxVisibleTop}, targetVisualRow=4, targetColumn=1, targetPoint={targetPoint}, targetRarity={rarity}, stableFrames=0, movementDistance=0, beforeListHash={beforeListHash}, afterListHash=pending, previousRowHash=unknown, currentRowHash=unknown, inventoryCount={inventoryCount}, scannedRows={scannedRows}, timeoutMs={settle.TimeoutMilliseconds}, movingTimeoutMs={NativeEdgeClickSettleTracker.MovingTimeoutMilliseconds}");
-        window.LeftClickCurrent();
+            $"visibleTopLogicalRow={visibleTopLogicalRow}, maxVisibleTop={maxVisibleTop}, targetVisualRow=4, targetColumn=1, targetPoint={targetPoint}, targetRarity={rarity}, beforeListHash={beforeListHash}, inventoryCount={inventoryCount}, scannedRows={scannedRows}, scrollbarFound={before.Scrollbar.Found}, scrollbarCenter={before.Scrollbar.CenterY}, scrollbarPixelsPerRow={pixelsPerRow:F3}, timeoutMs={settle.TimeoutMilliseconds}, movingTimeoutMs={NativeEdgeClickSettleTracker.MovingTimeoutMilliseconds}");
+        window.LeftClick(targetPoint);
 
         while (settle.CanObserve(watch.Elapsed.TotalMilliseconds))
         {
             token.ThrowIfCancellationRequested();
             await Task.Delay(pollMilliseconds, token);
             if (!settle.CanObserve(watch.Elapsed.TotalMilliseconds)) break;
-            var currentRows = CaptureRowSignatures(window, rowSignatureRects);
+            latest = CaptureNativeEdgeViewport(window, profile, listGridRect, rowSignatureRects);
             token.ThrowIfCancellationRequested();
             var currentMovementDistance = AverageSignatureDistance(
                 beforeRows,
-                currentRows,
+                latest.Rows,
                 [(0, 0), (1, 1), (2, 2)]);
-            var frameDistance = AverageSignatureDistance(
-                previousRows,
-                currentRows,
-                [(0, 0), (1, 1), (2, 2)]);
-            previousRows = currentRows;
-            var settled = settle.Observe(currentMovementDistance, frameDistance, watch.Elapsed.TotalMilliseconds);
+            latestEvidence = EvaluateNativeEdgePosition(before, latest, pixelsPerRow);
+            var pixelDelta = ScrollbarDelta(before.Scrollbar, latest.Scrollbar);
+            var frameStable = NativeEdgeFrameStable(previous, latest);
+            var phaseDifference = NativeEdgePhaseProbe.Compare(previous.Phase, latest.Phase);
+            if (settle.Samples == 0 || settle.Samples % 10 == 0)
+                scanLog.WriteEvent("EDGE_PHASE_STABILITY",
+                    $"visibleTopLogicalRow={visibleTopLogicalRow}, changedPermille={phaseDifference.ChangedPermille}, maxTileDelta={phaseDifference.MaximumDelta}, gridStable={phaseDifference.Stable}, beforeThumb={previous.Scrollbar.StartY}-{previous.Scrollbar.EndY}, afterThumb={latest.Scrollbar.StartY}-{latest.Scrollbar.EndY}, frameStable={frameStable}");
+            previous = latest;
+            settle.Observe(currentMovementDistance, frameStable ? 0 : ListStableTolerance + 1,
+                watch.Elapsed.TotalMilliseconds, independentMovement: pixelDelta is not null and not 0,
+                allowSettlement: false);
+            if (watch.Elapsed.TotalMilliseconds >= settle.TimeoutMilliseconds) break;
+            if (lastLoggedDecision != latestEvidence.Decision)
+            {
+                lastLoggedDecision = latestEvidence.Decision;
+                scanLog.WriteEvent("EDGE_CLICK_POSITION", $"visibleTopLogicalRow={visibleTopLogicalRow}, decision={latestEvidence.Decision}, strong={latestEvidence.Strong}, scrollbarDelta={pixelDelta}, scrollbarPixelsPerRow={pixelsPerRow:F3}, frameStable={frameStable}, stableFrames={settle.StableFrames}, elapsedMs={watch.Elapsed.TotalMilliseconds:F1}, reason={latestEvidence.Reason}");
+            }
             if (!extended && settle.SawMovement
                 && watch.ElapsedMilliseconds >= NativeEdgeClickSettleTracker.InitialTimeoutMilliseconds)
             {
@@ -237,42 +255,105 @@ public sealed partial class ScanController
                 scanLog.WriteEvent("EDGE_CLICK_SETTLE_EXTENDED",
                     $"visibleTopLogicalRow={visibleTopLogicalRow}, elapsedMs={watch.Elapsed.TotalMilliseconds:F1}, movementDistance={settle.MovementDistance}, stableFrames={settle.StableFrames}, timeoutMs={settle.TimeoutMilliseconds}, reason=continue_original_click_observation");
             }
-            if (settled)
+            if (settle.StableFrames >= NativeEdgeClickSettleTracker.RequiredStableFrames
+                && latestEvidence.Strong && latestEvidence.Decision == RowAdvanceDecision.OneRow)
             {
-                watch.Stop();
-                var result = new NativeEdgeClickSettleResult(
-                    true,
-                    settle.SawMovement,
-                    settle.MovementDistance,
-                    settle.StableFrames,
-                    settle.Samples,
-                    watch.Elapsed.TotalMilliseconds,
-                    settle.SawMovement ? "native_edge_click_changed_assume_one" : "native_edge_click_stable_unchanged",
-                    targetPoint,
-                    beforeListHash,
-                    FormatNativeEdgeListHash(currentRows),
-                    settle.TimeoutMilliseconds);
-                scanLog.WriteEvent(
-                    "EDGE_CLICK_SETTLED",
-                    $"visibleTopLogicalRow={visibleTopLogicalRow}, targetPoint={targetPoint}, settled=True, changed={result.Changed}, movementDistance={result.MovementDistance}, frameDistance={frameDistance}, stableFrames={result.StableFrames}, samples={result.Samples}, elapsedMs={result.ElapsedMilliseconds:F1}, beforeListHash={result.BeforeListHash}, afterListHash={result.AfterListHash}, previousRowHash=unknown, currentRowHash=unknown, inventoryCount={inventoryCount}, scannedRows={scannedRows}, reason={result.Reason}");
-                return result;
+                provisional = RowAdvanceDecision.OneRow;
+                break;
             }
         }
 
-        watch.Stop();
-        return new NativeEdgeClickSettleResult(
-            false,
-            settle.SawMovement,
-            settle.MovementDistance,
-            settle.StableFrames,
-            settle.Samples,
-            watch.Elapsed.TotalMilliseconds,
-            "native_edge_click_settle_timeout",
-            targetPoint,
-            beforeListHash,
-            FormatNativeEdgeListHash(previousRows),
-            settle.TimeoutMilliseconds);
+        // A stationary click may be retried only after the full original window
+        // and an independent zero-position proof. Identical cards are not bottom.
+        if (provisional is null && !settle.SawMovement
+            && watch.ElapsedMilliseconds >= NativeEdgeClickSettleTracker.InitialTimeoutMilliseconds
+            && settle.StableFrames >= 3 && latestEvidence.Strong
+            && latestEvidence.Decision == RowAdvanceDecision.NoMove
+            && ScrollbarDelta(before.Scrollbar, latest.Scrollbar) == 0)
+        {
+            provisional = RowAdvanceDecision.NoMove;
+        }
+        if (provisional is null) return Finish(false, null, "native_edge_position_unverified");
+
+        // Release hover and verify the final position against the ORIGINAL
+        // baseline. A transient one-row position or a return to the baseline
+        // must never authorize a preselected capture.
+        window.MoveCursor(ListNeutralPoint(window, listGridRect));
+        // Releasing hover can still animate. Keep observing the same click
+        // until its original deadline instead of truncating after six samples.
+        for (var sample = 1; settle.CanObserveRelease(watch.Elapsed.TotalMilliseconds); sample++)
+        {
+            token.ThrowIfCancellationRequested();
+            await Task.Delay(pollMilliseconds, token);
+            if (!settle.CanObserveRelease(watch.Elapsed.TotalMilliseconds)) break;
+            var released = CaptureNativeEdgeViewport(window, profile, listGridRect, rowSignatureRects);
+            token.ThrowIfCancellationRequested();
+            if (!settle.CanObserveRelease(watch.Elapsed.TotalMilliseconds)) break;
+            var evidence = EvaluateNativeEdgePosition(before, released, pixelsPerRow);
+            var frameStable = NativeEdgeFrameStable(latest, released);
+            var samePosition = evidence.Strong && evidence.Decision == provisional
+                && frameStable
+                && (provisional != RowAdvanceDecision.NoMove || ScrollbarDelta(before.Scrollbar, released.Scrollbar) == 0);
+            var releaseConfirmed = settle.ObserveRelease(samePosition, watch.Elapsed.TotalMilliseconds);
+            scanLog.WriteEvent("EDGE_CLICK_RELEASE_EVIDENCE", $"visibleTopLogicalRow={visibleTopLogicalRow}, sample={sample}, provisional={provisional}, decision={evidence.Decision}, strong={evidence.Strong}, scrollbarDelta={ScrollbarDelta(before.Scrollbar, released.Scrollbar)}, scrollbarPixelsPerRow={pixelsPerRow:F3}, beforeThumb={latest.Scrollbar.StartY}-{latest.Scrollbar.EndY}, afterThumb={released.Scrollbar.StartY}-{released.Scrollbar.EndY}, frameStable={frameStable}, stableMatches={settle.ReleaseStableFrames}/{NativeEdgeClickSettleTracker.RequiredStableFrames}, elapsedMs={watch.Elapsed.TotalMilliseconds:F1}, deadlineMs={NativeEdgeClickSettleTracker.MovingTimeoutMilliseconds}, reason={evidence.Reason}");
+            latest = released;
+            latestEvidence = evidence;
+            if (releaseConfirmed && settle.CanObserveRelease(watch.Elapsed.TotalMilliseconds))
+                return Finish(true, provisional == RowAdvanceDecision.OneRow ? 1 : 0, "native_edge_position_release_confirmed");
+        }
+        return Finish(false, null, "native_edge_position_release_unverified");
+
+        NativeEdgeClickSettleResult Finish(bool accepted, int? rowsAdvanced, string reason)
+        {
+            watch.Stop();
+            var result = new NativeEdgeClickSettleResult(
+                accepted, rowsAdvanced == 1, settle.MovementDistance, settle.StableFrames,
+                settle.Samples, watch.Elapsed.TotalMilliseconds, reason, targetPoint,
+                beforeListHash, FormatNativeEdgeListHash(latest.Rows), settle.TimeoutMilliseconds,
+                rowsAdvanced, accepted);
+            scanLog.WriteEvent("EDGE_CLICK_SETTLED", $"visibleTopLogicalRow={visibleTopLogicalRow}, targetPoint={targetPoint}, settled={accepted}, verifiedRowsAdvanced={rowsAdvanced}, changed={result.Changed}, movementDistance={result.MovementDistance}, stableFrames={result.StableFrames}, samples={result.Samples}, elapsedMs={result.ElapsedMilliseconds:F1}, beforeListHash={beforeListHash}, afterListHash={result.AfterListHash}, scrollbarDelta={ScrollbarDelta(before.Scrollbar, latest.Scrollbar)}, scrollbarPixelsPerRow={pixelsPerRow:F3}, beforeThumb={before.Scrollbar.StartY}-{before.Scrollbar.EndY}, afterThumb={latest.Scrollbar.StartY}-{latest.Scrollbar.EndY}, releaseConfirmed={accepted}, inventoryCount={inventoryCount}, scannedRows={scannedRows}, positionReason={latestEvidence.Reason}, reason={reason}");
+            return result;
+        }
     }
+
+    private static NativeEdgeViewport CaptureNativeEdgeViewport(
+        GameWindow window, ScanProfile profile, Rectangle listGridRect, IReadOnlyList<Rectangle> rowRects)
+    {
+        var scrollbarBounds = ScrollbarProbeBounds(window, profile, includeThumbEnds: true);
+        var bounds = Rectangle.Union(listGridRect, scrollbarBounds);
+        using var frame = window.CaptureFrame(bounds);
+        var rows = rowRects.Select(rect => RowVisualSignatureExtractor.Create(frame,
+            new Rectangle(rect.Left - bounds.Left, rect.Top - bounds.Top, rect.Width, rect.Height))).ToArray();
+        var scrollbar = ExtractScrollbarThumbProbe(frame, bounds, scrollbarBounds,
+            profile.Color("scrollBar"), Math.Max(0, profile.ColorTolerance));
+        var phaseBounds = Rectangle.Union(rowRects[0], rowRects[1]);
+        phaseBounds.Offset(-bounds.Left, -bounds.Top);
+        using var bitmap = frame.ToBitmap();
+        var phase = NativeEdgePhaseProbe.Capture(bitmap, phaseBounds);
+        return new NativeEdgeViewport(rows, scrollbar, phase);
+    }
+
+    private static RowAdvanceEvidence EvaluateNativeEdgePosition(
+        NativeEdgeViewport before, NativeEdgeViewport after, double pixelsPerRow)
+    {
+        var verification = VerifyOneRowDown(before.Rows, after.Rows);
+        var distance = AverageSignatureDistance(before.Rows, after.Rows, [(0, 0), (1, 1), (2, 2)]);
+        var structural = RowAdvanceEvaluator.Evaluate(verification.NoMoveScore,
+            verification.OneRowScore, verification.TwoRowScore, distance);
+        var delta = ScrollbarDelta(before.Scrollbar, after.Scrollbar);
+        return NativeEdgePositionPolicy.Resolve(structural, before.Scrollbar.Found, after.Scrollbar.Found,
+            (before.Scrollbar.EndY - before.Scrollbar.StartY) - (after.Scrollbar.EndY - after.Scrollbar.StartY),
+            delta, pixelsPerRow);
+    }
+
+    private static bool NativeEdgeFrameStable(NativeEdgeViewport before, NativeEdgeViewport after) =>
+        NativeEdgePhaseProbe.Compare(before.Phase, after.Phase).Stable
+        && before.Scrollbar.Found && after.Scrollbar.Found
+        && before.Scrollbar.StartY == after.Scrollbar.StartY
+        && before.Scrollbar.EndY == after.Scrollbar.EndY;
+
+    private readonly record struct NativeEdgeViewport(
+        RowVisualSignature[] Rows, ScrollbarThumbProbe Scrollbar, NativeEdgePhase Phase);
 
     private static string FormatNativeEdgeListHash(IEnumerable<RowVisualSignature> signatures) =>
         string.Join("-", signatures.Take(3).Select(signature => signature.Hash.ToString("X16")));

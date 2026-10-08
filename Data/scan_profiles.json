@@ -29,8 +29,8 @@
       "scrollMaxTicksPerRow": 25,
       "calibrationRows": 5,
       "duplicateRowThreshold": 9,
-      "resetToTopWheelTicks": 120,
-      "resetToTopWheelDelayMs": 50,
+      "resetToTopWheelTicks": 1024,
+      "resetToTopWheelDelayMs": 20,
       "colorTolerance": 26,
       "visualProbes": {
         "requiredSignals": 2,
@@ -78,6 +78,7 @@
         "scrollBarTop": [1366, 242],
         "scrollBarBottom": [1366, 862],
         "driveDiscOffset": [80, 145],
+        "driveDiscSelectionOffset": [-48, -48],
         "driveDiscStep": [135, 175],
         "dismantleButton": [222, 930],
         "statBackgroundOffset": [10, 20]
@@ -140,8 +141,8 @@
       "scrollMaxTicksPerRow": 25,
       "calibrationRows": 5,
       "duplicateRowThreshold": 9,
-      "resetToTopWheelTicks": 120,
-      "resetToTopWheelDelayMs": 50,
+      "resetToTopWheelTicks": 1024,
+      "resetToTopWheelDelayMs": 20,
       "colorTolerance": 26,
       "visualProbes": {
         "requiredSignals": 2,
@@ -189,6 +190,7 @@
         "scrollBarTop": [1366, 242],
         "scrollBarBottom": [1366, 862],
         "driveDiscOffset": [80, 145],
+        "driveDiscSelectionOffset": [-48, -48],
         "driveDiscStep": [135, 175],
         "dismantleButton": [222, 930],
         "statBackgroundOffset": [10, 20]

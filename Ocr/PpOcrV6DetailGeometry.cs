@@ -7,7 +7,7 @@ using ZZZScannerNext.Core;
 namespace ZZZScannerNext.Ocr;
 
 /// <summary>
-/// Soda's frozen seven-row detail geometry. The JSON is the single source
+/// Soda's canonical seven-row detail geometry. The JSON is the single source
 /// shared with the locked PP-OCRv6 benchmark and the production recognizer.
 /// </summary>
 public static partial class PpOcrV6DetailGeometry
@@ -25,7 +25,7 @@ public static partial class PpOcrV6DetailGeometry
         var expected = new[] { "selectedDiscName", "level", "mainStat", "subStat1", "subStat2", "subStat3", "subStat4" };
         if (!fields.Select(field => field.GetProperty("key").GetString()).SequenceEqual(expected))
             throw new InvalidDataException("ppocrv6_detail_geometry_field_order_invalid");
-        return fields.Select(field =>
+        var rois = fields.Select(field =>
         {
             var left = field.GetProperty("left").GetInt32();
             var top = field.GetProperty("top").GetInt32();
@@ -35,6 +35,52 @@ public static partial class PpOcrV6DetailGeometry
                 throw new InvalidDataException("ppocrv6_detail_geometry_roi_out_of_bounds");
             return Rectangle.FromLTRB(left, top, right, bottom);
         }).ToArray();
+        ValidateProductionRois(rois, new Size(width, height));
+        return rois;
+    }
+
+    /// <summary>
+    /// Map canonical edges into the captured panel without resizing its pixels.
+    /// The recognition worker already normalizes each individual text crop.
+    /// Each capture, including a luminance retry, must use its own mapped ROIs.
+    /// </summary>
+    internal static IReadOnlyList<Rectangle> ResolveProductionRois(
+        Size detailSize, IReadOnlyList<Rectangle> canonicalRois)
+    {
+        var canonicalSize = new Size(450, 517);
+        ValidateProductionRois(canonicalRois, canonicalSize);
+        // Crops come from a separately validated 16:9 client/profile. Independently
+        // rounded panel dimensions can differ from the ideal ratio by <= 2px.
+        if (detailSize.Width < 300 || detailSize.Width > 900
+            || detailSize.Height < 344 || detailSize.Height > 1035
+            || Math.Abs(detailSize.Height - detailSize.Width * 517.0 / 450) > 2)
+            throw new InvalidDataException($"ppocrv6_detail_geometry_size_incompatible:{detailSize.Width}x{detailSize.Height}");
+
+        // Preserve the exact established 1080/1081 path and crop bytes.
+        if (detailSize == canonicalSize) return canonicalRois;
+
+        var mapped = canonicalRois.Select(roi => Rectangle.FromLTRB(
+            (int)Math.Round(roi.Left * detailSize.Width / 450.0),
+            (int)Math.Round(roi.Top * detailSize.Height / 517.0),
+            (int)Math.Round(roi.Right * detailSize.Width / 450.0),
+            (int)Math.Round(roi.Bottom * detailSize.Height / 517.0))).ToArray();
+        ValidateProductionRois(mapped, detailSize);
+        return mapped;
+    }
+
+    private static void ValidateProductionRois(IReadOnlyList<Rectangle> rois, Size detailSize)
+    {
+        if (rois.Count != 7) throw new InvalidDataException($"ppocrv6_detail_field_count:{rois.Count}/7");
+        for (var index = 0; index < rois.Count; index++)
+        {
+            var roi = rois[index];
+            if (roi.Width <= 0 || roi.Height <= 0 || roi.Left < 0 || roi.Top < 0
+                || roi.Right > detailSize.Width || roi.Bottom > detailSize.Height)
+                throw new InvalidDataException("ppocrv6_detail_geometry_roi_out_of_bounds");
+            for (var previous = 0; previous < index; previous++)
+                if (roi.IntersectsWith(rois[previous]))
+                    throw new InvalidDataException("ppocrv6_detail_geometry_roi_overlap");
+        }
     }
 
     public static IReadOnlyList<OcrResult> ExpandForUpstreamCleaner(IReadOnlyList<OcrResult> rows)

@@ -46,6 +46,7 @@ internal static class DirectForkProgress
         var visited = Regex.Matches(log, @"\bvisited=(\d+)\b", RegexOptions.IgnoreCase);
         int? completed = counters.Count > 0 ? int.Parse(counters[^1].Groups[1].Value) : null;
         int? processed = visited.Count > 0 ? int.Parse(visited[^1].Groups[1].Value) : completed;
+        var diagnostics = DirectForkDiagnostics.Read(log, terminalJson, total);
         JsonObject? error = null;
         if (terminalJson is not null)
         {
@@ -60,19 +61,33 @@ internal static class DirectForkProgress
                 var gameMissing = detail.Contains("未找到游戏窗口进程", StringComparison.Ordinal);
                 var noSelected = detail.Contains("scan_no_importable_s_discs", StringComparison.Ordinal)
                     || detail.Contains("未发现选中的 S 级驱动盘", StringComparison.Ordinal);
+                var contextCode = diagnostics["code"]?.GetValue<string>();
+                var contextMessage = contextCode switch
+                {
+                    "game_window_not_foreground" => "游戏已离开前台。请回到驱动仓库后重新扫描，期间保持游戏在前台。",
+                    "game_window_not_visible" => "游戏窗口不可见。请恢复窗口，完整显示驱动仓库后重新扫描。",
+                    "window_geometry_changed" => "游戏窗口位置、大小或显示缩放发生变化。请将窗口放好并保持大小不变，再重新扫描。",
+                    "ppocrv6_detail_geometry_incompatible" => "当前游戏画面尺寸不兼容。建议将游戏设为 1920 × 1080 窗口或无边框模式后重新扫描。",
+                    "warehouse_context_lost" => "暂时无法确认驱动仓库画面。请关闭遮挡并保持游戏在前台，再重新扫描。",
+                    _ => null
+                };
                 error = new JsonObject
                 {
-                    ["userMessage"] = noSelected ? "没有可导入的 S 级驱动盘；本次未生成导入结果。" : gameMissing ? "请先启动绝区零并保持游戏窗口可用，然后重新扫描。" : panelTimeout
+                    ["userMessage"] = contextMessage ?? (noSelected ? "没有可导入的 S 级驱动盘；本次未生成导入结果。" : gameMissing ? "请先启动绝区零并保持游戏窗口可用，然后重新扫描。" : panelTimeout
                         ? $"扫描在驱动盘详情切换时超时，已识别 {completed} 张；请检查游戏窗口与盘面后重试，本次结果未进入正式导入。"
-                        : $"扫描中断，已识别 {completed} 张；结果未进入正式导入，请检查游戏窗口后重新扫描。",
-                    ["recoveryAction"] = "retry", ["diagnosticCode"] = gameMissing ? "game_process_not_found" : panelTimeout ? "panel_capture_timeout" : "direct_fork_terminal_failed"
+                        : $"扫描中断，已识别 {completed} 张；结果未进入正式导入，请检查游戏窗口后重新扫描。"),
+                    // The terminal projection already validates native codes against the shared
+                    // whitelist. Preserve a specific failure through finalization; legacy text
+                    // heuristics and the generic failure are only fallbacks.
+                    ["recoveryAction"] = "retry", ["diagnosticCode"] = contextCode is not null and not "none" and not "unknown"
+                        ? contextCode : gameMissing ? "game_process_not_found" : panelTimeout ? "panel_capture_timeout" : "direct_fork_terminal_failed"
                 };
             }
         }
         if (processed is null && total is null) return null;
         return new JsonObject
         {
-            ["diagnostics"] = DirectForkDiagnostics.Read(log, terminalJson, total),
+            ["diagnostics"] = diagnostics,
             ["state"] = error is null ? "scanning" : "connection_failed", ["error"] = error,
             ["progress"] = new JsonObject
             {
