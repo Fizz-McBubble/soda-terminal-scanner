@@ -56,8 +56,13 @@ internal static class DirectForkProgress
             processed = result.TryGetProperty("Visited", out var visitedNode) ? visitedNode.GetInt32() : completed;
             if (!result.GetProperty("Success").GetBoolean())
             {
+                // A visited cell may still be waiting for OCR. At failure the UI
+                // and feedback both report completed recognition, keeping visited
+                // separately in diagnostic counts instead of overstating results.
+                processed = completed;
                 var detail = result.TryGetProperty("Error", out var errorNode) && errorNode.ValueKind == JsonValueKind.String ? errorNode.GetString() ?? "" : "";
-                var panelTimeout = log.Contains("terminationCode=panel_capture_timeout", StringComparison.Ordinal) || detail.Contains("StalePanel", StringComparison.Ordinal);
+                var panelTimeout = diagnostics["code"]?.GetValue<string>() == "panel_capture_timeout"
+                    || log.Contains("terminationCode=panel_capture_timeout", StringComparison.Ordinal) || detail.Contains("StalePanel", StringComparison.Ordinal);
                 var gameMissing = detail.Contains("未找到游戏窗口进程", StringComparison.Ordinal);
                 var noSelected = detail.Contains("scan_no_importable_s_discs", StringComparison.Ordinal)
                     || detail.Contains("未发现选中的 S 级驱动盘", StringComparison.Ordinal);

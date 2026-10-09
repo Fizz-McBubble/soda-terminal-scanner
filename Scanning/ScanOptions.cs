@@ -252,6 +252,9 @@ public sealed class ScanRunResult
     public int Failed { get; set; }
     public string Error { get; set; } = "";
     public string ErrorCode { get; set; } = "";
+    // Local failure evidence is already collected by the scanner. The Helper
+    // projects only the shared feedback whitelist before exposing it to the web.
+    public IReadOnlyDictionary<string, object?>? DiagnosticDetails { get; set; }
 }
 
 public sealed class EdgeScrollProbeResult
@@ -347,7 +350,8 @@ internal static class ScanRunResultFactory
             Completed = terminal?.Completed ?? 0,
             Failed = terminal?.Failed ?? 0,
             Error = exception.ToString(),
-            ErrorCode = (exception as IScannerFailureException)?.Code ?? "scanner_failure"
+            ErrorCode = (exception as IScannerFailureException)?.Code ?? "scanner_failure",
+            DiagnosticDetails = ScanDiagnosticDetails.FromException(exception)
         };
     }
 }

@@ -115,7 +115,15 @@ public sealed partial class ScanController
         for (var iteration = 1; scannedLogicalRows.Count < totalRows && iteration <= guardIterations; iteration++)
         {
             token.ThrowIfCancellationRequested();
-            await WaitForListStableAsync(window, profile, listGridRect, scanLog, token);
+            if (!nativeEdgeClick || !lastScrollChangedViewport
+                || !NativeEdgePostScrollSelectionPolicy.CanReuseSettledViewport(
+                    pendingPreselectedPostScrollCell, visibleTopLogicalRow, maxVisibleTop))
+                await WaitForListStableAsync(window, profile, listGridRect, scanLog, token);
+            else
+                scanLog.WriteEvent("EDGE_VIEWPORT_SETTLEMENT_REUSED",
+                    $"iteration={iteration}, visibleTopLogicalRow={visibleTopLogicalRow}, reason=verified_one_row_and_release");
+            // Reusing the edge's settled-frame proof never skips the current
+            // window/scrollbar check or binds a different logical row.
             positionGuard.Verify();
             var currentRows = CaptureRowSignatures(window, rowSignatureRects);
             LogOverlapViewport(scanLog, iteration, visibleTopLogicalRow, maxVisibleTop, totalRows, currentRows);
@@ -138,7 +146,8 @@ public sealed partial class ScanController
                 if (preselectedPostScrollCell is not null
                     && !preselectedPostScrollCell.Value.Matches(logicalRow, visualRow, 1))
                 {
-                    throw NavigationFailure($"原生底行点击后的预选格未在预期位置出现：expectedLogicalRow={preselectedPostScrollCell.Value.LogicalRow}, expectedVisualRow={preselectedPostScrollCell.Value.VisualRow}, candidateLogicalRow={logicalRow}, candidateVisualRow={visualRow}。为避免漏扫，本次停止。");
+                    throw NavigationFailure($"原生底行点击后的预选格未在预期位置出现：expectedLogicalRow={preselectedPostScrollCell.Value.LogicalRow}, expectedVisualRow={preselectedPostScrollCell.Value.VisualRow}, candidateLogicalRow={logicalRow}, candidateVisualRow={visualRow}。为避免漏扫，本次停止。",
+                        new Dictionary<string, object?> { ["phase"] = "edge_click", ["reason"] = "preselected_position_mismatch", ["logicalRow"] = logicalRow, ["visualRow"] = visualRow, ["column"] = 1, ["visibleTopLogicalRow"] = visibleTopLogicalRow });
                 }
                 RowScanResult rowResult;
                 try
@@ -216,7 +225,8 @@ public sealed partial class ScanController
             if (visibleTopLogicalRow >= maxVisibleTop)
             {
                 var missing = Enumerable.Range(1, totalRows).Where(row => !scannedLogicalRows.Contains(row)).Take(8).ToArray();
-                throw NavigationFailure($"重叠签名扫描到达底部但仍有逻辑行未扫：{string.Join(",", missing)}。为避免漏扫，本次停止。");
+                throw NavigationFailure($"重叠签名扫描到达底部但仍有逻辑行未扫：{string.Join(",", missing)}。为避免漏扫，本次停止。",
+                    new Dictionary<string, object?> { ["phase"] = "result", ["reason"] = "unscanned_rows_at_bottom", ["visibleTopLogicalRow"] = visibleTopLogicalRow, ["scannedRows"] = scannedLogicalRows.Count, ["totalRows"] = totalRows });
             }
 
             var beforeTop = visibleTopLogicalRow;
@@ -247,7 +257,8 @@ public sealed partial class ScanController
                             out var preselected))
                     {
                         scanLog.WriteEvent("EDGE_CLICK_STOP", $"iteration={iteration}, visibleTopLogicalRow={visibleTopLogicalRow}, targetPoint={edgeClick.TargetPoint}, reason=preselected_binding_insufficient");
-                        throw NavigationFailure("底行点击后列表虽变化，但无法将已选中格安全绑定到新视口第 3 行第 1 列。为避免复用旧详情或漏扫，本次停止。");
+                        throw NavigationFailure("底行点击后列表虽变化，但无法将已选中格安全绑定到新视口第 3 行第 1 列。为避免复用旧详情或漏扫，本次停止。",
+                            new Dictionary<string, object?> { ["phase"] = "edge_click", ["reason"] = "preselected_binding_insufficient", ["visibleTopLogicalRow"] = visibleTopLogicalRow, ["stableFrames"] = edgeClick.StableFrames, ["samples"] = edgeClick.Samples });
                     }
                     visibleTopLogicalRow = Math.Min(maxVisibleTop, visibleTopLogicalRow + 1);
                     pendingPreselectedPostScrollCell = preselected;
@@ -261,7 +272,17 @@ public sealed partial class ScanController
                 if (edgeDecision == NativeEdgeClickDecision.Stop)
                 {
                     scanLog.WriteEvent("EDGE_CLICK_STOP", $"iteration={iteration}, visibleTopLogicalRow={visibleTopLogicalRow}, targetPoint={edgeClick.TargetPoint}, movementDistance={edgeClick.MovementDistance}, stableFrames={edgeClick.StableFrames}, samples={edgeClick.Samples}, elapsedMs={edgeClick.ElapsedMilliseconds:F1}, beforeListHash={edgeClick.BeforeListHash}, afterListHash={edgeClick.AfterListHash}, inventoryCount={inventoryCount}, scannedRows={scannedLogicalRows.Count}/{totalRows}, reason={edgeClick.Reason}");
-                    throw NavigationFailure($"底行点击后无法确认最终一行位移：{edgeClick.Reason}。");
+                    throw NavigationFailure($"底行点击后无法确认最终一行位移：{edgeClick.Reason}。",
+                        new Dictionary<string, object?>
+                        {
+                            ["phase"] = "edge_click", ["reason"] = edgeClick.Reason,
+                            ["visibleTopLogicalRow"] = visibleTopLogicalRow,
+                            ["scannedRows"] = scannedLogicalRows.Count, ["totalRows"] = totalRows,
+                            ["stableFrames"] = edgeClick.StableFrames,
+                            ["requiredStableFrames"] = NativeEdgeClickSettleTracker.RequiredStableFrames,
+                            ["samples"] = edgeClick.Samples, ["elapsedMs"] = (long)Math.Round(edgeClick.ElapsedMilliseconds),
+                            ["timeoutMs"] = edgeClick.TimeoutMilliseconds
+                        });
                 }
 
                 // The original edge input is independently proven stationary.
@@ -322,7 +343,8 @@ public sealed partial class ScanController
         if (scannedLogicalRows.Count < totalRows)
         {
             var missing = Enumerable.Range(1, totalRows).Where(row => !scannedLogicalRows.Contains(row)).Take(8).ToArray();
-            throw NavigationFailure($"重叠签名扫描达到保护上限仍未完成：scannedRows={scannedLogicalRows.Count}/{totalRows}, missing={string.Join(",", missing)}。");
+            throw NavigationFailure($"重叠签名扫描达到保护上限仍未完成：scannedRows={scannedLogicalRows.Count}/{totalRows}, missing={string.Join(",", missing)}。",
+                new Dictionary<string, object?> { ["phase"] = "result", ["reason"] = "traversal_iteration_limit", ["visibleTopLogicalRow"] = visibleTopLogicalRow, ["scannedRows"] = scannedLogicalRows.Count, ["totalRows"] = totalRows });
         }
 
         scanLog.Write($"End: overlap-signature-page completed. visited={counters.Visited}, expectedInventory={inventoryCount}, queued={counters.Queued}, completed={counters.Completed}, failed={counters.Failed}.");

@@ -315,6 +315,7 @@ public sealed partial class ScanController
                 new Dictionary<string, object?>
                 {
                     ["phase"] = "reset_to_top",
+                    ["reason"] = "scroll_top_position_unconfirmed",
                     ["acceptGateReason"] = "scroll_top_position_unconfirmed",
                     ["wheelTicks"] = result.WheelTicks,
                     ["topClicks"] = result.TopClicks,
@@ -323,7 +324,10 @@ public sealed partial class ScanController
                     ["actualColor"] = ColorText(result.LastActualColor),
                     ["expectedColor"] = ColorText(expectedColor),
                     ["colorTolerance"] = profile.ColorTolerance,
-                    ["elapsedMs"] = result.ElapsedMilliseconds
+                    ["elapsedMs"] = result.ElapsedMilliseconds,
+                    ["positionFound"] = lastResetThumb.Found,
+                    ["actualThumbStart"] = lastResetThumb.Found ? lastResetThumb.StartY - window.ClientScreenRect.Top : null,
+                    ["actualThumbEnd"] = lastResetThumb.Found ? lastResetThumb.EndY - window.ClientScreenRect.Top : null
                 });
         }
 

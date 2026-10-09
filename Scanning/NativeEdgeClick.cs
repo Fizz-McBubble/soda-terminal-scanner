@@ -27,7 +27,8 @@ internal readonly record struct NativeEdgeClickSettleResult(
     string AfterListHash,
     int TimeoutMilliseconds = NativeEdgeClickSettleTracker.InitialTimeoutMilliseconds,
     int? VerifiedRowsAdvanced = null,
-    bool ReleaseConfirmed = false);
+    bool ReleaseConfirmed = false,
+    string? TargetRarity = null);
 
 // A slow game frame must not trigger a second click: it could advance another
 // row. Keep observing the original click when movement has already begun.
@@ -118,10 +119,18 @@ internal readonly record struct NativeEdgePostScrollSelection(
     int LogicalRow,
     int VisualRow,
     int Column,
-    Point EdgeTargetPoint)
+    Point EdgeTargetPoint,
+    string? RarityBeforeSelection = null)
 {
     public bool Matches(int? logicalRow, int visualRow, int column) =>
         logicalRow == LogicalRow && visualRow == VisualRow && column == Column;
+
+    // The selected yellow outline can look like an S-rank stripe. Reuse only
+    // the same physical card's pre-click rarity after its one-row move was verified.
+    public string? ResolveRarity(int? logicalRow, int visualRow, int column, string? observedRarity) =>
+        Matches(logicalRow, visualRow, column) && RarityBeforeSelection is "S" or "A" or "B"
+            ? RarityBeforeSelection
+            : observedRarity;
 }
 
 internal enum NativeEdgePostScrollActionKind
@@ -138,6 +147,11 @@ internal readonly record struct NativeEdgePostScrollAction(
 
 internal static class NativeEdgePostScrollSelectionPolicy
 {
+    public static bool CanReuseSettledViewport(
+        NativeEdgePostScrollSelection? selection, int visibleTopLogicalRow, int maxVisibleTop) =>
+        visibleTopLogicalRow >= 2 && visibleTopLogicalRow <= maxVisibleTop
+        && selection is { } target && target.Matches(visibleTopLogicalRow + 2, 3, 1);
+
     public static bool TryBind(
         NativeEdgeClickSettleResult edge,
         int visibleTopBefore,
@@ -161,7 +175,8 @@ internal static class NativeEdgePostScrollSelectionPolicy
             LogicalRow: visibleTopBefore + 3,
             VisualRow: 3,
             Column: 1,
-            EdgeTargetPoint: edge.TargetPoint);
+            EdgeTargetPoint: edge.TargetPoint,
+            RarityBeforeSelection: edge.TargetRarity);
         return true;
     }
 

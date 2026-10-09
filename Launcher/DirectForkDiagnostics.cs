@@ -7,7 +7,7 @@ namespace ZZZScannerHelper;
 
 // This projection is deliberately independent of raw exception messages and result contents.
 // The same contract is embedded in Helper and consumed by the browser and feedback endpoint.
-internal static class DirectForkDiagnostics
+internal static partial class DirectForkDiagnostics
 {
     private static readonly JsonObject Contract = JsonNode.Parse(typeof(DirectForkDiagnostics).Assembly
         .GetManifestResourceStream("ZZZScannerHelper.ScanFeedbackContract.json")!)!.AsObject();
@@ -30,7 +30,7 @@ internal static class DirectForkDiagnostics
     internal static string Code(string? code) => code switch
     {
         "capture_failed" or "inventory_screen_unreadable" or "unsupported_display_layout" or "inventory_screen_not_detected" => "visual_preflight_failed",
-        "direct_fork_terminal_failed" => "scanner_failure",
+        "direct_fork_terminal_failed" or "scan_failed" => "scanner_failure",
         _ when code?.StartsWith("direct_fork_exit_", StringComparison.Ordinal) == true => "scanner_exit",
         _ => Contract["codes"]!.AsArray().Any(item => item!.GetValue<string>() == code) ? code! : "unknown"
     };
@@ -39,10 +39,10 @@ internal static class DirectForkDiagnostics
     {
         "helper_unavailable" or "helper_incompatible" or "helper_pairing_denied" => "connection",
         "permission_denied" or "elevation_cancelled" => "permission",
-        "game_process_not_found" or "visual_preflight_failed" or "ppocrv6_detail_geometry_incompatible" => "preflight",
+        "game_process_not_found" or "visual_preflight_failed" or "ppocrv6_detail_geometry_incompatible" or "inventory_count_ocr_failed" => "preflight",
         "game_window_not_foreground" or "game_window_not_visible" or "window_geometry_changed" or "warehouse_context_lost" => "capture",
         "panel_capture_timeout" => "capture", "scan_navigation_failed" => "scroll", "ocr_worker_failed" or "duplicate_guard" => "ocr",
-        "direct_fork_result_missing" or "direct_fork_partial" or "previous_scan_recovery_failed" or "scan_result_timeout" or "scan_result_read_failed" or "scan_file_invalid" => "result",
+        "direct_fork_result_missing" or "direct_fork_partial" or "previous_scan_recovery_failed" or "scan_result_timeout" or "scan_result_read_failed" or "scan_file_invalid" or "scan_no_importable_s_discs" => "result",
         "scan_import_handoff_failed" or "scan_import_failed" => "import",
         _ => "unknown"
     };
@@ -69,6 +69,7 @@ internal static class DirectForkDiagnostics
             if (Number(log, key, 100000) is int value) counts[key] = value;
         var code = Code(Token(log, "terminationCode"));
         var outcome = "unknown";
+        JsonElement? terminalDetails = null;
         if (terminalJson is not null)
         {
             using var document = JsonDocument.Parse(terminalJson);
@@ -77,6 +78,8 @@ internal static class DirectForkDiagnostics
                 if (result.TryGetProperty(field, out var node) && node.ValueKind == JsonValueKind.Number && node.TryGetInt32(out var value) && value is >= 0 and <= 100000) counts[key] = value;
             var status = result.TryGetProperty("Status", out var statusNode) && statusNode.ValueKind == JsonValueKind.String ? statusNode.GetString() : null;
             outcome = status is "canceled" or "cancelled" ? "cancelled" : result.TryGetProperty("Success", out var success) && success.ValueKind == JsonValueKind.True ? "completed" : "failed";
+            if (outcome == "failed" && result.TryGetProperty("DiagnosticDetails", out var details) && details.ValueKind == JsonValueKind.Object)
+                terminalDetails = details.Clone();
             // Only classify known signals. None of this free text enters the projection.
             var detail = result.TryGetProperty("Error", out var error) && error.ValueKind == JsonValueKind.String ? error.GetString() ?? "" : "";
             var structuredCode = ExactFailureCode(result, "ErrorCode");
@@ -97,46 +100,9 @@ internal static class DirectForkDiagnostics
                 if (environment[key] is null && int.TryParse(geometry.Groups[group].Value, out var size) && size is > 0 and <= 20000) environment[key] = size;
         var capture = Token(log, "captureModeActive|captureMode").ToLowerInvariant();
         if (capture is "gdi" or "dxgi") environment["captureMode"] = capture;
-        var evidence = new JsonObject();
-        foreach (var limit in Contract["evidenceLimits"]!.AsObject())
-            if (limit.Key != "itemIndex" && Number(log, Regex.Escape(limit.Key), limit.Value!.GetValue<long>()) is long value) evidence[limit.Key] = value;
-        foreach (var item in Contract["evidenceBooleans"]!.AsArray())
-        {
-            var key = item!.GetValue<string>();
-            if (bool.TryParse(Token(log, Regex.Escape(key)), out var value)) evidence[key] = value;
-        }
-        Pair(log, "visibleRois", "visibleRois", "totalRois", evidence);
-        Pair(log, "stableFrames", "stableFrames", "requiredStableFrames", evidence);
-        Pair(log, "col", "column", "maxColumns", evidence);
-        var roi = Token(log, "firstMissingRoi");
-        if (Contract["missingRois"]!.AsArray().Any(item => item!.GetValue<string>() == roi)) evidence["firstMissingRoi"] = roi;
-        // CELL_TIMING may be ahead of the failed OCR result. Attribute these fields
-        // only to the guard's own structured stop event, never the latest capture.
-        if (code == "duplicate_guard")
-        {
-            // The capture producer may already be on the next item when OCR stops.
-            // None of its row/ROI/stability evidence identifies this failed item.
-            evidence.Clear();
-            var stops = Regex.Matches(log, @"^(?:\[[^\]\r\n]+\][ \t]*)?EVENT #\d+ DUPLICATE_GUARD_STOP:[ \t]*([^\r\n]*)\r?$", RegexOptions.Multiline);
-            if (stops.Count > 0)
-            {
-                var stop = stops[^1].Groups[1].Value;
-                var itemIndex = Regex.Match(stop, @"(?:^|[\s,])itemIndex=(\d+)(?=[,\s]|$)").Groups[1].Value;
-                if (int.TryParse(itemIndex, out var index) && index >= 0 && index <= Contract["evidenceLimits"]!["itemIndex"]!.GetValue<int>()) evidence["itemIndex"] = index;
-                var kind = Regex.Match(stop, @"(?:^|[\s,])targetVerificationKind=([A-Za-z0-9_]+)(?=[,\s]|$)").Groups[1].Value;
-                if (Contract["targetVerificationKinds"]!.AsArray().Any(item => item!.GetValue<string>() == kind)) evidence["targetVerificationKind"] = kind;
-            }
-            else
-            {
-                // Older forks emitted only a fixed guard-stop line. Recover the
-                // stopped index, but leave its unrecorded verification kind absent.
-                var legacyStops = Regex.Matches(log, @"^(?:\[[^\]\r\n]+\][ \t]*)?Duplicate guard canceled scan at #(\d+):[^\r\n]*\r?$", RegexOptions.Multiline);
-                if (legacyStops.Count > 0 && int.TryParse(legacyStops[^1].Groups[1].Value, out var index) && index >= 0 && index <= Contract["evidenceLimits"]!["itemIndex"]!.GetValue<int>())
-                    evidence["itemIndex"] = index;
-            }
-        }
+        var evidence = ReadFailureEvidence(log, code, terminalDetails, environment);
         var stage = Stage(code);
-        return new JsonObject { ["outcome"] = outcome, ["code"] = code, ["stage"] = stage == "unknown" ? counts["processed"]?.GetValue<int>() > 0 ? "capture" : "preflight" : stage,
+        return new JsonObject { ["outcome"] = outcome, ["code"] = code, ["stage"] = stage,
             ["counts"] = counts, ["durationMs"] = Duration(log), ["environment"] = environment, ["evidence"] = evidence };
     }
 

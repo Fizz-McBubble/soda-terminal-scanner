@@ -2,13 +2,13 @@
 
 发布入口为 `Soda-Scanner-Setup.exe`（Windows x64）。玩家下载并打开 EXE 后，首次安装自动准备组件并启动扫描助手，无需再点击“开始安装”。窗口展示准备、安装与完成进度，安装事务执行期间不能关闭；失败后可手动重试。已有安装、残留文件或协议/卸载登记时保留修复和卸载入口，不自动覆盖。也可从 Windows“已安装的应用”卸载。卸载保留扫描结果、日志、未知文件和用户替换的文件。
 
-1.0.7 安装包内置 RC8.7 的完整锁定 ZIP：Helper 2.3.9、锁定 1.0.49 Soda fork（capture r26）、PP-OCRv6 与 Microsoft release VC runtime 14.44.35211.0 的应用本地依赖和许可证。此版修复同属性盘提前中断、2K 全屏回顶和跨尺寸选中边缘检测，补充已确认的套装 OCR 别名，并保留具体诊断原因。沿用 1.0.4 的安装窗口和打包，协议 5 和数据 schema 2 不变。
+1.0.8 安装包内置 RC8.8 的完整锁定 ZIP：Helper 2.3.10、锁定 1.0.49 Soda fork（capture r27）、PP-OCRv6 与 Microsoft release VC runtime 14.44.35211.0 的应用本地依赖和许可证。此版优化翻行后的重复确认，修复 A/B 品级边界误判和恢复全屏窗口后的启动顺序；补全失败环节、停止位置及窗口状态，网页反馈保留提交编号并支持一致的重试、复制和下载。沿用现有安装窗口和打包，协议 5 和数据 schema 2 不变。
 
 ## 构建
 
 需要 Windows x64 与 .NET 8 SDK。先取得两个精确输入：
 
-- [RC8.7 运行包](https://github.com/Fizz-McBubble/soda-terminal-scanner/releases/download/scanner-runtime-v18.0.0-rc.8.7/soda-scanner-runtime-18-rc8-7-win-x64.zip)
+- [RC8.8 运行包](https://github.com/Fizz-McBubble/soda-terminal-scanner/releases/download/scanner-runtime-v18.0.0-rc.8.8/soda-scanner-runtime-18-rc8-8-win-x64.zip)
 - [应用本地 VC runtime 包](https://github.com/Fizz-McBubble/soda-terminal-scanner/releases/download/scanner-installer-v1.0.0/vc-runtime-14.44.35211-x64.zip)
 
 执行 `./Installer/build.ps1 -RuntimeArchive <ZIP> -VCRuntimeArchive <VC-ZIP> -NsisPath <makensis.exe>`。脚本检查固定输入和编译器 SHA256，不自动下载或运行安装器。NSIS 3.13 的精确来源见 `nsis-toolchain.json`；仅解压官方便携 ZIP，不要求系统安装。中间文件与产物默认写在 `Installer/outputs`。输入、产物与 SDK 依赖不进入源码提交。

@@ -193,14 +193,15 @@ public sealed partial class ScanController
             var ppOcrGeometry = options.OcrEngine == OcrEngine.PpOcrV6
                 ? PpOcrV6CaptureGeometryContract.Load()
                 : null;
-            ppOcrGeometry?.EnsureCompatible(profile, window.ClientScreenRect.Size);
             if (options.BringToFront)
             {
                 window.BringToFront();
-                // Activation refreshes client metrics; reject any changed size
-                // before preflight can send navigation or selection input.
-                ppOcrGeometry?.EnsureCompatible(profile, window.ClientScreenRect.Size);
             }
+
+            // Fullscreen clients can report 0x0 while inactive. Activation
+            // refreshes their metrics; validate the restored size before
+            // preflight can send any navigation or selection input.
+            ppOcrGeometry?.EnsureCompatible(profile, window.ClientScreenRect.Size);
 
             window.BindCaptureContext();
             window.ConfigureCaptureMode(options.CaptureMode, scanLog.Write);

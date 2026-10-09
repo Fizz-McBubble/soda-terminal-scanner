@@ -21,7 +21,7 @@ public sealed partial class ScanController
     {
         public PanelTargetEvidenceGate EvidenceGate { get; } = new();
         public ImageSignature? PreviousSelectionSignature { get; private set; }
-        public ImageSignature? PreviousPreselectedSelectionSignature { get; private set; }
+        public bool PreviousPreselectedBorderVisible { get; private set; }
         public int PreselectedSelectionStableFrames { get; private set; }
         public bool PreselectedEvidenceLogged { get; private set; }
         public int SelectionObservedFrame { get; private set; } = -1;
@@ -35,7 +35,8 @@ public sealed partial class ScanController
             Rectangle selectionProbeRect,
             ImageSignature beforeSelectionSignature,
             int frameCount,
-            double elapsed)
+            double elapsed,
+            ImageSignature? selectionSignature = null)
         {
             if (EvidenceGate.Stable)
             {
@@ -47,7 +48,7 @@ public sealed partial class ScanController
                 return SelectionStableForObservedFrame;
             }
 
-            var currentSelectionSignature = CaptureSelectionSignature(selectionProbeRect);
+            var currentSelectionSignature = selectionSignature ?? CaptureSelectionSignature(selectionProbeRect);
             var changed = SignatureDistance(beforeSelectionSignature, currentSelectionSignature) > PanelChangeTolerance;
             var stableWithPrevious = PreviousSelectionSignature is not null
                 && SignatureDistance(PreviousSelectionSignature.Value, currentSelectionSignature) <= ListStableTolerance;
@@ -61,20 +62,14 @@ public sealed partial class ScanController
         }
 
         public bool ObservePreselectedSelectionPresence(
-            bool preselectedTargetEvidence,
-            Rectangle selectionProbeRect,
+            bool selectedBorderVisible,
             ScanLog scanLog,
             bool postScrollFirstCell)
         {
-            if (!preselectedTargetEvidence)
-            {
-                return false;
-            }
-
-            var currentSelectionSignature = CaptureSelectionSignature(selectionProbeRect);
-            var stableWithPrevious = PreviousPreselectedSelectionSignature is not null
-                && SignatureDistance(PreviousPreselectedSelectionSignature.Value, currentSelectionSignature) <= ListStableTolerance;
-            PreviousPreselectedSelectionSignature = currentSelectionSignature;
+            // The edge move already proves which physical card this is. Check
+            // its outline now, rather than waiting for the glow to stop pulsing.
+            var stableWithPrevious = selectedBorderVisible && PreviousPreselectedBorderVisible;
+            PreviousPreselectedBorderVisible = selectedBorderVisible;
             PreselectedSelectionStableFrames = stableWithPrevious
                 ? PreselectedSelectionStableFrames + 1
                 : 0;
@@ -83,7 +78,7 @@ public sealed partial class ScanController
                 PreselectedEvidenceLogged = true;
                 scanLog.WriteEvent(
                     "PANEL_PRESELECTED_TARGET_EVIDENCE",
-                    $"evidence=edge_target_list_move_and_stable_selection, stableFrames={PreselectedSelectionStableFrames}/{PanelTargetEvidenceGate.RequiredStableFrames}, postScrollFirstCell={postScrollFirstCell}");
+                    $"evidence=edge_target_list_move_and_current_outline, stableFrames={PreselectedSelectionStableFrames}/{PanelTargetEvidenceGate.RequiredStableFrames}, postScrollFirstCell={postScrollFirstCell}");
             }
 
             return PreselectedSelectionStableFrames >= PanelTargetEvidenceGate.RequiredStableFrames;

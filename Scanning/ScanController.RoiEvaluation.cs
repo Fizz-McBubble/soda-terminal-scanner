@@ -45,48 +45,18 @@ public sealed partial class ScanController
             .ToArray();
     }
 
-    // Sampling happens only after the existing target/panel/stability gates have
-    // accepted a checkpoint. It never clicks or changes selection state.
-    private static LockCaptureEvidence CaptureLockEvidence(
-        GameWindow window,
-        ScanProfile profile,
-        Point selectedPoint,
-        ScanLog scanLog)
-    {
-        Bitmap? card = null;
-        try
-        {
-            var cardRect = new Rectangle(selectedPoint.X - 62, selectedPoint.Y - 153, 124, 126);
-            var detailRect = profile.HasRectangle("detailLockButton")
-                ? window.ToScreenRectangle(profile.Rectangle("detailLockButton"))
-                : Rectangle.Empty;
-            if (detailRect.IsEmpty)
-            {
-                return UnknownLockEvidence("detail_lock_button_profile_missing");
-            }
+    private static readonly LockStateEvidence.Combined NotCollectedCombinedLockEvidence =
+        LockStateEvidence.Combine(
+            new LockStateEvidence.Sample("card-bottom-right", null, 0, "not_collected"),
+            new LockStateEvidence.Sample("detail-lock-button", null, 0, "not_collected"));
 
-            using var cardFrame = window.CaptureFrame(cardRect);
-            using var detailFrame = window.CaptureFrame(detailRect);
-            card = cardFrame.ToBitmap();
-            using var detail = detailFrame.ToBitmap();
-            using var cardForEvaluation = (Bitmap)card.Clone();
-            var result = LockStateEvidence.Combine(
-                LockStateEvidence.EvaluateCard(cardForEvaluation),
-                LockStateEvidence.EvaluateDetailButton(detail));
-            scanLog.WriteEvent("LOCK_EVIDENCE",
-                $"card={result.Card.Gate}:{result.Card.Ratio:F4}, detail={result.Detail.Gate}:{result.Detail.Ratio:F4}, result={(result.Value is null ? "unknown" : result.Value.Value ? "locked" : "unlocked")}, gate={result.Gate}");
-            return new LockCaptureEvidence(card, result);
-        }
-        catch (Exception ex)
-        {
-            card?.Dispose();
-            scanLog.WriteEvent("LOCK_EVIDENCE", $"result=unknown, gate=capture_failed, error={SanitizeLogValue(ex.GetType().Name)}");
-            return UnknownLockEvidence("capture_failed");
-        }
-    }
-
-    private static LockCaptureEvidence UnknownLockEvidence(string gate)
+    internal static LockCaptureEvidence UnknownLockEvidence(string gate = "not_collected")
     {
+        if (gate == "not_collected")
+        {
+            return new LockCaptureEvidence(null, NotCollectedCombinedLockEvidence);
+        }
+
         var card = new LockStateEvidence.Sample("card-bottom-right", null, 0, gate);
         var detail = new LockStateEvidence.Sample("detail-lock-button", null, 0, gate);
         return new LockCaptureEvidence(null, LockStateEvidence.Combine(card, detail));

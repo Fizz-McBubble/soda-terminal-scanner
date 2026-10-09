@@ -164,9 +164,14 @@ public sealed partial class ScanController
             }
 
             frameCount++;
+            // Both target checks use this iteration's selection image. Their
+            // stability histories stay independent; no image survives a wait.
+            var selectedBorderVisible = false;
+            ImageSignature? selectionSignature = preselectedTargetEvidence
+                ? CaptureSelectionSignature(selectionProbeRect, measureSelectedBorder: true, out selectedBorderVisible)
+                : null;
             var preselectedSelectionPresent = tracker.ObservePreselectedSelectionPresence(
-                preselectedTargetEvidence,
-                selectionProbeRect,
+                selectedBorderVisible,
                 scanLog,
                 postScrollFirstCell);
             var captureWatch = Stopwatch.StartNew();
@@ -198,7 +203,7 @@ public sealed partial class ScanController
                     weakPanelChange = true;
                     weakPanelChangeDistance = Math.Max(weakPanelChangeDistance, fullPanelChangeDistance);
                     weakPanelChangeMilliseconds ??= elapsedMilliseconds;
-                    tracker.ObserveSelectionChange(selectionProbeRect, beforeSelectionSignature, frameCount, elapsedMilliseconds);
+                    tracker.ObserveSelectionChange(selectionProbeRect, beforeSelectionSignature, frameCount, elapsedMilliseconds, selectionSignature);
                 }
             }
 
@@ -217,7 +222,7 @@ public sealed partial class ScanController
                 requiredStableFrames,
                 elapsedMilliseconds);
 
-            tracker.ObserveSelectionChange(selectionProbeRect, beforeSelectionSignature, frameCount, elapsedMilliseconds);
+            tracker.ObserveSelectionChange(selectionProbeRect, beforeSelectionSignature, frameCount, elapsedMilliseconds, selectionSignature);
             signatureWatch.Stop();
             signatureMilliseconds += signatureWatch.Elapsed.TotalMilliseconds;
 
@@ -300,14 +305,19 @@ public sealed partial class ScanController
                 var selectedStableFrames = adaptiveEarlyEvidence
                     ? roiCompleteFrames
                     : panelSelectedStableFrames;
+                // A preselected first cell needs stable evidence from this frame.
+                // The ordinary click gate is latched and must not cause an early
+                // acceptance followed by an unnecessary neighbor round trip.
+                var targetSelectionReady = PanelCaptureGate.HasStableSelection(
+                    preselectedTargetEvidence, preselectedSelectionPresent, tracker.EvidenceGate.Stable);
                 var stableEnough = selectedStableFrames >= effectiveRequiredStableFrames
-                    && (tracker.EvidenceGate.Stable || preselectedSelectionPresent);
+                    && targetSelectionReady;
                 var roiEnough = panelReadable;
                 acceptGateReason = !panelChangedFromBaseline
                     ? "waiting_for_panel_change"
                     : preselectedTargetEvidence && !preselectedSelectionPresent
                         ? "waiting_for_preselected_selection_stability"
-                    : !tracker.EvidenceGate.Stable
+                    : !targetSelectionReady
                         ? "waiting_for_target_selection_stability"
                         : !roiVisibility.ValidBoundary
                         ? roiVisibility.InvalidReason

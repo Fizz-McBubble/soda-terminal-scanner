@@ -310,7 +310,7 @@ public sealed partial class ScanController
                 accepted, rowsAdvanced == 1, settle.MovementDistance, settle.StableFrames,
                 settle.Samples, watch.Elapsed.TotalMilliseconds, reason, targetPoint,
                 beforeListHash, FormatNativeEdgeListHash(latest.Rows), settle.TimeoutMilliseconds,
-                rowsAdvanced, accepted);
+                rowsAdvanced, accepted, TargetRarity: rarity);
             scanLog.WriteEvent("EDGE_CLICK_SETTLED", $"visibleTopLogicalRow={visibleTopLogicalRow}, targetPoint={targetPoint}, settled={accepted}, verifiedRowsAdvanced={rowsAdvanced}, changed={result.Changed}, movementDistance={result.MovementDistance}, stableFrames={result.StableFrames}, samples={result.Samples}, elapsedMs={result.ElapsedMilliseconds:F1}, beforeListHash={beforeListHash}, afterListHash={result.AfterListHash}, scrollbarDelta={ScrollbarDelta(before.Scrollbar, latest.Scrollbar)}, scrollbarPixelsPerRow={pixelsPerRow:F3}, beforeThumb={before.Scrollbar.StartY}-{before.Scrollbar.EndY}, afterThumb={latest.Scrollbar.StartY}-{latest.Scrollbar.EndY}, releaseConfirmed={accepted}, inventoryCount={inventoryCount}, scannedRows={scannedRows}, positionReason={latestEvidence.Reason}, reason={reason}");
             return result;
         }

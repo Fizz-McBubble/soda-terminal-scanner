@@ -16,7 +16,8 @@ public sealed partial class ScanController
         {
             if (!enabled) return;
             _expected = CaptureScrollbarThumbProbe(window, profile, includeThumbEnds: true);
-            if (!_expected.Found) throw NavigationFailure("无法绑定扫描行的滚动条位置。");
+            if (!_expected.Found) throw NavigationFailure("无法绑定扫描行的滚动条位置。",
+                new Dictionary<string, object?> { ["phase"] = "traversal_position", ["reason"] = "scrollbar_position_missing", ["visibleTopLogicalRow"] = visibleTop, ["positionFound"] = false });
             if (_headerBaseline is null)
             {
                 using var header = window.Capture(window.ToScreenRectangle(profile.Rectangle("inventoryCount")));
@@ -53,7 +54,16 @@ public sealed partial class ScanController
             log.WriteEvent("TRAVERSAL_POSITION_LOST", $"visibleTopLogicalRow={_visibleTop}, expectedThumb={_expected.StartY}-{_expected.EndY}, actualThumb={actual.StartY}-{actual.EndY}, found={actual.Found}, reason={failure}");
             throw NavigationFailure(failure == "scrollbar_position_missing"
                 ? "暂时无法确认列表位置，等待画面恢复后仍未确认，已停止扫描。"
-                : "扫描一行期间列表位置发生变化，已停止，避免漏扫或重复导入。");
+                : "扫描一行期间列表位置发生变化，已停止，避免漏扫或重复导入。",
+                new Dictionary<string, object?>
+                {
+                    ["phase"] = "traversal_position", ["reason"] = failure,
+                    ["visibleTopLogicalRow"] = _visibleTop, ["positionFound"] = actual.Found,
+                    ["expectedThumbStart"] = _expected.StartY - window.ClientScreenRect.Top,
+                    ["expectedThumbEnd"] = _expected.EndY - window.ClientScreenRect.Top,
+                    ["actualThumbStart"] = actual.Found ? actual.StartY - window.ClientScreenRect.Top : null,
+                    ["actualThumbEnd"] = actual.Found ? actual.EndY - window.ClientScreenRect.Top : null
+                });
         }
 
         private ScrollbarThumbProbe CaptureRecoveryPosition()

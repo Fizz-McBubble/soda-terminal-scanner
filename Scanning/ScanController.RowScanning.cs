@@ -120,7 +120,13 @@ public sealed partial class ScanController
             var visibleTopText = viewportKnown ? visibleTopLogicalRow.ToString() : "unknown";
             var viewportStateText = viewportKnown ? ViewportStateLabel(visibleTopLogicalRow, maxVisibleTop) : "unknown";
             scanLog.WriteEvent("CELL_MOVE", $"pass={pass}, logicalRow={logicalRow?.ToString() ?? "unknown"}, visualRow={row}, col={col}/{maxColumns}, visibleTopLogicalRow={visibleTopText}, state={viewportStateText}, point={clickPoint}, normalized=({current.X:F5},{current.Y:F5}), queued={counters.Queued}, visited={counters.Visited}");
-            window.MoveCursor(clickPoint);
+            // The edge click already selected this physical card and released
+            // hover at the neutral point. Re-entering it adds a hover transition
+            // without selecting anything; keep the released cursor position.
+            if (!isPreselectedPostScrollCell)
+            {
+                window.MoveCursor(clickPoint);
+            }
 
             var rarityProbeWatch = Stopwatch.StartNew();
             var rarityProbe = DetectRarityAround(window, profile, rarityAnchor);
@@ -131,7 +137,13 @@ public sealed partial class ScanController
             }
             rarityProbeWatch.Stop();
 
-            var rarity = rarityProbe.Rarity;
+            var rarity = preselectedPostScrollCell?.ResolveRarity(logicalRow, row, col, rarityProbe.Rarity)
+                ?? rarityProbe.Rarity;
+            if (rarity != rarityProbe.Rarity)
+            {
+                scanLog.WriteEvent("PRESELECTED_RARITY_PRESERVED",
+                    $"logicalRow={logicalRow}, visualRow={row}, col={col}/{maxColumns}, beforeSelection={rarity}, selectedProbe={rarityProbe.Rarity ?? "null"}, reason=verified_same_card_before_selection");
+            }
             if (rarity is null || options.ShowDebugImages || counters.Visited % 50 == 0)
             {
                 scanLog.Write($"Probe pass={pass}, logicalRow={logicalRow?.ToString() ?? "unknown"}, visualRow={row}, col={col}/{maxColumns}, point={clickPoint}, rarity={rarity ?? "null"}, best={ColorText(rarityProbe.BestColor)}, bestMatch={rarityProbe.BestCandidate}, score={rarityProbe.BestScore}, secondScore={rarityProbe.SecondScore}, margin={rarityProbe.Margin}, fullScan={rarityProbe.FullScan}, bottom={isBottom}");
@@ -232,8 +244,7 @@ public sealed partial class ScanController
                         var pairDebugImage = options.ShowDebugImages ? (Bitmap)pairPanelImage.Clone() : null;
                         var pairItemIndex = Interlocked.Increment(ref counters.Queued);
                         var pairEnqueued = false;
-                        var pairPoint = window.ToScreenPoint(new PointF(offset.X + step.X * commit.Column, currentY));
-                        var pairLockEvidence = CaptureLockEvidence(window, profile, pairPoint, scanLog);
+                        var pairLockEvidence = UnknownLockEvidence("not_collected");
                         try
                         {
                             queue.Add(new DiscCapture(
@@ -397,7 +408,7 @@ public sealed partial class ScanController
                 continue;
             }
 
-            var lockEvidence = CaptureLockEvidence(window, profile, rarityAnchor, scanLog);
+            var lockEvidence = UnknownLockEvidence("not_collected");
 
             if (bufferedRow is not null)
             {

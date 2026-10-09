@@ -1,207 +1,207 @@
 [
   {
+    "size": 62,
     "sha256": "269c2d2b0056eddfdd3e97c7317ba0d4f4ee33c5ace9bcdd0e0f700ca3d90640",
-    "path": "helper\\scanner-public-origin.txt",
-    "size": 62
+    "path": "helper\\scanner-public-origin.txt"
   },
   {
-    "sha256": "913cf01a1db3908d0a39e253b6e9f8bf782e2021950e0fc21ac0072e4f8123cf",
-    "path": "helper\\ZZZ-Scanner-Helper.exe",
-    "size": 8238080
+    "size": 8247808,
+    "sha256": "f493824e408161b2cabe45808022cfdb565f977fce64ace2d04f8100b50a2a9b",
+    "path": "helper\\ZZZ-Scanner-Helper.exe"
   },
   {
+    "size": 1086,
     "sha256": "3806c8272043c18f37b360e21d9145d3e8392bcd24d7f704d30f702291c51e6a",
-    "path": "LICENSE-ZZZ-Scanner.Next-MIT.txt",
-    "size": 1086
+    "path": "LICENSE-ZZZ-Scanner.Next-MIT.txt"
   },
   {
+    "size": 21159378,
     "sha256": "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634",
-    "path": "models\\PP-OCRv6_small_rec_onnx\\inference.onnx",
-    "size": 21159378
+    "path": "models\\PP-OCRv6_small_rec_onnx\\inference.onnx"
   },
   {
+    "size": 150579,
     "sha256": "ab078671bb49f06228eadccd34f1bb501e157f7a047095ffb943ba81512c77d1",
-    "path": "models\\PP-OCRv6_small_rec_onnx\\inference.yml",
-    "size": 150579
+    "path": "models\\PP-OCRv6_small_rec_onnx\\inference.yml"
   },
   {
+    "size": 6973,
     "sha256": "431067a8fbfc7c2465312e69ed24fd5041d51c3c580e680d7ef9db56583b624f",
-    "path": "native\\Data\\drive_discs.json",
-    "size": 6973
+    "path": "native\\Data\\drive_discs.json"
   },
   {
+    "size": 7884,
     "sha256": "977ed591a6cb2f2975a90ff414cb45fee86a63557e53e28f4d40d54cebed9338",
-    "path": "native\\Data\\scan_profiles.json",
-    "size": 7884
+    "path": "native\\Data\\scan_profiles.json"
   },
   {
+    "size": 3727,
     "sha256": "2a20163ae13d47d6f53f6fd8ced26ca2c76c90764e803fd9e64c8732e385dd67",
-    "path": "native\\Data\\scanner-detail-geometry.v1.json",
-    "size": 3727
+    "path": "native\\Data\\scanner-detail-geometry.v1.json"
   },
   {
+    "size": 19694,
     "sha256": "2a10914c97431f3490db4af1fa632757d5af9822bd17e8e3ef5f818b2b4200d9",
-    "path": "native\\Data\\soda-drive-disc-data.v1.json",
-    "size": 19694
+    "path": "native\\Data\\soda-drive-disc-data.v1.json"
   },
   {
+    "size": 6247,
     "sha256": "d5d5889896db89b26f00861b88c09ce13b7a0615fcde71b70580dface590f463",
-    "path": "native\\Data\\stat_rules.json",
-    "size": 6247
+    "path": "native\\Data\\stat_rules.json"
   },
   {
-    "sha256": "a0374f59f55cbd0321cc3ef10b1144f5b371bdec7b843f4dbdcbe40b2bebbda9",
-    "path": "native\\ZZZ-Scanner.Next.Soda.exe",
-    "size": 168013274
+    "size": 167820762,
+    "sha256": "8244c216f2d9b2dff1421ca3acac21a4ecc74bd9bb685957c821fce271ce7865",
+    "path": "native\\ZZZ-Scanner.Next.Soda.exe"
   },
   {
+    "size": 9519,
     "sha256": "7f6839a61ce892b79c6549e2dc5a81fdbd240a0b260f8881216b45b7fda8b45d",
-    "path": "notices\\DotNet-8-LICENSE.txt",
-    "size": 9519
+    "path": "notices\\DotNet-8-LICENSE.txt"
   },
   {
+    "size": 96177,
     "sha256": "1271701f435f7fe4aa81dc7e273ca80b6391b73580ee20b35a956052c95de4cf",
-    "path": "notices\\DotNet-8-ThirdPartyNotices.txt",
-    "size": 96177
+    "path": "notices\\DotNet-8-ThirdPartyNotices.txt"
   },
   {
+    "size": 75640,
     "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5",
-    "path": "notices\\DotNet-NuGet-9.0-ThirdPartyNotices.txt",
-    "size": 75640
+    "path": "notices\\DotNet-NuGet-9.0-ThirdPartyNotices.txt"
   },
   {
+    "size": 187,
     "sha256": "da53b097e02b08e0fc69706102a60bc384fe756426ae4dc4a855e96f95cb2b9c",
-    "path": "notices\\Microsoft-VisualStudio-2022-REDIST.txt",
-    "size": 187
+    "path": "notices\\Microsoft-VisualStudio-2022-REDIST.txt"
   },
   {
+    "size": 15835,
     "sha256": "7864a01e2fdef7e8fdf81b906efb1466f083206affea7ba7e6dadea429754765",
-    "path": "notices\\Microsoft.VisualBasic-10.3.0-ThirdPartyNotices.txt",
-    "size": 15835
+    "path": "notices\\Microsoft.VisualBasic-10.3.0-ThirdPartyNotices.txt"
   },
   {
+    "size": 1094,
     "sha256": "c250d6278f0b47a6439fb7592b08b58a55eb9f535aa49a1db63211c3f982b674",
-    "path": "notices\\ONNXRuntime-1.23.1-LICENSE.txt",
-    "size": 1094
+    "path": "notices\\ONNXRuntime-1.23.1-LICENSE.txt"
   },
   {
+    "size": 333022,
     "sha256": "e00f828e0a33de591a355ae6606d2625f5758da7d2c844db7821c9dd3e3647b6",
-    "path": "notices\\ONNXRuntime-1.23.1-ThirdPartyNotices.txt",
-    "size": 333022
+    "path": "notices\\ONNXRuntime-1.23.1-ThirdPartyNotices.txt"
   },
   {
+    "size": 11577,
     "sha256": "8ae60061cdd89d5b70a5d71b2816ecc0da0bee21947688bff4b39928512a45af",
-    "path": "notices\\PaddleOCR-PP-OCRv6-LICENSE.txt",
-    "size": 11577
+    "path": "notices\\PaddleOCR-PP-OCRv6-LICENSE.txt"
   },
   {
+    "size": 3737,
     "sha256": "89fbbc2769d70b989a66f44feaf2d381bc152841aca6c6cf49eebdb6ab126165",
-    "path": "notices\\README.md",
-    "size": 3737
+    "path": "notices\\README.md"
   },
   {
+    "size": 1121,
     "sha256": "f7965d34f5a7fc05cefb8ca146068aa161f547507a2a15f3d8a060eef2934c3a",
-    "path": "notices\\SharpGen.Runtime-2.4.2-beta-LICENSE.txt",
-    "size": 1121
+    "path": "notices\\SharpGen.Runtime-2.4.2-beta-LICENSE.txt"
   },
   {
+    "size": 1137,
     "sha256": "a89886665765362eb77e0f8e26602c924520041d1711b2eedc136434fe4d01ab",
-    "path": "notices\\System.Drawing.Common-8.0.0-LICENSE.txt",
-    "size": 1137
+    "path": "notices\\System.Drawing.Common-8.0.0-LICENSE.txt"
   },
   {
+    "size": 3675,
     "sha256": "093e2589a27ed137e519b9856e425efa7982221a7b3d9e7cea3b5153f711905e",
-    "path": "notices\\System.Drawing.Common-8.0.0-ThirdPartyNotices.txt",
-    "size": 3675
+    "path": "notices\\System.Drawing.Common-8.0.0-ThirdPartyNotices.txt"
   },
   {
+    "size": 1139,
     "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b",
-    "path": "notices\\System.Management-8.0.0-LICENSE.txt",
-    "size": 1139
+    "path": "notices\\System.Management-8.0.0-LICENSE.txt"
   },
   {
+    "size": 68911,
     "sha256": "19c19dcac9f3ee6302cfbc6745bb8e79f08efc4c933eb8dc5509bf14b88347ec",
-    "path": "notices\\System.Management-8.0.0-ThirdPartyNotices.txt",
-    "size": 68911
+    "path": "notices\\System.Management-8.0.0-ThirdPartyNotices.txt"
   },
   {
+    "size": 1111,
     "sha256": "a9d6f254744080a0750810e89225f9000f5ec5f0b0dc8bda031ae907dad0b895",
-    "path": "notices\\Vortice.Mathematics-2.1.0-LICENSE.txt",
-    "size": 1111
+    "path": "notices\\Vortice.Mathematics-2.1.0-LICENSE.txt"
   },
   {
+    "size": 1111,
     "sha256": "dccc37253abc6eda161fadb5c958fbe232d00cc0ccc19b206ff82b72303d3587",
-    "path": "notices\\Vortice.Windows-3.8.3-LICENSE.txt",
-    "size": 1111
+    "path": "notices\\Vortice.Windows-3.8.3-LICENSE.txt"
   },
   {
+    "size": 1129,
     "sha256": "556ab734f87bd3a2de1150cfc446524721405aa5d7667c22766a6995ecbc6689",
-    "path": "notices\\YamlDotNet-16.3.0-LICENSE.txt",
-    "size": 1129
+    "path": "notices\\YamlDotNet-16.3.0-LICENSE.txt"
   },
   {
+    "size": 35952,
     "sha256": "bfad5aef4c63a669e3c140655cdfdf395b6c979b400a447bd5dcb65ed8826c3d",
-    "path": "ocr\\msvcp140_1.dll",
-    "size": 35952
+    "path": "ocr\\msvcp140_1.dll"
   },
   {
+    "size": 280200,
     "sha256": "3ea06f0ee098b4823cb79599df3780e7f23cce52c19aac31d2a0d47efe33a5e9",
-    "path": "ocr\\msvcp140_2.dll",
-    "size": 280200
+    "path": "ocr\\msvcp140_2.dll"
   },
   {
+    "size": 50304,
     "sha256": "640b2aefced484d0368eea5bdd06addd0658a3a70a49256e560d6923b404a479",
-    "path": "ocr\\msvcp140_atomic_wait.dll",
-    "size": 50304
+    "path": "ocr\\msvcp140_atomic_wait.dll"
   },
   {
+    "size": 31872,
     "sha256": "f2069a52880ec885ee7f0511186100eb7fada0411a2b4948fafea7735b878a18",
-    "path": "ocr\\msvcp140_codecvt_ids.dll",
-    "size": 31872
+    "path": "ocr\\msvcp140_codecvt_ids.dll"
   },
   {
+    "size": 557728,
     "sha256": "0f885b509a685d2bbfa652fed26b5fb31d88fbdab0a978c641d1c7b8aa460aa9",
-    "path": "ocr\\msvcp140.dll",
-    "size": 557728
+    "path": "ocr\\msvcp140.dll"
   },
   {
+    "size": 22048,
     "sha256": "1206da7ba61438470f3bce2b26ea3e78713bd59feb708a046493291a4dcee51f",
-    "path": "ocr\\onnxruntime_providers_shared.dll",
-    "size": 22048
+    "path": "ocr\\onnxruntime_providers_shared.dll"
   },
   {
+    "size": 14180904,
     "sha256": "a59e26d1eec191ce049a9754a5f7e53bfe095c1b2a9276c7510e33f1fb76c84c",
-    "path": "ocr\\onnxruntime.dll",
-    "size": 14180904
+    "path": "ocr\\onnxruntime.dll"
   },
   {
+    "size": 41054562,
     "sha256": "b0cb05b350f3381f972ef8312b2c9f1a3698872afbf06b043464eefd57ac2338",
-    "path": "ocr\\Soda.ScannerPpOcrV6.exe",
-    "size": 41054562
+    "path": "ocr\\Soda.ScannerPpOcrV6.exe"
   },
   {
+    "size": 489,
     "sha256": "3e3b250920eb81d8176f5b37494d3588a6c77b4974affd6a9d157e80639d692d",
-    "path": "ocr\\VC-RUNTIME-NOTICE.txt",
-    "size": 489
+    "path": "ocr\\VC-RUNTIME-NOTICE.txt"
   },
   {
+    "size": 49792,
     "sha256": "1f2d41c4aa5db0bc33ebf7b66d72943a817d7ce6cbe880502a9403823633093f",
-    "path": "ocr\\vcruntime140_1.dll",
-    "size": 49792
+    "path": "ocr\\vcruntime140_1.dll"
   },
   {
+    "size": 38528,
     "sha256": "219915cf20822f34d5e7c1fdd4e21ae7f3396881096c51036225fb8f84b47afa",
-    "path": "ocr\\vcruntime140_threads.dll",
-    "size": 38528
+    "path": "ocr\\vcruntime140_threads.dll"
   },
   {
+    "size": 124544,
     "sha256": "d5e4d9a3e835fa679450145d6a7d94e36573a509317111904d9b3712c30d9066",
-    "path": "ocr\\vcruntime140.dll",
-    "size": 124544
+    "path": "ocr\\vcruntime140.dll"
   },
   {
     "path": "scanner-runtime.json",
     "size": 7625,
-    "sha256": "107952f7646a9db507cba22e5ba847b2505a43e5e219d5fcd419e389db350666"
+    "sha256": "4b33fdd59b466f1bcbc6399007d37ea013b03ea3e4f0efb9426d5feb1d534425"
   }
 ]

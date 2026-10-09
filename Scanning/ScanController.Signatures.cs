@@ -65,6 +65,10 @@ public sealed partial class ScanController
     }
 
     private static ImageSignature CaptureSelectionSignature(Rectangle rect)
+        => CaptureSelectionSignature(rect, measureSelectedBorder: false, out _);
+
+    private static ImageSignature CaptureSelectionSignature(
+        Rectangle rect, bool measureSelectedBorder, out bool selectedBorderVisible)
     {
         using var image = new Bitmap(rect.Width, rect.Height);
         using (var graphics = Graphics.FromImage(image))
@@ -73,6 +77,7 @@ public sealed partial class ScanController
         }
 
         using var frame = new BitmapCapturedFrame(image, "bitmap-fallback");
+        selectedBorderVisible = measureSelectedBorder && PreselectedCardSelectionProbe.IsSelected(frame);
         return new ImageSignature(0, SelectionVisualProbe.CreateSamples(frame), EmphasizeLocalizedChanges: true);
     }
 

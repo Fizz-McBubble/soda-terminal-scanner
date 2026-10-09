@@ -35,7 +35,9 @@ internal static class WindowCaptureContextPolicy
             {
                 ["clientWidth"] = current.Client.Width,
                 ["clientHeight"] = current.Client.Height,
-                ["dpi"] = current.Dpi
+                ["dpi"] = current.Dpi,
+                ["windowVisible"] = current.Visible,
+                ["windowForeground"] = current.Foreground
             });
     }
 }
