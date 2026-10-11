@@ -12,6 +12,7 @@ public static class InstallerStartup
         var pointer = PointerStore.ReadValidated(Path.Combine(root, "active.json"), root);
         // Runtime identity is shared by multiple product releases. Without a
         // trusted product registration it can prove only the first shipped version.
+        if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-14-local-20261011") return "1.1.4";
         if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-13-local-20261011") return "1.1.3";
         if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-12-local-20261011") return "1.1.2";
         if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-11-local-20261011") return "1.1.1";

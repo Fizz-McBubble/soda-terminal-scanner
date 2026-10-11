@@ -7,7 +7,7 @@
   {
     "path": "helper\\ZZZ-Scanner-Helper.exe",
     "size": 8363008,
-    "sha256": "cd1a2c1aa56a753c52e576004d7c93ba16af67ab7252b1c899bf806f1d413ec2"
+    "sha256": "4c3b6a89ad68267635f9a2b2e0535ab586ca2d7b00a28f0ed39cab9877dabd32"
   },
   {
     "path": "LICENSE-ZZZ-Scanner.Next-MIT.txt",
@@ -26,8 +26,8 @@
   },
   {
     "path": "native\\Data\\drive_discs.json",
-    "size": 6973,
-    "sha256": "431067a8fbfc7c2465312e69ed24fd5041d51c3c580e680d7ef9db56583b624f"
+    "size": 13164,
+    "sha256": "b692287ce7c1948dfa248a64408bab8eeb8f471eb97582e8e157d81d29ca46da"
   },
   {
     "path": "native\\Data\\scan_profiles.json",
@@ -51,8 +51,8 @@
   },
   {
     "path": "native\\ZZZ-Scanner.Next.Soda.exe",
-    "size": 72586686,
-    "sha256": "06614b8cb58f158011a82c8ce5b72eee99d5b3e712866adcd53f17b1ad0a9b2d"
+    "size": 72588505,
+    "sha256": "05c08fba507e1af23977249a7708efa78b15d293c5c15ba5457e157f2492cd97"
   },
   {
     "path": "notices\\DotNet-8-LICENSE.txt",
@@ -201,7 +201,7 @@
   },
   {
     "path": "scanner-runtime.json",
-    "size": 7773,
-    "sha256": "fd5c8fabe6db2b365d3538d2b3074be5251b9e79707a7685e816e5fc27e0620e"
+    "size": 7774,
+    "sha256": "8b7ae9fb33fd30ca26d8226eb414cc0649c5b505451f0ba3ce6a4e1a4136cdf3"
   }
 ]

@@ -56,6 +56,9 @@ public static class StringMatcher
             : 1f - (float)LevenshteinDistance(normalizedText, normalizedCandidate) / maxLength;
     }
 
+    internal static int Distance(string candidate, string text) =>
+        LevenshteinDistance(NormalizeForDistance(candidate), NormalizeForDistance(text));
+
     public static string NumericToken(string text)
     {
         text = text.Replace('％', '%').Replace('O', '0').Replace('o', '0');

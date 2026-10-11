@@ -7,11 +7,13 @@ public sealed class WikiData
 {
     public DiscCatalog DiscCatalog { get; }
     public StatRules StatRules { get; }
+    public DiscNameMatcher DiscNames { get; }
 
     private WikiData(DiscCatalog discCatalog, StatRules statRules)
     {
         DiscCatalog = discCatalog;
         StatRules = statRules;
+        DiscNames = new DiscNameMatcher(discCatalog.Sets);
     }
 
     public static WikiData Load()

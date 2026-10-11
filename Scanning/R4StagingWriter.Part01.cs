@@ -86,8 +86,7 @@ internal static partial class R4StagingWriter
             : 0;
     }
 
-    private static string NormalizeSetName(string value) =>
-        string.Concat(value.Split('[', '【')[0].Where(char.IsLetterOrDigit)).ToLowerInvariant();
+    private static string NormalizeSetName(string value) => DiscNameMatcher.Normalize(value);
 
     private static async Task<R4Catalog> LoadCatalogAsync()
     {
@@ -135,7 +134,7 @@ internal static partial class R4StagingWriter
         return new R4Catalog(
             root.GetProperty("gameVersion").GetString() ?? "unknown",
             root.GetProperty("dataVersion").GetString() ?? "unknown",
-            sets);
+            sets, new DiscNameMatcher(sets.Select(set => new DiscSet { Name = set.Name, Aliases = set.Aliases.ToList() })));
     }
 
     private static string ContentHash(object value)
@@ -198,6 +197,6 @@ internal static partial class R4StagingWriter
     private static partial Regex UpgradeRegex();
 
     private sealed record R4Issue(string Field, string Code, string Message);
-    private sealed record R4Catalog(string GameVersion, string DataVersion, IReadOnlyList<R4Set> Sets);
+    private sealed record R4Catalog(string GameVersion, string DataVersion, IReadOnlyList<R4Set> Sets, DiscNameMatcher Names);
     private sealed record R4Set(string Id, string Name, IReadOnlyList<string> Aliases);
 }

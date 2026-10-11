@@ -207,9 +207,10 @@ internal static partial class R4StagingWriter
     {
         var export = record.Export;
         var rawSet = record.Ocr.ElementAtOrDefault(0);
-        var normalizedSet = NormalizeSetName(rawSet.Text);
-        var set = catalog.Sets.SingleOrDefault(candidate =>
-            candidate.Aliases.Any(alias => NormalizeSetName(alias) == normalizedSet));
+        var nameMatch = catalog.Names.Match(rawSet.Text);
+        var set = nameMatch.Accepted
+            ? catalog.Sets.Single(candidate => candidate.Name == nameMatch.Name)
+            : null;
         var main = export?.MainStat.SingleOrDefault();
         var mainKey = main is null ? null : MapStat(main.Value.Key, main.Value.Value);
         var parserRoot = RootIssueFor(record.ParseDiagnostic);
@@ -266,7 +267,7 @@ internal static partial class R4StagingWriter
         var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sourceIdentity))).ToLowerInvariant()[..24];
         var fields = new Dictionary<string, object?>
         {
-            ["setName"] = Field(rawSet.Text, set?.Name, set is null ? "low" : "high", "exact_versioned_catalog_alias"),
+            ["setName"] = Field(rawSet.Text, set?.Name, set is null ? "low" : "high", nameMatch.Rule),
             ["slot"] = Field(inferredSlot?.ToString(CultureInfo.InvariantCulture) ?? "", inferredSlot, inferredSlot is null ? "low" : "high", inferredSlot == export?.Slot ? "upstream_slot_pattern" : "ppocrv6_domain_diagnostic"),
             ["level"] = Field(record.Ocr.ElementAtOrDefault(1).Text, export?.Level, export is null ? "low" : "high", "rarity_level_pattern"),
             ["mainStat"] = Field(record.Ocr.ElementAtOrDefault(2).Text, mainKey, mainKey is null ? "low" : "high", "exact_stat_catalog", parserRoot?.Field == "mainStat" ? parserEvidence : null),

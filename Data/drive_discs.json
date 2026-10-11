@@ -1,12 +1,12 @@
 {
-  "version": "2026-07-29",
+  "version": "2026-10-11",
   "source": {
     "primaryPages": [
       "https://wiki.biligame.com/zzz/%E9%A9%B1%E5%8A%A8%E7%9B%98%E5%9B%BE%E9%89%B4",
       "https://wiki.biligame.com/zzz/%E9%A9%B1%E5%8A%A8%E7%9B%98",
       "https://baike.mihoyo.com/zzz/wiki/channel/map/2/46"
     ],
-    "notes": "The scanner uses this catalog as the OCR correction dictionary. The set list was organized from the requested BiliGame wiki pages and the HoYoWiki drive disc channel; extraNameCandidates is deliberately separate so newer names can be added without changing scan code."
+    "notes": "The scanner uses this catalog as the OCR correction dictionary. The set list was organized from the requested BiliGame wiki pages and the HoYoWiki drive disc channel; extraNameCandidates is deliberately separate so newer names can be added without changing scan code. Formal name/alias coverage synchronized with the checked-in Soda current-version disc catalog; remaining extra names are retained as unverified exact observations and are excluded from automatic fuzzy corrections."
   },
   "sets": [
     {
@@ -14,178 +14,334 @@
       "wikiListOrder": 1,
       "sourcePage": "https://wiki.biligame.com/zzz/%E8%87%AA%E7%94%B1%E8%93%9D%E8%B0%83",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "自由蓝调",
+        "Freedom Blues",
+        "FreedomBlues"
+      ],
+      "stableId": "set-freedom-blues"
     },
     {
       "name": "震星迪斯科",
       "wikiListOrder": 2,
       "sourcePage": "https://wiki.biligame.com/zzz/%E9%9C%87%E6%98%9F%E8%BF%AA%E6%96%AF%E7%A7%91",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "震星迪斯科",
+        "Shockstar Disco",
+        "ShockstarDisco"
+      ],
+      "stableId": "set-shockstar-disco"
     },
     {
       "name": "极地重金属",
       "wikiListOrder": 3,
       "sourcePage": "https://wiki.biligame.com/zzz/%E6%9E%81%E5%9C%B0%E9%87%8D%E9%87%91%E5%B1%9E",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "极地重金属",
+        "Polar Metal",
+        "PolarMetal"
+      ],
+      "stableId": "set-polar-metal"
     },
     {
       "name": "獠牙重金属",
-      "aliases": ["撩牙重金属", "療牙重金属"],
       "wikiListOrder": 4,
       "sourcePage": "https://wiki.biligame.com/zzz/%E7%8D%A0%E7%89%99%E9%87%8D%E9%87%91%E5%B1%9E",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "撩牙重金属",
+        "療牙重金属",
+        "獠牙重金属",
+        "Fanged Metal",
+        "FangedMetal"
+      ],
+      "stableId": "set-fanged-metal"
     },
     {
       "name": "激素朋克",
       "wikiListOrder": 5,
       "sourcePage": "https://wiki.biligame.com/zzz/%E6%BF%80%E7%B4%A0%E6%9C%8B%E5%85%8B",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "激素朋克",
+        "Hormone Punk",
+        "HormonePunk"
+      ],
+      "stableId": "set-hormone-punk"
     },
     {
       "name": "混沌重金属",
       "wikiListOrder": 6,
       "sourcePage": "https://wiki.biligame.com/zzz/%E6%B7%B7%E6%B2%8C%E9%87%8D%E9%87%91%E5%B1%9E",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "混沌重金属",
+        "Chaotic Metal",
+        "ChaoticMetal"
+      ],
+      "stableId": "set-chaotic-metal"
     },
     {
       "name": "啄木鸟电音",
       "wikiListOrder": 7,
       "sourcePage": "https://wiki.biligame.com/zzz/%E5%95%84%E6%9C%A8%E9%B8%9F%E7%94%B5%E9%9F%B3",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "啄木鸟电音",
+        "Woodpecker Electro",
+        "WoodpeckerElectro"
+      ],
+      "stableId": "set-woodpecker-electro"
     },
     {
       "name": "摇摆爵士",
       "wikiListOrder": 8,
       "sourcePage": "https://wiki.biligame.com/zzz/%E6%91%87%E6%91%86%E7%88%B5%E5%A3%AB",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "摇摆爵士",
+        "Swing Jazz",
+        "SwingJazz"
+      ],
+      "stableId": "set-swing-jazz"
     },
     {
       "name": "雷暴重金属",
       "wikiListOrder": 9,
       "sourcePage": "https://wiki.biligame.com/zzz/%E9%9B%B7%E6%9A%B4%E9%87%8D%E9%87%91%E5%B1%9E",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "雷暴重金属",
+        "Thunder Metal",
+        "ThunderMetal"
+      ],
+      "stableId": "set-thunder-metal"
     },
     {
       "name": "河豚电音",
       "wikiListOrder": 10,
       "sourcePage": "https://wiki.biligame.com/zzz/%E6%B2%B3%E8%B1%9A%E7%94%B5%E9%9F%B3",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "河豚电音",
+        "Puffer Electro",
+        "PufferElectro"
+      ],
+      "stableId": "set-puffer-electro"
     },
     {
       "name": "炎狱重金属",
       "wikiListOrder": 11,
       "sourcePage": "https://wiki.biligame.com/zzz/%E7%82%8E%E7%8B%B1%E9%87%8D%E9%87%91%E5%B1%9E",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "炎狱重金属",
+        "Inferno Metal",
+        "InfernoMetal"
+      ],
+      "stableId": "set-inferno-metal"
     },
     {
       "name": "灵魂摇滚",
       "wikiListOrder": 12,
       "sourcePage": "https://wiki.biligame.com/zzz/%E7%81%B5%E9%AD%82%E6%91%87%E6%BB%9A",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "灵魂摇滚",
+        "Soul Rock",
+        "SoulRock"
+      ],
+      "stableId": "set-soul-rock"
     },
     {
       "name": "原始朋克",
       "wikiListOrder": 13,
       "sourcePage": "https://wiki.biligame.com/zzz/%E5%8E%9F%E5%A7%8B%E6%9C%8B%E5%85%8B",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "原始朋克",
+        "Proto Punk",
+        "ProtoPunk"
+      ],
+      "stableId": "set-proto-punk"
     },
     {
       "name": "混沌爵士",
       "wikiListOrder": 14,
       "sourcePage": "https://wiki.biligame.com/zzz/%E6%B7%B7%E6%B2%8C%E7%88%B5%E5%A3%AB",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "混沌爵士",
+        "Chaos Jazz",
+        "ChaosJazz"
+      ],
+      "stableId": "set-chaos-jazz"
     },
     {
       "name": "折枝剑歌",
       "wikiListOrder": 15,
       "sourcePage": "https://wiki.biligame.com/zzz/%E6%8A%98%E6%9E%9D%E5%89%91%E6%AD%8C",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "折枝剑歌",
+        "Branch & Blade Song",
+        "BranchBladeSong"
+      ],
+      "stableId": "set-branch-blade-song"
     },
     {
       "name": "静听嘉音",
       "wikiListOrder": 16,
       "sourcePage": "https://wiki.biligame.com/zzz/%E9%9D%99%E5%90%AC%E5%98%89%E9%9F%B3",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "静听嘉音",
+        "Astral Voice",
+        "AstralVoice",
+        "嘉音"
+      ],
+      "stableId": "set-astral-voice"
     },
     {
       "name": "如影相随",
       "wikiListOrder": 17,
       "sourcePage": "https://wiki.biligame.com/zzz/%E5%A6%82%E5%BD%B1%E7%9B%B8%E9%9A%8F",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "如影相随",
+        "Shadow Harmony",
+        "ShadowHarmony"
+      ],
+      "stableId": "set-shadow-harmony"
     },
     {
       "name": "法厄同之歌",
       "wikiListOrder": 18,
       "sourcePage": "https://wiki.biligame.com/zzz/%E6%B3%95%E5%8E%84%E5%90%8C%E4%B9%8B%E6%AD%8C",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "法厄同之歌",
+        "Phaethon's Melody",
+        "PhaethonsMelody"
+      ],
+      "stableId": "set-phaethons-melody"
     },
     {
       "name": "云岿如我",
       "wikiListOrder": 19,
       "sourcePage": "https://wiki.biligame.com/zzz/%E4%BA%91%E5%B2%BF%E5%A6%82%E6%88%91",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "云岿如我",
+        "Yunkui Tales",
+        "YunkuiTales"
+      ],
+      "stableId": "set-yunkui-tales"
     },
     {
       "name": "山大王",
       "wikiListOrder": 20,
       "sourcePage": "https://wiki.biligame.com/zzz/%E5%B1%B1%E5%A4%A7%E7%8E%8B",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "山大王",
+        "King of the Summit",
+        "KingOfTheSummit"
+      ],
+      "stableId": "set-king-of-the-summit"
     },
     {
       "name": "月光骑士颂",
-      "aliases": ["月光骑士颌"],
       "wikiListOrder": 21,
       "sourcePage": "https://wiki.biligame.com/zzz/%E6%9C%88%E5%85%89%E9%AA%91%E5%A3%AB%E9%A2%82",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "月光骑士颌",
+        "月光骑士颂",
+        "Moonlight Lullaby",
+        "MoonlightLullaby"
+      ],
+      "stableId": "set-moonlight-lullaby"
     },
     {
       "name": "拂晓生花",
       "wikiListOrder": 22,
       "sourcePage": "https://wiki.biligame.com/zzz/%E6%8B%82%E6%99%93%E7%94%9F%E8%8A%B1",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "拂晓生花",
+        "Dawn's Bloom",
+        "DawnsBloom"
+      ],
+      "stableId": "set-dawns-bloom"
     },
     {
       "name": "呼啸沙龙",
       "wikiListOrder": 23,
       "sourcePage": "https://baike.mihoyo.com/zzz/wiki/channel/map/2/46",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "呼啸沙龙",
+        "呼哮沙龙",
+        "啼啭莎龙",
+        "Wuthering Salon",
+        "WutheringSalon"
+      ],
+      "stableId": "set-wuthering-salon"
     },
     {
       "name": "拂晓行纪",
       "wikiListOrder": 24,
       "sourcePage": "https://baike.mihoyo.com/zzz/wiki/channel/map/2/46",
       "minRarity": "B",
-      "maxRarity": "S"
+      "maxRarity": "S",
+      "aliases": [
+        "拂晓行纪",
+        "The Sky Ablaze",
+        "TheSkyAblaze"
+      ],
+      "stableId": "set-the-sky-ablaze"
     },
     {
       "name": "棘刺玫瑰",
       "stableId": "set-34200",
       "status": "candidate",
       "version": "3.1",
-      "aliases": ["棘刺玫瑰", "荆棘玫瑰", "Thorned Rose", "ThornedRose"],
-      "sourceRefs": ["gachabase-drive-disc-34200-3.1.2", "r10b-game-ocr-oracle"],
+      "aliases": [
+        "棘刺玫瑰",
+        "荆棘玫瑰",
+        "Thorned Rose",
+        "ThornedRose"
+      ],
+      "sourceRefs": [
+        "gachabase-drive-disc-34200-3.1.2",
+        "r10b-game-ocr-oracle"
+      ],
       "wikiListOrder": 25,
       "sourcePage": "https://zzz.gachabase.net/drive-discs/34200/thorned-rose/beta/3.1.2/16857772",
       "minRarity": "B",
@@ -196,7 +352,11 @@
       "stableId": "set-34100",
       "status": "candidate",
       "version": "3.1",
-      "aliases": ["谶羽之誓", "Feathered Fate", "FeatheredFate"],
+      "aliases": [
+        "谶羽之誓",
+        "Feathered Fate",
+        "FeatheredFate"
+      ],
       "sourceRefs": [
         "game-evidence-3.1-drive-disc-34100",
         "gachabase-drive-disc-34100-3.1.4-17256074"
@@ -205,13 +365,83 @@
       "sourcePage": "https://zzz.gachabase.net/drive-discs/34100/feathered-fate/beta/3.1.4/17256074",
       "minRarity": "B",
       "maxRarity": "S"
+    },
+    {
+      "name": "沧浪行歌",
+      "stableId": "set-white-water-ballad",
+      "status": "formal",
+      "version": "3.0",
+      "aliases": [
+        "沧浪行歌",
+        "White Water Ballad",
+        "WhiteWaterBallad"
+      ],
+      "sourceRefs": [
+        "soda-drive-disc-data.v1.json#set-white-water-ballad"
+      ],
+      "wikiListOrder": 27,
+      "sourcePage": "https://wiki.biligame.com/zzz/%E6%B2%A7%E6%B5%AA%E8%A1%8C%E6%AD%8C",
+      "minRarity": "B",
+      "maxRarity": "S"
+    },
+    {
+      "name": "流光咏叹",
+      "stableId": "set-shining-aria",
+      "status": "formal",
+      "version": "3.0",
+      "aliases": [
+        "流光咏叹",
+        "Shining Aria",
+        "ShiningAria",
+        "流光詠嘆"
+      ],
+      "sourceRefs": [
+        "soda-drive-disc-data.v1.json#set-shining-aria"
+      ],
+      "wikiListOrder": 28,
+      "sourcePage": "https://wiki.biligame.com/zzz/%E6%B5%81%E5%85%89%E5%92%8F%E5%8F%B9",
+      "minRarity": "B",
+      "maxRarity": "S"
+    },
+    {
+      "name": "雪兔梦游仙境",
+      "stableId": "set-bunny-in-wonderland",
+      "status": "formal",
+      "version": "3.0",
+      "aliases": [
+        "雪兔梦游仙境",
+        "雪兔",
+        "Bunny in Wonderland",
+        "BunnyInWonderland"
+      ],
+      "sourceRefs": [
+        "soda-drive-disc-data.v1.json#set-bunny-in-wonderland"
+      ],
+      "wikiListOrder": 29,
+      "sourcePage": "https://wiki.biligame.com/zzz/%E9%9B%AA%E5%85%94%E6%A2%A6%E6%B8%B8%E4%BB%99%E5%A2%83",
+      "minRarity": "B",
+      "maxRarity": "S"
+    },
+    {
+      "name": "囚徒手记",
+      "stableId": "set-notes-from-the-chained",
+      "status": "formal",
+      "version": "3.0",
+      "aliases": [
+        "囚徒手记",
+        "Notes From the Chained",
+        "NotesFromTheChained"
+      ],
+      "sourceRefs": [
+        "soda-drive-disc-data.v1.json#set-notes-from-the-chained"
+      ],
+      "wikiListOrder": 30,
+      "sourcePage": "https://wiki.biligame.com/zzz/%E5%9B%9A%E5%BE%92%E6%89%8B%E8%AE%B0",
+      "minRarity": "B",
+      "maxRarity": "S"
     }
   ],
   "extraNameCandidates": [
-    "沧浪行歌",
-    "流光咏叹",
-    "雪兔梦游仙境",
-    "囚徒手记",
     "独角兽电音",
     "季风放克",
     "狂欢朋克",

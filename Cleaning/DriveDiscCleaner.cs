@@ -220,8 +220,8 @@ public sealed partial class DriveDiscCleaner
         var slot = name.FirstOrDefault(c => char.IsDigit(c) && "123456".Contains(c));
         var simplified = StringMatcher.SimplifyChinese(name, keepChineseAndDigits: true);
         var textOnly = string.Concat(simplified.Where(c => !char.IsDigit(c)));
-        var match = StringMatcher.BestMatch(_wikiData.NameCandidates(), textOnly);
-        return (_wikiData.ResolveDiscName(match.Text), slot == default ? 0 : slot - '0');
+        var match = _wikiData.DiscNames.Match(textOnly);
+        return (match.Name, slot == default ? 0 : slot - '0');
     }
 
     private (int Level, int MaxLevel) CleanLevel(string level)
