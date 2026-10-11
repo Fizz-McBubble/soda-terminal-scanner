@@ -109,7 +109,6 @@ internal static class InstallerFormTests
                     if (state == "completion") Check(form.Controls.OfType<Button>().Count(b => b.Visible) == 1 && bar.Value == 100);
                     var scale = 1.5f / (form.DeviceDpi / 96f);
                     form.Scale(new SizeF(scale, scale));
-                    form.ToggleDetails();
                     var panel = form.Controls.OfType<Panel>().Single();
                     foreach (Control control in form.Controls)
                         Check(control.Right <= form.ClientSize.Width && control.Bottom <= form.ClientSize.Height);
@@ -117,19 +116,22 @@ internal static class InstallerFormTests
                         Check(control.Right <= panel.Width && control.Bottom <= panel.Height);
                     Check(panel.Bottom <= form.Controls.OfType<Button>().Min(b => b.Top));
                     Check(panel.Controls.OfType<TextBox>().Single().ReadOnly);
+                    Check(panel.Controls.OfType<TextBox>().Single().Visible);
+                    Check(panel.Controls.OfType<TextBox>().Single().ScrollBars == ScrollBars.None);
+                    Check(!panel.Controls.OfType<TextBox>().Single().TabStop && panel.Controls.OfType<TextBox>().Single().SelectionLength == 0);
+                    Check(!panel.Controls.OfType<LinkLabel>().Any());
                     using (var bitmap = new Bitmap(form.Width, form.Height))
                     {
                         form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
                         bitmap.Save(Path.Combine(root, "render-" + state + "-150-details.png"));
                     }
-                    form.ToggleDetails();
                 }
                 using var productionLike = NewForm(Path.Combine(root, "preview-guard"), _ => Task.FromResult(new InstallResult()), true);
                 var rejected = false;
                 try { productionLike.ApplyRenderFixture("completion"); } catch (InvalidOperationException) { rejected = true; }
                 Check(rejected);
             });
-            test("expanded details follow failure and completion", () =>
+            test("visible details follow failure and completion", () =>
             {
                 foreach (var failure in new[] { true, false })
                 {
@@ -137,8 +139,8 @@ internal static class InstallerFormTests
                     var called = false;
                     using var form = NewForm(Path.Combine(root, "details-update-" + failure), _ => { called = true; return pending.Task; });
                     ShowHidden(form); PumpUntil(() => called);
-                    form.ToggleDetails();
                     var details = form.Controls.OfType<Panel>().Single().Controls.OfType<TextBox>().Single();
+                    Check(details.Visible);
                     if (failure)
                     {
                         pending.SetException(new IOException("TEST_DETAILS_ERROR"));

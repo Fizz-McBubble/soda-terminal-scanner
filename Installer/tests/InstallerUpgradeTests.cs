@@ -63,7 +63,9 @@ internal static class InstallerUpgradeTests
             }
             catch (InvalidOperationException error) when (error.Message == "runtime_injected_registration") { }
             Check(File.ReadAllText(path) == legacy);
-            Check(InstallerStartup.InstalledVersion(root, null) == ScannerConstants.DisplayVersion);
+            // The 1.1.5 installer reuses the 1.1.4 runtime; a pointer alone
+            // cannot prove that the installer UI was upgraded.
+            Check(InstallerStartup.InstalledVersion(root, null) == "1.1.4");
         });
         test("installer completion closes without opening a second webpage", () =>
         {
@@ -130,12 +132,14 @@ internal static class InstallerUpgradeTests
                         Show(form); Button(form, "开始安装").PerformClick(); Pump(() => Has(form, "重试"));
                         Check(!File.Exists(Path.Combine(root, "active.json")));
                         Button(form, "重试").PerformClick(); Pump(() => Has(form, "完成"));
-                        Check(InstallerStartup.InstalledVersion(root, null) == ScannerConstants.DisplayVersion);
+                        Check(InstallerStartup.InstalledVersion(root, null) == "1.1.4");
                         Button(form, "完成").PerformClick(); Check(form.IsDisposed);
                     }
                     using (var form = New())
                     {
-                        Show(form); Button(form, "修复安装").PerformClick(); Pump(() => Has(form, "完成"));
+                        // Isolated test mode deliberately creates no Windows
+                        // product registration, so only the 1.1.4 runtime is known.
+                        Show(form); Button(form, "升级安装").PerformClick(); Pump(() => Has(form, "完成"));
                         Check(calls == 3); Button(form, "完成").PerformClick(); Check(form.IsDisposed);
                     }
                     Directory.CreateDirectory(Path.Combine(root, "outputs")); File.WriteAllText(Path.Combine(root, "outputs", "keep.json"), "KEEP");
@@ -182,7 +186,7 @@ internal static class InstallerUpgradeTests
                 try { Install(fault); throw new Exception("fault_missing"); } catch (InvalidOperationException error) when (error.Message == "runtime_injected_" + fault) { }
                 var after = Snapshot(root); Check(before.Count == after.Count && before.All(pair => after.GetValueOrDefault(pair.Key) == pair.Value));
             }
-            Check(Install("none").Success && InstallerStartup.InstalledVersion(root, null) == ScannerConstants.DisplayVersion);
+            Check(Install("none").Success && InstallerStartup.InstalledVersion(root, null) == "1.1.4");
             Check(PointerStore.ReadValidated(Path.Combine(root, "previous.json"), root)?.Version == LegacyRuntimeCatalog.Version);
             UninstallEngine.ExecuteUninstall(root, true, expectedUninstallerHash: Sha256Util.ComputeFileSha256(stub));
             Check(LegacyRuntimeCatalog.Files.All(pin => !File.Exists(Path.Combine(old, pin.Path))));

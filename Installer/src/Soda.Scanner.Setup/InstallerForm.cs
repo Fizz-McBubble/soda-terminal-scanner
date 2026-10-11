@@ -69,15 +69,13 @@ public class InstallerForm : Form
     }
 
     private readonly Color _purple = Color.FromArgb(107, 89, 148);
-    private LinkLabel _detailsButton = null!;
     private TextBox _detailsLabel = null!;
-    private string _details = "";
 
     private void InitializeComponent()
     {
         SuspendLayout();
         Text = "Soda Terminal · 画面扫描";
-        ClientSize = new Size(520, 284);
+        ClientSize = new Size(520, 348);
 
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
@@ -87,7 +85,7 @@ public class InstallerForm : Form
         Font = new Font("Microsoft YaHei UI", 9f, FontStyle.Regular, GraphicsUnit.Point);
         Padding = new Padding(32);
 
-        _cardPanel = new Panel { Location = new Point(32, 24), Size = new Size(456, 180), BackColor = Color.White };
+        _cardPanel = new Panel { Location = new Point(32, 24), Size = new Size(456, 244), BackColor = Color.White };
         Controls.Add(_cardPanel);
         var brandName = Assembly.GetExecutingAssembly().GetManifestResourceNames().FirstOrDefault(n => n.EndsWith("soda-brand-icon.png", StringComparison.Ordinal));
         using var brandStream = brandName == null ? null : Assembly.GetExecutingAssembly().GetManifestResourceStream(brandName);
@@ -108,16 +106,12 @@ public class InstallerForm : Form
             Text = "安装后，返回网页连接即可扫描。", AccessibleRole = AccessibleRole.StaticText };
         _progressBar = new SodaProgressBar { Location = new Point(0, 130), Size = new Size(456, 6),
             Minimum = 0, Maximum = 100, Visible = false, AccessibleName = "安装进度" };
-        _detailsButton = new LinkLabel { Location = new Point(0, 146), Size = new Size(100, 24), Text = "安装详情",
-            LinkColor = Color.FromArgb(108, 101, 120), ActiveLinkColor = _purple, VisitedLinkColor = _purple,
-            LinkBehavior = LinkBehavior.HoverUnderline, TabIndex = 3, AccessibleName = "显示安装详情" };
-        _detailsLabel = new TextBox { Location = new Point(0, 176), Size = new Size(456, 60),
+        _detailsLabel = new TextBox { Location = new Point(0, 150), Size = new Size(456, 88),
             ForeColor = Color.FromArgb(108, 101, 120), BackColor = Color.White, BorderStyle = BorderStyle.None,
-            Visible = false, ReadOnly = true, Multiline = true, ScrollBars = ScrollBars.Vertical,
+            ReadOnly = true, Multiline = true, ScrollBars = ScrollBars.None, TabStop = false,
             AccessibleName = "安装详情", TabIndex = 4 };
-        _details = "扫描组件将安装到当前用户目录。无需管理员权限。";
-        _detailsButton.LinkClicked += (_, _) => ToggleDetails();
-        _cardPanel.Controls.AddRange([_titleLabel, _subtitleLabel, _statusLabel, _progressBar, _detailsButton, _detailsLabel]);
+        UpdateDetails("安装到当前用户目录，并添加开始菜单入口。无需管理员权限。\r\n安装完成后，返回 Soda Terminal 网页连接画面扫描。");
+        _cardPanel.Controls.AddRange([_titleLabel, _subtitleLabel, _statusLabel, _progressBar, _detailsLabel]);
 
         _actionButton = MakeButton("开始安装", true);
         _actionButton.TabIndex = 0;
@@ -137,7 +131,11 @@ public class InstallerForm : Form
         ResumeLayout(false);
         PerformLayout();
         LayoutFooter();
-        Shown += (_, _) => LayoutFooter();
+        Shown += (_, _) =>
+        {
+            LayoutFooter(); _detailsLabel.Select(0, 0);
+            ActiveControl = _actionButton.Visible && _actionButton.Enabled ? _actionButton : _cancelButton;
+        };
         DpiChanged += (_, _) => BeginInvoke(LayoutFooter);
     }
 
@@ -147,19 +145,12 @@ public class InstallerForm : Form
 
     private void UpdateDetails(string text)
     {
-        _details = text;
         _detailsLabel.Text = text;
+        _detailsLabel.Select(0, 0);
     }
 
-    internal void ToggleDetails()
-    {
-        _detailsLabel.Visible = !_detailsLabel.Visible;
-        _detailsLabel.Text = _details;
-        _detailsButton.Text = _detailsLabel.Visible ? "收起详情" : "安装详情";
-        _cardPanel.Height = Unit(_detailsLabel.Visible ? 244 : 180);
-        ClientSize = new Size(ClientSize.Width, Unit(_detailsLabel.Visible ? 348 : 284));
-        LayoutFooter();
-    }
+    // Retain the existing render-preview switch; details are now always shown.
+    internal void ToggleDetails() => _detailsLabel.Visible = true;
 
     private Button MakeButton(string text, bool primary)
     {

@@ -22,13 +22,13 @@ internal static class FocusedInstallTests
         try
         {
             Pointer(ScannerConstants.LockedRuntimeVersion);
-            foreach (var version in new[] { "1.0.9", "1.0.10", "1.1.0", "1.1.1", "1.1.2", "1.1.3", "1.1.4" })
+            foreach (var version in new[] { "1.0.9", "1.0.10", "1.1.0", "1.1.1", "1.1.2", "1.1.3", "1.1.4", "1.1.5" })
             {
                 var registration = ProductIdentity(root, version);
                 Check(RegistrationIdentity.UninstallOwned(registration, root), version + "_owned_uninstaller_accepted");
                 var current = InstallerStartup.InstalledVersion(root, registration);
                 Check(current == version, version + "_product_version_identity");
-                Check((current != ScannerConstants.DisplayVersion) == (version != "1.1.4"), version + "_upgrade_or_repair_branch");
+                Check((current != ScannerConstants.DisplayVersion) == (version != "1.1.5"), version + "_upgrade_or_repair_branch");
             }
             Check(InstallerStartup.InstalledVersion(root, null) == "1.1.4", "unique_runtime_without_product_identity_is_114");
             Check(InstallerStartup.InstalledVersion(root, ProductIdentity(root + "-foreign", "1.1.0")) == "1.1.4", "foreign_root_cannot_claim_110");
