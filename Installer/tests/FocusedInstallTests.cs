@@ -15,11 +15,46 @@ internal static class FocusedInstallTests
     internal static int RunVersionIdentity(string root)
     {
         Directory.CreateDirectory(root);
-        var pointer = new PointerInfo { Version = "soda-scanner-zzz-next-ppocrv6-18-rc8-9-local-20261011", Path = Path.Combine(root, "versions", "soda-scanner-zzz-next-ppocrv6-18-rc8-9-local-20261011") };
-        PointerStore.WritePointerAtomic(Path.Combine(root, "active.json"), pointer);
-        var passed = InstallerStartup.InstalledVersion(root) == "1.0.9";
-        File.WriteAllText(Path.Combine(root, "version-identity.json"), JsonSerializer.Serialize(new { ok = passed, previous = InstallerStartup.InstalledVersion(root), current = ScannerConstants.DisplayVersion }));
-        return passed ? 0 : 1;
+        var checks = new List<string>();
+        void Check(bool value, string name) { if (!value) throw new Exception(name); checks.Add(name); }
+        void Pointer(string version) => PointerStore.WritePointerAtomic(Path.Combine(root, "active.json"),
+            new PointerInfo { Version = version, Path = Path.Combine(root, "versions", version) });
+        try
+        {
+            Pointer(ScannerConstants.LockedRuntimeVersion);
+            foreach (var version in new[] { "1.0.9", "1.0.10", "1.1.0" })
+            {
+                var registration = ProductIdentity(root, version);
+                Check(RegistrationIdentity.UninstallOwned(registration, root), version + "_owned_uninstaller_accepted");
+                var current = InstallerStartup.InstalledVersion(root, registration);
+                Check(current == version, version + "_product_version_identity");
+                Check((current != ScannerConstants.DisplayVersion) == (version != "1.1.0"), version + "_upgrade_or_repair_branch");
+            }
+            Check(InstallerStartup.InstalledVersion(root, null) == "1.0.10", "shared_runtime_without_product_identity_is_1010");
+            Check(InstallerStartup.InstalledVersion(root, ProductIdentity(root + "-foreign", "1.1.0")) == "1.0.10", "foreign_root_cannot_claim_110");
+            var extra = ProductIdentity(root, "1.1.0"); extra.Values.Add("Unknown", ("PRESERVE", Microsoft.Win32.RegistryValueKind.String));
+            Check(InstallerStartup.InstalledVersion(root, extra) == "1.0.10", "foreign_registration_shape_cannot_claim_110");
+            Pointer("soda-scanner-zzz-next-ppocrv6-18-rc8-9-local-20261011");
+            Check(InstallerStartup.InstalledVersion(root, null) == "1.0.9", "legacy_109_pointer_remains_upgrade");
+            File.WriteAllText(Path.Combine(root, "version-identity.json"), JsonSerializer.Serialize(new { ok = true, checks, current = ScannerConstants.DisplayVersion, registryWrites = 0, runtimeRebuilt = false }));
+            return 0;
+        }
+        catch (Exception error)
+        {
+            File.WriteAllText(Path.Combine(root, "version-identity.json"), JsonSerializer.Serialize(new { ok = false, checks, error = error.Message }));
+            return 1;
+        }
+    }
+    private static RegistrySnapshot.KeySnapshot ProductIdentity(string root, string version)
+    {
+        var values = new Dictionary<string, object>
+        {
+            ["DisplayName"] = ScannerConstants.DisplayName, ["DisplayVersion"] = version, ["Publisher"] = ScannerConstants.Publisher,
+            ["InstallLocation"] = Path.GetFullPath(root), ["UninstallString"] = "\"" + Path.Combine(Path.GetFullPath(root), ScannerConstants.UninstallExecutableName) + "\"",
+            ["QuietUninstallString"] = "\"" + Path.Combine(Path.GetFullPath(root), ScannerConstants.UninstallExecutableName) + "\" --silent", ["NoModify"] = 1, ["NoRepair"] = 0
+        };
+        return new RegistrySnapshot.KeySnapshot { Exists = true, Values = values.ToDictionary(pair => pair.Key,
+            pair => (pair.Value, pair.Value is int ? Microsoft.Win32.RegistryValueKind.DWord : Microsoft.Win32.RegistryValueKind.String), StringComparer.OrdinalIgnoreCase) };
     }
     internal static int Run(string root, string archive, string stub)
     {

@@ -60,6 +60,14 @@ public sealed class RegistrySnapshot
 
 public static class RegistryHelper
 {
+    public static RegistrySnapshot.KeySnapshot? ReadUninstallIdentity()
+    {
+        try { return CaptureKey(Registry.CurrentUser, ScannerConstants.UninstallRegistryKeyPath); }
+        catch (System.Security.SecurityException) { return null; }
+        catch (UnauthorizedAccessException) { return null; }
+        catch (IOException) { return null; }
+    }
+
     public static bool HasInstallationRegistration(bool testMode = false)
     {
         if (testMode) return false;
