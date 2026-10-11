@@ -28,13 +28,15 @@ internal readonly record struct NativeEdgeClickSettleResult(
     int TimeoutMilliseconds = NativeEdgeClickSettleTracker.InitialTimeoutMilliseconds,
     int? VerifiedRowsAdvanced = null,
     bool ReleaseConfirmed = false,
-    string? TargetRarity = null);
+    string? TargetRarity = null,
+    NativeEdgePositionDiagnostics? PositionDiagnostics = null);
 
 // A slow game frame must not trigger a second click: it could advance another
 // row. Keep observing the original click when movement has already begun.
-internal sealed class NativeEdgeClickSettleTracker(int movementTolerance, int stabilityTolerance)
+internal sealed class NativeEdgeClickSettleTracker(int movementTolerance, int stabilityTolerance, bool isCloud = false)
 {
     internal const int InitialTimeoutMilliseconds = 800;
+    internal const int CloudInitialTimeoutMilliseconds = 1600;
     internal const int MovingTimeoutMilliseconds = 3000;
     internal const int NoMoveDecisionMilliseconds = 300;
     internal const int RequiredStableFrames = 2;
@@ -45,7 +47,11 @@ internal sealed class NativeEdgeClickSettleTracker(int movementTolerance, int st
     public int Samples { get; private set; }
     public bool Settled { get; private set; }
     public int ReleaseStableFrames { get; private set; }
-    public int TimeoutMilliseconds => SawMovement ? MovingTimeoutMilliseconds : InitialTimeoutMilliseconds;
+    // Cloud rendering can deliver its first post-click frame after 800ms.
+    // Double the initial observation budget, leaving time for release proof
+    // inside the existing 3000ms hard deadline. Proof gates stay unchanged.
+    public int InitialObservationTimeoutMilliseconds => isCloud ? CloudInitialTimeoutMilliseconds : InitialTimeoutMilliseconds;
+    public int TimeoutMilliseconds => SawMovement ? MovingTimeoutMilliseconds : InitialObservationTimeoutMilliseconds;
 
     public bool CanObserve(double elapsedMilliseconds) => !Settled && elapsedMilliseconds < TimeoutMilliseconds;
 

@@ -17,18 +17,13 @@
 
   <ItemGroup>
     <Compile Remove="Launcher\**\*.cs" />
-    <Compile Remove="OcrCli\**\*.cs" />
     <Compile Remove="Tests\**\*.cs" />
-    <Compile Remove="Installer\**\*.cs" />
-    <None Remove="Installer\**\*" />
     <None Remove="Launcher\**\*" />
-    <None Remove="OcrCli\**\*" />
     <None Remove="Tests\**\*" />
-    <None Include="Data\drive_discs.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Data\scan_profiles.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Data\stat_rules.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Data\soda-drive-disc-data.v1.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Data\scanner-detail-geometry.v1.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Data\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Resources\models\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\src\data\drive-disc-data.v1.json" Link="Data\soda-drive-disc-data.v1.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\scripts\scanner-detail-geometry.v1.json" Link="Data\scanner-detail-geometry.v1.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

@@ -217,6 +217,7 @@ internal static partial class Program
                     _snapshot["state"] = _resultPath is null ? "ready" : "completed";
                     _snapshot["permission"] = "checking";
                     _snapshot["distribution"] = new JsonObject { ["state"] = "ready", ["installedVersion"] = runtime.Version, ["targetVersion"] = runtime.Version, ["progressPercent"] = null, ["action"] = "open", ["message"] = "1.0.49 Soda fork、PP-OCRv6 与 R4 已完成文件校验。" };
+                    _snapshot["connectedVersions"] = new JsonObject { ["runtime"] = runtime.Version, ["scanner"] = runtime.CaptureVersion };
                     _snapshot["error"] = null;
                 }
             }
@@ -238,6 +239,7 @@ internal static partial class Program
         private void StartDirectFork()
         {
             var job = _jobs.Reserve();
+            Process? process = null;
             try
             {
                 if (!BeginDiagnosticAttempt(job)) return;
@@ -259,12 +261,13 @@ internal static partial class Program
                     _snapshot["progress"] = new JsonObject { ["processed"] = 0, ["total"] = null, ["stageLabel"] = "正在等待 Windows 权限确认并切换游戏", ["etaSeconds"] = null };
                     Publish();
                 })) return;
-                // UAC may block; stop invalidates this job without waiting for this call.
-                var process = Process.Start(start) ?? throw new InvalidOperationException("direct_fork_start_failed");
+                // UAC may block. Cancellation holds this reservation until the
+                // prompt returns and any late elevated child actually exits.
+                process = Process.Start(start) ?? throw new InvalidOperationException("direct_fork_start_failed");
                 if (!_jobs.Attach(job, process))
                 {
-                    try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
-                    finally { process.Dispose(); }
+                    RequestForkTermination(process);
+                    _ = Task.Run(() => ReleaseForkAfterExitAsync(process, job));
                     return;
                 }
                 HelperLog.Write($"DIRECT_FORK_STARTED pid={process.Id} runtime={runtime.Version}");
@@ -279,20 +282,58 @@ internal static partial class Program
             }
             catch (Exception ex)
             {
-                FailJob(job, ex);
+                PublishJobFailure(job, ex, complete: process is null);
+                if (process is not null)
+                {
+                    RequestForkTermination(process);
+                    _ = Task.Run(() => ReleaseForkAfterExitAsync(process, job));
+                }
                 throw;
+            }
+            finally
+            {
+                // No process was launched (including UAC cancellation). It is
+                // now safe to release a stopped pending reservation.
+                if (process is null) _jobs.Complete(job, () => { });
             }
         }
 
         private async Task MonitorAsync(Process process, string outputRoot, long job)
         {
+            var terminationRequested = false;
             try
             {
+                var clock = Stopwatch.StartNew();
+                var watchdog = new DirectForkProgressWatchdog();
                 var exited = process.WaitForExitAsync();
                 while (!exited.IsCompleted)
                 {
                     if (!_jobs.Publish(job, () => { })) return;
                     PublishScanProgress(outputRoot, job);
+                    DirectForkProgressTimeout? timeout = null;
+                    if (!exited.IsCompleted && !_jobs.Publish(job, () =>
+                    {
+                        timeout = watchdog.Observe(_snapshot, clock.ElapsedMilliseconds);
+                        if (timeout is null) return;
+                        if (_snapshot["diagnostics"] is JsonObject report)
+                        {
+                            var evidence = report["evidence"]!.AsObject();
+                            evidence["phase"] = timeout.Phase;
+                            evidence["reason"] = "native_progress_unavailable";
+                            evidence["elapsedMs"] = timeout.ElapsedMs;
+                            evidence["timeoutMs"] = timeout.TimeoutMs;
+                        }
+                    })) return;
+                    if (timeout is not null)
+                    {
+                        // Termination is only a request. Both successful and
+                        // rejected requests retain ownership until actual exit.
+                        var terminationFailure = RequestForkTermination(process);
+                        terminationRequested = true;
+                        throw new ScannerRuntimeFailureException(timeout.Code == "scan_start_timeout"
+                            ? terminationFailure is not null ? "扫描未能开始，已停止等待。请先关闭画面扫描，再重新连接；也可反馈诊断。" : "扫描未能开始，已停止等待。请等待画面扫描结束后重试；若仍无反应，可反馈诊断。"
+                            : terminationFailure is not null ? "扫描长时间没有推进，已停止等待。请先关闭画面扫描，再重新连接；也可反馈诊断。" : "扫描长时间没有推进，已停止等待。请等待画面扫描结束后重试；若再次中断，可反馈诊断。", timeout.Code);
+                    }
                     await Task.WhenAny(exited, Task.Delay(500));
                 }
                 await exited;
@@ -324,9 +365,10 @@ internal static partial class Program
             }
             catch (Exception ex)
             {
-                FailJob(job, ex);
+                PublishJobFailure(job, ex, complete: false);
+                if (!terminationRequested) RequestForkTermination(process);
             }
-            finally { process.Dispose(); }
+            finally { await ReleaseForkAfterExitAsync(process, job); }
         }
 
         private void PublishScanProgress(string outputRoot, long job)
@@ -355,9 +397,11 @@ internal static partial class Program
             }
         }
 
-        private void FailJob(long job, Exception ex)
+        private void FailJob(long job, Exception ex) => PublishJobFailure(job, ex, complete: true);
+
+        private void PublishJobFailure(long job, Exception ex, bool complete)
         {
-            _jobs.Complete(job, () =>
+            void PublishFailure()
             {
                 var reportedError = _snapshot["state"]?.GetValue<string>() == "connection_failed" ? _snapshot["error"]?.DeepClone() : null;
                 _snapshot["state"] = "connection_failed";
@@ -374,7 +418,9 @@ internal static partial class Program
                 if (_snapshot["diagnostics"] is JsonObject report)
                     DirectForkDiagnostics.Finish(report, "failed", reportedError?["diagnosticCode"]?.GetValue<string>() ?? code, DiagnosticElapsedMilliseconds());
                 Publish();
-            });
+            }
+            if (complete) _jobs.Complete(job, PublishFailure);
+            else _jobs.Publish(job, PublishFailure);
         }
 
         private sealed class ScannerRuntimeFailureException(string userMessage, string diagnosticCode) : Exception(diagnosticCode)
@@ -393,13 +439,23 @@ internal static partial class Program
                 _resultHandle = null;
                 _evidenceRoot = null;
                 _snapshot["summary"] = null;
-                _snapshot["progress"] = null;
-                _snapshot["state"] = "ready";
+                _snapshot["state"] = _jobs.IsBusy ? "scanning" : "ready";
+                if (_jobs.IsBusy)
+                {
+                    _snapshot["progress"] ??= new JsonObject { ["processed"] = 0, ["total"] = null };
+                    _snapshot["progress"]!["stageLabel"] = "正在结束画面扫描，请稍候；若 Windows 权限提示仍在，请取消。";
+                    _snapshot["progress"]!["etaSeconds"] = null;
+                }
+                else _snapshot["progress"] = null;
                 _snapshot["error"] = null;
                 Publish();
+            }, () =>
+            {
+                _snapshot["state"] = "ready";
+                _snapshot["progress"] = null;
+                Publish();
             });
-            try { if (running is { HasExited: false }) running.Kill(entireProcessTree: true); }
-            catch (InvalidOperationException) { } // The captured process can finish concurrently.
+            if (running is not null) RequestForkTermination(running);
         }
 
 

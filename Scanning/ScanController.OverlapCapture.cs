@@ -273,16 +273,8 @@ public sealed partial class ScanController
                 {
                     scanLog.WriteEvent("EDGE_CLICK_STOP", $"iteration={iteration}, visibleTopLogicalRow={visibleTopLogicalRow}, targetPoint={edgeClick.TargetPoint}, movementDistance={edgeClick.MovementDistance}, stableFrames={edgeClick.StableFrames}, samples={edgeClick.Samples}, elapsedMs={edgeClick.ElapsedMilliseconds:F1}, beforeListHash={edgeClick.BeforeListHash}, afterListHash={edgeClick.AfterListHash}, inventoryCount={inventoryCount}, scannedRows={scannedLogicalRows.Count}/{totalRows}, reason={edgeClick.Reason}");
                     throw NavigationFailure($"底行点击后无法确认最终一行位移：{edgeClick.Reason}。",
-                        new Dictionary<string, object?>
-                        {
-                            ["phase"] = "edge_click", ["reason"] = edgeClick.Reason,
-                            ["visibleTopLogicalRow"] = visibleTopLogicalRow,
-                            ["scannedRows"] = scannedLogicalRows.Count, ["totalRows"] = totalRows,
-                            ["stableFrames"] = edgeClick.StableFrames,
-                            ["requiredStableFrames"] = NativeEdgeClickSettleTracker.RequiredStableFrames,
-                            ["samples"] = edgeClick.Samples, ["elapsedMs"] = (long)Math.Round(edgeClick.ElapsedMilliseconds),
-                            ["timeoutMs"] = edgeClick.TimeoutMilliseconds
-                        });
+                        NativeEdgeFailureDiagnostics.Create(edgeClick, visibleTopLogicalRow,
+                            scannedLogicalRows.Count, totalRows));
                 }
 
                 // The original edge input is independently proven stationary.

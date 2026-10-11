@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace ZZZScannerNext.Interop;
 
-internal static class NativeMethods
+internal static partial class NativeMethods
 {
     public const int SwRestore = 9;
     public const uint MouseEventLeftDown = 0x0002;

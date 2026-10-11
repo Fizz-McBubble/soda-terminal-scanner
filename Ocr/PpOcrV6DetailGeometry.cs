@@ -45,15 +45,19 @@ public static partial class PpOcrV6DetailGeometry
     /// Each capture, including a luminance retry, must use its own mapped ROIs.
     /// </summary>
     internal static IReadOnlyList<Rectangle> ResolveProductionRois(
-        Size detailSize, IReadOnlyList<Rectangle> canonicalRois)
+        Size detailSize, IReadOnlyList<Rectangle> canonicalRois, bool isCloud = false)
     {
         var canonicalSize = new Size(450, 517);
         ValidateProductionRois(canonicalRois, canonicalSize);
-        // Crops come from a separately validated 16:9 client/profile. Independently
-        // rounded panel dimensions can differ from the ideal ratio by <= 2px.
+        // Crops come from a separately validated client/profile. Local panels
+        // keep the existing 2px rounding limit. Identified cloud presets allow
+        // the client's bounded 1% deviation plus independent edge rounding.
+        var expectedHeight = detailSize.Width * 517.0 / 450;
+        var rounding = isCloud ? Math.Max(2, expectedHeight * 0.01 + 2) : 2;
+        var maxHeight = isCloud ? Math.Ceiling(900 * 517.0 / 450 * 1.01 + 2) : 1035;
         if (detailSize.Width < 300 || detailSize.Width > 900
-            || detailSize.Height < 344 || detailSize.Height > 1035
-            || Math.Abs(detailSize.Height - detailSize.Width * 517.0 / 450) > 2)
+            || detailSize.Height < 344 || detailSize.Height > maxHeight
+            || Math.Abs(detailSize.Height - expectedHeight) > rounding)
             throw new InvalidDataException($"ppocrv6_detail_geometry_size_incompatible:{detailSize.Width}x{detailSize.Height}");
 
         // Preserve the exact established 1080/1081 path and crop bytes.

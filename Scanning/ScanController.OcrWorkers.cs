@@ -59,10 +59,11 @@ public sealed partial class ScanController
         FastOcrAssistEngine? fastOcrAssist,
         FastOcrAssistRecorder? fastOcrAssistRecorder,
         bool normalizedRetryEnabled,
+        bool isCloud,
         CancellationTokenSource linked)
     {
         return Enumerable.Range(1, workerCount)
-            .Select(workerId => StartGuardedOcrTask(() => ConsumeOcrWorker(queue, ocrResults, outputDir, options, scanLog, workerId, ocrIntraOpThreads, counters, diagnostics, shadowDataset, fastOcrShadow, fastOcrAssist, fastOcrAssistRecorder, normalizedRetryEnabled, linked.Token), linked))
+            .Select(workerId => StartGuardedOcrTask(() => ConsumeOcrWorker(queue, ocrResults, outputDir, options, scanLog, workerId, ocrIntraOpThreads, counters, diagnostics, shadowDataset, fastOcrShadow, fastOcrAssist, fastOcrAssistRecorder, normalizedRetryEnabled, isCloud, linked.Token), linked))
             .ToArray();
     }
 
@@ -129,6 +130,7 @@ public sealed partial class ScanController
         FastOcrAssistEngine? fastOcrAssist,
         FastOcrAssistRecorder? fastOcrAssistRecorder,
         bool normalizedRetryEnabled,
+        bool isCloud,
         CancellationToken token)
     {
         using var recognizer = CreateOcrRecognizer(options, outputDir, $"worker-{workerId}", ocrIntraOpThreads, token);
@@ -170,7 +172,7 @@ public sealed partial class ScanController
                 var roisByCapture = batch
                     .Select((capture, index) => (IReadOnlyList<CvRect>)(
                         options.OcrEngine == OcrEngine.PpOcrV6
-                            ? PpOcrV6DetailGeometry.ResolveProductionRois(capture.Image.Size, productionRois!)
+                            ? PpOcrV6DetailGeometry.ResolveProductionRois(capture.Image.Size, productionRois!, isCloud)
                             : assistPlans?[index]?.PpOcrRois ?? capture.Rois))
                     .ToArray();
                 var evidenceByCapture = options.OcrEngine == OcrEngine.PpOcrV6

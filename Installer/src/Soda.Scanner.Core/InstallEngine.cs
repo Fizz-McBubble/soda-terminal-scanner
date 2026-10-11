@@ -37,6 +37,7 @@ public static class InstallEngine
         var registrySnapshot = RegistryHelper.Capture(testMode);
         var wasRunning = ProcessHelper.IsManagedHelperRunning(root, testMode);
         var committed = false;
+        ScannerShortcutChange? shortcutChange = null;
         var cleanupWork = false;
         using var transaction = new FileTransaction(root, work);
         try
@@ -78,6 +79,7 @@ public static class InstallEngine
             RuntimeCatalog.Verify(versionRoot);
             RegistryHelper.RegisterProtocol(FileSystemSafety.SafePath(root, ScannerConstants.HelperExecutableRelative), testMode);
             RegistryHelper.RegisterUninstallEntry(root, FileSystemSafety.SafePath(root, ScannerConstants.UninstallExecutableName), testMode);
+            shortcutChange = RegistryHelper.ApplyStartMenuShortcut(root, publicOrigin, testMode);
             Inject("registration");
             progressCallback?.Invoke("正在完成安装…", 90);
             if (oldActive != null && oldActive.Version != ScannerConstants.LockedRuntimeVersion)
@@ -103,17 +105,21 @@ public static class InstallEngine
             return new InstallResult
             {
                 Success = true, RepeatedInstall = repeated, Started = started, InstallRoot = root,
-                Message = "安装完成，请返回网页连接助手。"
+                Message = !started && !noLaunch && !testMode ? "安装完成，请打开工具后返回网页连接。" : "安装完成，请返回网页连接。"
             };
         }
         catch
         {
             if (!committed)
             {
-                transaction.Rollback();
-                registrySnapshot.Restore();
-                cleanupWork = true;
-                if (wasRunning) ProcessHelper.StartManagedHelper(FileSystemSafety.SafePath(root, ScannerConstants.HelperExecutableRelative), publicOrigin, testMode);
+                try { RegistryHelper.RollbackStartMenuShortcut(root, publicOrigin, testMode, shortcutChange); }
+                finally
+                {
+                    transaction.Rollback();
+                    registrySnapshot.Restore(root);
+                    cleanupWork = true;
+                    if (wasRunning) ProcessHelper.StartManagedHelper(FileSystemSafety.SafePath(root, ScannerConstants.HelperExecutableRelative), publicOrigin, testMode);
+                }
             }
             throw;
         }

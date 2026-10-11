@@ -4,6 +4,14 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
-  <ItemGroup><ProjectReference Include="../src/Soda.Scanner.Core/Soda.Scanner.Core.csproj" /></ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../src/Soda.Scanner.Core/Soda.Scanner.Core.csproj" />
+    <Compile Include="../src/Soda.Scanner.Setup/InstallerForm.cs" Link="InstallerForm.cs" />
+    <Compile Include="../src/Soda.Scanner.Setup/SetupResources.cs" Link="SetupResources.cs" />
+    <Compile Include="../src/Soda.Scanner.Setup/PayloadFiles.cs" Link="PayloadFiles.cs" />
+    <EmbeddedResource Include="../src/Soda.Scanner.Setup/Resources/soda-brand-icon.png" Link="soda-brand-icon.png" />
+  </ItemGroup>
 </Project>

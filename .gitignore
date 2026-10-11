@@ -1,6 +1,47 @@
-**/bin/
-**/obj/
-Installer/outputs/
-Installer/src/Soda.Scanner.Setup/Resources/
-Installer/src/Soda.Scanner.Core/*.zip
-outputs/
+# Build output
+bin/
+obj/
+publish/
+publish */
+publish-*/
+publish-helper*/
+dist/
+artifacts/
+tmp-fast-*/
+ZZZ-Scanner.Next-win-x64*.zip
+
+# Runtime scan output
+Scans/
+**/Scans/
+*.log
+*.csv
+*.error.txt
+*.panel.png
+preview-detail-panel.png
+
+# User and IDE files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.vscode/
+.idea/
+
+# OS files
+Thumbs.db
+Desktop.ini
+
+# Local caches
+TestResults/
+*.nupkg
+*.snupkg
+tmp-fast-*.json
+
+# Experimental Fast OCR templates are generated from local visual profiles.
+# Keep only the validated release template in source control.
+Data/ocr_fast_templates*.json
+!Data/ocr_fast_templates.json
+
+# Large OCR model is bundled in release archives.
+Resources/models/*.onnx

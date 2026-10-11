@@ -72,14 +72,15 @@ internal static class DirectForkProgress
                     "game_window_not_foreground" => "游戏已离开前台。请回到驱动仓库后重新扫描，期间保持游戏在前台。",
                     "game_window_not_visible" => "游戏窗口不可见。请恢复窗口，完整显示驱动仓库后重新扫描。",
                     "window_geometry_changed" => "游戏窗口位置、大小或显示缩放发生变化。请将窗口放好并保持大小不变，再重新扫描。",
-                    "ppocrv6_detail_geometry_incompatible" => "当前游戏画面尺寸不兼容。在游戏中选择 1920 × 1080 的窗口模式后重新扫描。",
+                    "ppocrv6_detail_geometry_incompatible" => "当前游戏画面尺寸不兼容。云绝仅有全屏、大尺寸窗口、窗口三种模式，请关闭云端面板后重试；本机版请按扫描指南设置画面。仍失败时请反馈此问题。",
+                    "game_window_ambiguous" => "检测到多个游戏窗口。请将本次要扫描的驱动仓库切到前台后重试。",
                     "warehouse_context_lost" => "暂时无法确认驱动仓库画面。请关闭遮挡并保持游戏在前台，再重新扫描。",
                     "duplicate_guard" => "连续读到相同驱动盘，但无法确认已切换到下一张，扫描已保护性停止。本次结果未进入正式导入；保持驱动仓库在前台重试，若再次停止请反馈此问题。",
                     _ => null
                 };
                 error = new JsonObject
                 {
-                    ["userMessage"] = contextMessage ?? (noSelected ? "没有可导入的 S 级驱动盘；本次未生成导入结果。" : gameMissing ? "请先启动绝区零并保持游戏窗口可用，然后重新扫描。" : panelTimeout
+                    ["userMessage"] = contextMessage ?? (noSelected ? "没有可导入的 S 级驱动盘；本次未生成导入结果。" : gameMissing ? "请先进入本机绝区零或云·绝区零的驱动仓库，再重新扫描。" : panelTimeout
                         ? $"扫描在驱动盘详情切换时超时，已识别 {completed} 张；请检查游戏窗口与盘面后重试，本次结果未进入正式导入。"
                         : $"扫描中断，已识别 {completed} 张；结果未进入正式导入，请检查游戏窗口后重新扫描。"),
                     // The terminal projection already validates native codes against the shared

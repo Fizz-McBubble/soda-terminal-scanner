@@ -11,8 +11,9 @@
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-    <Product>Soda Terminal 扫描助手</Product>
-    <Description>Soda Terminal 扫描助手离线安装程序</Description>
+    <Product>Soda Terminal · 画面扫描</Product>
+    <Description>Soda Terminal 画面扫描安装程序</Description>
+    <ApplicationIcon>Resources\soda-brand-icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

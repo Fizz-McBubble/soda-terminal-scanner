@@ -23,9 +23,9 @@ void Refuses(Action action)
     try { action(); } catch (Exception) { failed = true; }
     Check(failed, "expected rejection");
 }
-InstallResult Install(string root, string fault = "none") => InstallEngine.ExecuteInstall(root,
+InstallResult Install(string root, string fault = "none", bool firstRunOnly = false) => InstallEngine.ExecuteInstall(root,
     ScannerConstants.DefaultPublicOrigin, () => File.OpenRead(archive), () => File.OpenRead(stub),
-    testMode: true, noLaunch: true, faultInjection: fault);
+    testMode: true, noLaunch: true, faultInjection: fault, firstRunOnly: firstRunOnly);
 string Version(string root) => Path.Combine(root, "versions", ScannerConstants.LockedRuntimeVersion);
 void Write(string path, string data) { Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllText(path, data); }
 Dictionary<string, string> Snapshot(string root) => Directory.GetFiles(root, "*", SearchOption.AllDirectories)
@@ -43,6 +43,9 @@ void Junction(string link, string target)
 }
 try
 {
+    InstallerFormTests.Run(basePath, Test);
+    PayloadFilesTests.Run(basePath, Test);
+    InstallerUpgradeTests.Run(basePath, archive, stub, Test);
     Test("root guards and no actual installation", () =>
     {
         Refuses(() => FileSystemSafety.ValidateRoot(ScannerConstants.GetDefaultManagedRoot(), true));
@@ -52,7 +55,7 @@ try
     });
     Test("clean install, pinned runtime and managed helper", () =>
     {
-        Check(Install(clean).Success, "install failed"); RuntimeCatalog.Verify(Version(clean));
+        Check(Install(clean, firstRunOnly: true).Success, "install failed"); RuntimeCatalog.Verify(Version(clean));
         Check(PointerStore.ReadValidated(Path.Combine(clean, "active.json"), clean)?.Path == Version(clean), "invalid active pointer");
         Check(File.Exists(Path.Combine(clean, ScannerConstants.HelperExecutableRelative)), "helper not deployed");
     });
@@ -64,6 +67,13 @@ try
         var helper = Path.Combine(clean, ScannerConstants.HelperExecutableRelative);
         File.Delete(helper); Install(clean);
         Check(RuntimeCatalog.Matches(helper, RuntimeCatalog.Files.Single(file => file.Path == ScannerConstants.HelperExecutableRelative)), "helper not repaired");
+    });
+    Test("automatic engine recheck refuses existing install before transaction writes", () =>
+    {
+        var before = Snapshot(clean);
+        Refuses(() => InstallEngine.ExecuteInstall(clean, ScannerConstants.DefaultPublicOrigin,
+            () => File.OpenRead(archive), () => File.OpenRead(stub), testMode: true, noLaunch: true, firstRunOnly: true));
+        SameSnapshot(before, Snapshot(clean));
     });
     Test("repair preserves substituted program bytes and unknown files", () =>
     {

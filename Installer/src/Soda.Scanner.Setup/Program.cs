@@ -90,7 +90,7 @@ static class Program
         catch (Exception ex)
         {
             Console.Error.WriteLine(ex.Message);
-            if (!silent && renderPreview == null) MessageBox.Show("安装目录不可用，请检查后重试。", "扫描助手", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            if (!silent && renderPreview == null) MessageBox.Show("安装目录不可用，请检查后重试。", "画面扫描", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return 2;
         }
 
@@ -153,7 +153,7 @@ static class Program
             {
                 try
                 {
-                    var res = InstallEngine.ExecuteInstall(
+                        var res = InstallEngine.ExecuteInstall(
                         installRoot,
                         publicOrigin,
                         offlineArchiveStreamProvider: () => SetupResources.OpenArchive(overrideArchive),

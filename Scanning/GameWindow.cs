@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Drawing;
 using ZZZScannerNext.Interop;
 
@@ -7,6 +6,8 @@ namespace ZZZScannerNext.Scanning;
 public sealed class GameWindow : IDisposable
 {
     private readonly IntPtr _handle;
+    private readonly IntPtr _contentHandle;
+    private readonly GameWindowTarget _target;
     private readonly CaptureSourceCoordinator _captureSource = new(new GdiCaptureSource());
     private Action? _inputGuard;
     private Action? _traversalPositionGuard;
@@ -15,12 +16,16 @@ public sealed class GameWindow : IDisposable
     private float _coordinateScale = 1f;
     private bool _disposed;
 
-    private GameWindow(IntPtr handle, ClientMetrics metrics)
+    private GameWindow(GameWindowTarget target, ClientMetrics metrics)
     {
-        _handle = handle;
+        _handle = target.Handle;
+        _contentHandle = target.ContentHandle;
+        _target = target;
+        ProcessName = target.ProcessName;
+        IsCloud = target.IsCloud;
         _clientScreenRect = metrics.ScreenRect;
         _coordinateScale = metrics.Scale;
-        Dpi = NativeMethods.TryGetDpiForWindow(handle);
+        Dpi = NativeMethods.TryGetDpiForWindow(_handle);
     }
 
     public Rectangle ClientScreenRect => _clientScreenRect;
@@ -28,42 +33,27 @@ public sealed class GameWindow : IDisposable
     public float CoordinateScale => _coordinateScale;
     public string ActiveCaptureMode => _captureSource.Name;
     public string ActiveFrameBackend => _captureSource.FrameBackendName;
+    public string ProcessName { get; }
+    public bool IsCloud { get; }
 
     public static GameWindow Find(string processName)
     {
         NativeMethods.TryEnablePerMonitorDpiAwareness();
-        using var process = FindProcess(processName);
-        EnsureCurrentProcessCanAccess(process, processName);
-        return new GameWindow(process.MainWindowHandle, GetClientMetrics(process.MainWindowHandle));
+        var target = GameWindowDiscovery.Find(processName);
+        EnsureCurrentProcessCanAccess(target.ProcessId, target.ProcessName);
+        return new GameWindow(target, GetClientMetrics(target.ContentHandle));
     }
 
     public static void EnsureCurrentProcessCanAccess(string processName)
     {
         NativeMethods.TryEnablePerMonitorDpiAwareness();
-        using var process = FindProcess(processName);
-        EnsureCurrentProcessCanAccess(process, processName);
+        var target = GameWindowDiscovery.Find(processName);
+        EnsureCurrentProcessCanAccess(target.ProcessId, target.ProcessName);
     }
 
-    private static Process FindProcess(string processName)
+    private static void EnsureCurrentProcessCanAccess(int processId, string processName)
     {
-        var process = Process.GetProcesses().FirstOrDefault(candidate =>
-        {
-            try
-            {
-                return string.Equals(candidate.ProcessName, processName, StringComparison.OrdinalIgnoreCase)
-                    && candidate.MainWindowHandle != IntPtr.Zero;
-            }
-            catch
-            {
-                return false;
-            }
-        });
-        return process ?? throw new InvalidOperationException($"未找到游戏窗口进程：{processName}");
-    }
-
-    private static void EnsureCurrentProcessCanAccess(Process process, string processName)
-    {
-        if (NativeMethods.RequiresElevationForProcess(process.Id))
+        if (NativeMethods.RequiresElevationForProcess(processId))
         {
             throw new ScannerElevationRequiredException(
                 $"游戏进程 {processName} 的权限高于当前扫描器，普通权限无法可靠截图或发送输入。");
@@ -77,7 +67,7 @@ public sealed class GameWindow : IDisposable
             throw new InvalidOperationException("game_foreground_handoff_failed");
         }
 
-        var metrics = GetClientMetrics(_handle);
+        var metrics = GetClientMetrics(_contentHandle);
         _clientScreenRect = metrics.ScreenRect;
         _coordinateScale = metrics.Scale;
         Dpi = NativeMethods.TryGetDpiForWindow(_handle);
@@ -213,12 +203,14 @@ public sealed class GameWindow : IDisposable
 
     private WindowCaptureContext ReadCaptureContext()
     {
-        var visible = NativeMethods.IsWindowVisible(_handle) && !NativeMethods.IsIconic(_handle);
+        var visible = GameWindowDiscovery.IsCurrent(_target)
+            && NativeMethods.IsWindowVisible(_handle) && !NativeMethods.IsIconic(_handle)
+            && NativeMethods.IsWindowVisible(_contentHandle);
         if (!visible) return new(Rectangle.Empty, Dpi, false, false);
         try
         {
-            return new(GetClientMetrics(_handle).ScreenRect, NativeMethods.TryGetDpiForWindow(_handle),
-                true, NativeMethods.GetForegroundWindow() == _handle);
+            return new(GetClientMetrics(_contentHandle).ScreenRect, NativeMethods.TryGetDpiForWindow(_handle),
+                true, GameWindowDiscovery.IsForeground(_target));
         }
         catch (InvalidOperationException)
         {
@@ -276,19 +268,7 @@ public sealed class GameWindow : IDisposable
 
     private static ClientMetrics GetClientMetrics(IntPtr handle)
     {
-        if (!NativeMethods.GetClientRect(handle, out var nativeRect))
-        {
-            throw new InvalidOperationException("无法读取游戏客户区。");
-        }
-
-        Rectangle client = nativeRect;
-        var point = new NativePoint { X = client.X, Y = client.Y };
-        if (!NativeMethods.ClientToScreen(handle, ref point))
-        {
-            throw new InvalidOperationException("无法换算游戏窗口坐标。");
-        }
-
-        var logicalClientScreen = new Rectangle(point.X, point.Y, client.Width, client.Height);
+        var logicalClientScreen = GameWindowDiscovery.ReadClientRectangle(handle);
         // CopyFromScreen and SetCursorPos operate in the same coordinate space that
         // ClientToScreen returns for this process. Converting it again by DPI makes
         // high-DPI secondary monitors overshoot the lower rows.

@@ -209,7 +209,7 @@ public sealed partial class ScanController
         var previous = before;
         var latest = before;
         var watch = Stopwatch.StartNew();
-        var settle = new NativeEdgeClickSettleTracker(ListMovementTolerance, ListStableTolerance);
+        var settle = new NativeEdgeClickSettleTracker(ListMovementTolerance, ListStableTolerance, window.IsCloud);
         var extended = false;
         var pollMilliseconds = Math.Max(10, profile.LoadPollMs);
         RowAdvanceEvidence latestEvidence = default;
@@ -266,7 +266,7 @@ public sealed partial class ScanController
         // A stationary click may be retried only after the full original window
         // and an independent zero-position proof. Identical cards are not bottom.
         if (provisional is null && !settle.SawMovement
-            && watch.ElapsedMilliseconds >= NativeEdgeClickSettleTracker.InitialTimeoutMilliseconds
+            && watch.ElapsedMilliseconds >= settle.InitialObservationTimeoutMilliseconds
             && settle.StableFrames >= 3 && latestEvidence.Strong
             && latestEvidence.Decision == RowAdvanceDecision.NoMove
             && ScrollbarDelta(before.Scrollbar, latest.Scrollbar) == 0)
@@ -310,7 +310,12 @@ public sealed partial class ScanController
                 accepted, rowsAdvanced == 1, settle.MovementDistance, settle.StableFrames,
                 settle.Samples, watch.Elapsed.TotalMilliseconds, reason, targetPoint,
                 beforeListHash, FormatNativeEdgeListHash(latest.Rows), settle.TimeoutMilliseconds,
-                rowsAdvanced, accepted, TargetRarity: rarity);
+                rowsAdvanced, accepted, TargetRarity: rarity,
+                PositionDiagnostics: settle.Samples == 0 ? null : new NativeEdgePositionDiagnostics(latestEvidence,
+                    before.Scrollbar.Found, latest.Scrollbar.Found,
+                    before.Scrollbar.EndY - before.Scrollbar.StartY + 1,
+                    latest.Scrollbar.EndY - latest.Scrollbar.StartY + 1,
+                    ScrollbarDelta(before.Scrollbar, latest.Scrollbar), pixelsPerRow, settle.SawMovement));
             scanLog.WriteEvent("EDGE_CLICK_SETTLED", $"visibleTopLogicalRow={visibleTopLogicalRow}, targetPoint={targetPoint}, settled={accepted}, verifiedRowsAdvanced={rowsAdvanced}, changed={result.Changed}, movementDistance={result.MovementDistance}, stableFrames={result.StableFrames}, samples={result.Samples}, elapsedMs={result.ElapsedMilliseconds:F1}, beforeListHash={beforeListHash}, afterListHash={result.AfterListHash}, scrollbarDelta={ScrollbarDelta(before.Scrollbar, latest.Scrollbar)}, scrollbarPixelsPerRow={pixelsPerRow:F3}, beforeThumb={before.Scrollbar.StartY}-{before.Scrollbar.EndY}, afterThumb={latest.Scrollbar.StartY}-{latest.Scrollbar.EndY}, releaseConfirmed={accepted}, inventoryCount={inventoryCount}, scannedRows={scannedRows}, positionReason={latestEvidence.Reason}, reason={reason}");
             return result;
         }

@@ -38,6 +38,7 @@ public sealed class RuntimeVisualProfile
         CaptureMode captureModeRequested,
         GameWindow window)
     {
+        processName = window.ProcessName;
         var clientKind = ResolveClientKind(processName, requestedClientKind);
         var requestedId = NormalizeToken(string.IsNullOrWhiteSpace(requestedProfileId) ? "auto" : requestedProfileId);
         var normalizedQuality = NormalizeToken(string.IsNullOrWhiteSpace(qualityLabel) ? "current" : qualityLabel);

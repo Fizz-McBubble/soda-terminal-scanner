@@ -14,6 +14,9 @@ public class InstallerForm : Form
     private readonly string? _overrideArchive;
     private readonly bool _autoInstallEnabled;
     private readonly Func<Action<string, int>, Task<InstallResult>>? _testInstall;
+    private readonly Func<Task<UninstallResult>>? _testUninstall;
+    private readonly Func<bool>? _testConfirmUninstall;
+    private readonly Func<bool>? _testOpenWorkspace;
 
     private Label _titleLabel = null!;
     private Label _subtitleLabel = null!;
@@ -31,9 +34,11 @@ public class InstallerForm : Form
         : this(installRoot, publicOrigin, testMode, noLaunch, overrideArchive, true) { }
 
     internal InstallerForm(string installRoot, string publicOrigin, bool testMode, bool noLaunch, string? overrideArchive,
-        bool autoInstallEnabled, Func<Action<string, int>, Task<InstallResult>>? testInstall = null)
+        bool autoInstallEnabled, Func<Action<string, int>, Task<InstallResult>>? testInstall = null,
+        Func<Task<UninstallResult>>? testUninstall = null, Func<bool>? testConfirmUninstall = null,
+        Func<bool>? testOpenWorkspace = null)
     {
-        if (testInstall != null && !testMode) throw new InvalidOperationException("test_install_override_forbidden");
+        if ((testInstall != null || testUninstall != null || testConfirmUninstall != null || testOpenWorkspace != null) && !testMode) throw new InvalidOperationException("test_install_override_forbidden");
         _installRoot = installRoot;
         _publicOrigin = publicOrigin;
         _testMode = testMode;
@@ -41,6 +46,8 @@ public class InstallerForm : Form
         _overrideArchive = overrideArchive;
         _autoInstallEnabled = autoInstallEnabled;
         _testInstall = testInstall;
+        _testUninstall = testUninstall; _testConfirmUninstall = testConfirmUninstall;
+        _testOpenWorkspace = testOpenWorkspace;
 
         InitializeComponent();
         FormClosing += (_, e) => { if (_busy) e.Cancel = true; };
@@ -69,7 +76,7 @@ public class InstallerForm : Form
     private void InitializeComponent()
     {
         SuspendLayout();
-        Text = "Soda Terminal · 扫描助手";
+        Text = "Soda Terminal · 画面扫描";
         ClientSize = new Size(520, 284);
 
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -95,9 +102,9 @@ public class InstallerForm : Form
             finally { DestroyIcon(handle); }
         }
         _titleLabel = new Label { Location = new Point(58, 0), Size = new Size(398, 30),
-            Font = new Font("Microsoft YaHei UI", 17f, FontStyle.Bold), ForeColor = Color.FromArgb(34, 30, 43), Text = "扫描助手" };
+            Font = new Font("Microsoft YaHei UI", 17f, FontStyle.Bold), ForeColor = Color.FromArgb(34, 30, 43), Text = "画面扫描" };
         _subtitleLabel = new Label { Location = new Point(59, 32), Size = new Size(395, 22),
-            ForeColor = Color.FromArgb(108, 101, 120), Text = "Soda Terminal  /  Windows" };
+            ForeColor = Color.FromArgb(108, 101, 120), Text = "安装版本 " + ScannerConstants.DisplayVersion };
         _statusLabel = new Label { Location = new Point(0, 82), Size = new Size(454, 36),
             Font = new Font("Microsoft YaHei UI", 10.5f), ForeColor = Color.FromArgb(55, 48, 67),
             Text = "安装后，返回网页连接即可扫描。", AccessibleRole = AccessibleRole.StaticText };
@@ -221,14 +228,14 @@ public class InstallerForm : Form
                 _cancelButton.Visible = false; _uninstallButton.Visible = false;
                 _progressBar.Visible = true; _progressBar.Value = 47; break;
             case "completion":
-                _statusLabel.Text = "安装完成，请返回网页连接助手。"; _actionButton.Text = "完成";
+                _statusLabel.Text = "安装完成，请返回网页连接。"; _actionButton.Text = "完成";
                 _cancelButton.Visible = false; _uninstallButton.Visible = false; _progressBar.Visible = true; _progressBar.Value = 100; break;
             case "error":
-                _statusLabel.Text = "安装未完成，请关闭扫描助手后重试。"; _actionButton.Text = "重试";
+                _statusLabel.Text = "安装未完成，请关闭画面扫描后重试。"; _actionButton.Text = "重试";
             _cancelButton.Visible = true;
                 UpdateDetails("本图为错误状态渲染测试，不代表真实安装失败。"); break;
             case "repair":
-                _statusLabel.Text = "已检测到扫描助手，可以修复安装。"; _actionButton.Text = "修复安装"; _uninstallButton.Visible = true; break;
+                _statusLabel.Text = "已检测到画面扫描，可以修复安装。"; _actionButton.Text = "修复安装"; _uninstallButton.Visible = true; break;
             default: throw new InvalidOperationException("test_preview_state_invalid");
         }
     }
@@ -237,8 +244,12 @@ public class InstallerForm : Form
     {
         if (HasInstallationTraces())
         {
-            _statusLabel.Text = "已检测到扫描助手，可以修复安装。";
-            _actionButton.Text = "修复安装";
+            var current = InstallerStartup.InstalledVersion(_installRoot);
+            var upgrade = current != null && current != ScannerConstants.DisplayVersion;
+            _subtitleLabel.Text = current == null ? "安装版本 " + ScannerConstants.DisplayVersion
+                : "当前 " + current + "  →  安装 " + ScannerConstants.DisplayVersion;
+            _statusLabel.Text = upgrade ? "已有画面扫描，可以升级到新版本。" : "已检测到画面扫描，可以修复安装。";
+            _actionButton.Text = upgrade ? "升级安装" : "修复安装";
             _actionButton.Enabled = true;
             _actionButton.Visible = true;
             _uninstallButton.Visible = true;
@@ -260,6 +271,19 @@ public class InstallerForm : Form
         if (_busy) return;
         if (_completed)
         {
+            if (_actionButton.Text == "启动助手")
+            {
+                if (ProcessHelper.StartManagedHelper(Path.Combine(_installRoot, ScannerConstants.HelperExecutableRelative), _publicOrigin, _testMode))
+                { _statusLabel.Text = "助手已在后台启动，请返回网页连接。"; _actionButton.Text = "返回网页"; }
+                else _statusLabel.Text = "助手未启动，请重试或修复安装。";
+                return;
+            }
+            if (_actionButton.Text == "返回网页")
+            {
+                var opened = _testOpenWorkspace?.Invoke() ?? ProcessHelper.OpenWorkspace(_publicOrigin, _testMode);
+                _statusLabel.Text = opened ? "扫描页已打开，请在网页连接画面扫描。" : "网页未打开，请重试，或打开 sodaterminal.com 的扫描页。";
+                return;
+            }
             Close();
             return;
         }
@@ -311,12 +335,14 @@ public class InstallerForm : Form
             });
 
             _statusLabel.Text = result.Message;
-            UpdateDetails("扫描助手已安装。返回 Soda Terminal 网页连接即可使用。");
+            UpdateDetails("画面扫描已安装。返回 Soda Terminal 网页连接即可使用。");
             _busy = false;
             _progressBar.Indeterminate = false;
             _completed = true;
             _progressBar.Value = 100;
-            _actionButton.Text = "完成";
+            _actionButton.Text = (!_testMode && !_noLaunch) || _testOpenWorkspace != null
+                ? result.Started ? "返回网页" : "启动助手"
+                : "完成";
             _actionButton.Visible = true;
             _cancelButton.Visible = false;
             _uninstallButton.Visible = false;
@@ -334,7 +360,7 @@ public class InstallerForm : Form
                 ex.Message is "setup_asset_prepare_timeout" or "setup_asset_extract_failed"
                 ? "安装准备中断，请重新打开安装包。"
                 : ex.Message.Contains("asset") || ex.Message.Contains("uninstaller_identity")
-                    ? "安装包不完整，请重新下载。" : "安装未完成，请关闭扫描助手后重试。";
+                    ? "安装包不完整，请重新下载。" : "安装未完成，请关闭画面扫描后重试。";
             _progressBar.Visible = false;
             _actionButton.Text = "重试";
             _actionButton.Visible = true;
@@ -351,8 +377,8 @@ public class InstallerForm : Form
     private async void OnUninstallClick(object? sender, EventArgs e)
     {
         if (_busy || _completed) return;
-        var confirm = MessageBox.Show(
-            "卸载扫描助手？\n扫描结果会保留。",
+        var confirm = _testConfirmUninstall != null ? (_testConfirmUninstall() ? DialogResult.Yes : DialogResult.No) : MessageBox.Show(
+            "卸载画面扫描？\n扫描结果会保留。",
             "确认卸载",
             MessageBoxButtons.YesNo,
             MessageBoxIcon.Question);
@@ -372,7 +398,7 @@ public class InstallerForm : Form
 
         try
         {
-            var result = await Task.Run(() =>
+            var result = _testUninstall != null ? await _testUninstall() : await Task.Run(() =>
             {
                 return UninstallEngine.ExecuteUninstall(_installRoot, _testMode, (msg) =>
                 {
@@ -396,7 +422,7 @@ public class InstallerForm : Form
         {
             _busy = false;
             UpdateDetails(ex.Message);
-            _statusLabel.Text = "卸载未完成，请关闭扫描助手后重试。";
+            _statusLabel.Text = "卸载未完成，请关闭画面扫描后重试。";
             _progressBar.Visible = false;
             _actionButton.Enabled = true;
             _actionButton.Visible = true;

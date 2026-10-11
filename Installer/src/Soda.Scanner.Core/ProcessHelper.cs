@@ -7,7 +7,9 @@ public static class ProcessHelper
     public static bool IsManagedHelperRunning(string root, bool testMode = false)
     {
         if (testMode) return false;
-        var processes = MatchingProcesses(new[] { FileSystemSafety.SafePath(root, ScannerConstants.HelperExecutableRelative) }).ToList();
+        var helper = FileSystemSafety.SafePath(root, ScannerConstants.HelperExecutableRelative);
+        if (!IsKnownProgram(helper, ScannerConstants.HelperExecutableRelative)) return false;
+        var processes = MatchingProcesses(new[] { helper }).ToList();
         var found = processes.Count > 0;
         foreach (var process in processes) process.Dispose();
         return found;
@@ -34,10 +36,17 @@ public static class ProcessHelper
         }
         void AddSafe(string owner, string relative)
         {
-            try { paths.Add(FileSystemSafety.SafePath(owner, relative)); }
+            try
+            {
+                var path = FileSystemSafety.SafePath(owner, relative);
+                if (IsKnownProgram(path, relative)) paths.Add(path);
+            }
             catch (InvalidOperationException ex) when (ex.Message == "managed_path_is_link") { }
         }
     }
+
+    public static bool IsKnownProgram(string path, string relative) => RuntimeCatalog.Files.Concat(LegacyRuntimeCatalog.Files)
+        .Any(entry => entry.Path == relative && RuntimeCatalog.Matches(path, entry));
 
     private static IEnumerable<Process> MatchingProcesses(IEnumerable<string> paths)
     {
@@ -58,17 +67,40 @@ public static class ProcessHelper
     {
         if (testMode) return true;
         FileSystemSafety.AssertNoReparsePoints(helper);
+        if (!IsKnownProgram(helper, ScannerConstants.HelperExecutableRelative)) return false;
+        var running = MatchingProcesses(new[] { helper }).ToList();
+        var alreadyRunning = running.Count > 0;
+        foreach (var process in running) process.Dispose();
+        if (alreadyRunning) return true;
+        var start = HelperStartInfo(helper, origin);
+        try
+        {
+            using var process = Process.Start(start);
+            return process != null && !process.WaitForExit(2000);
+        }
+        catch (System.ComponentModel.Win32Exception) { return false; }
+    }
+    public static ProcessStartInfo HelperStartInfo(string helper, string origin)
+    {
         var start = new ProcessStartInfo(helper)
         {
             WorkingDirectory = Path.GetDirectoryName(helper)!, UseShellExecute = false,
             CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden
         };
         start.ArgumentList.Add("soda-terminal-scanner://open?origin=" + Uri.EscapeDataString(origin));
-        try
-        {
-            using var process = Process.Start(start);
-            return process != null && !process.WaitForExit(2000);
-        }
+        return start;
+    }
+    public static ProcessStartInfo WorkspaceStartInfo(string origin)
+    {
+        if (!ScannerConstants.AllowedOrigins.Contains(origin, StringComparer.Ordinal))
+            throw new InvalidOperationException("scanner_public_origin_invalid");
+        return new ProcessStartInfo(origin + "/system/scanner") { UseShellExecute = true };
+    }
+    public static bool OpenWorkspace(string origin, bool testMode = false)
+    {
+        var start = WorkspaceStartInfo(origin);
+        if (testMode) return true;
+        try { using var browser = Process.Start(start); return true; }
         catch (System.ComponentModel.Win32Exception) { return false; }
     }
 }

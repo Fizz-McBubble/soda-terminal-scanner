@@ -1,6 +1,10 @@
-# 扫描助手安装程序
+# 画面扫描安装程序
 
-发布入口为 `Soda-Scanner-Setup.exe`（Windows x64）。玩家下载并打开 EXE 后，首次安装自动准备组件并启动扫描助手，无需再点击“开始安装”。窗口展示准备、安装与完成进度，安装事务执行期间不能关闭；失败后可手动重试。已有安装、残留文件或协议/卸载登记时保留修复和卸载入口，不自动覆盖。也可从 Windows“已安装的应用”卸载。卸载保留扫描结果、日志、未知文件和用户替换的文件。
+开始菜单中的「Soda Terminal · 画面扫描」打开浏览器里的扫描工作区；在网页点击连接后使用后台助手。助手本身不显示独立窗口。安装完成后的动作分别为「启动助手」和「返回网页」，已运行的助手按成功处理，不把重复启动误报为无法打开。旧的静默协议快捷入口仅在归属完全匹配时迁移；安装失败恢复原入口，用户修改的入口继续保留。
+
+发布入口为 `SodaTerminal-Scanner-Setup-1.0.9.exe`（Windows x64）。玩家下载并打开 EXE 后，首次安装自动准备组件并启动画面扫描，无需再点击“开始安装”。窗口展示准备、安装与完成进度，安装事务执行期间不能关闭；失败后可手动重试。已有安装、残留文件或协议/卸载登记时保留修复和卸载入口，不自动覆盖。也可从 Windows“已安装的应用”卸载。卸载保留扫描结果、日志、未知文件和用户替换的文件。
+
+当前 1.0.9 是本地候选，尚未发布。窗口和 EXE 使用 Soda 自有图标，显示工具名与安装版本；识别已发布 1.0.8 的有效同根指针时显示“当前 1.0.8 → 安装 1.0.9”和“升级安装”，同版显示修复，陌生/不完整安装不冒充已知版本。安装沿用事务及被替换程序的恢复副本；失败恢复文件与原指针，注册回退仅覆盖仍符合本次同根身份的入口。卸载使用编译入程序的当前与已发布 1.0.8 文件目录，不读取玩家磁盘上的描述文件决定删除；仅删除大小/SHA 相符的程序、完整归属协议和卸载入口，陌生注册值和程序改写保留。
 
 1.0.8 安装包内置 RC8.8 的完整锁定 ZIP：Helper 2.3.10、锁定 1.0.49 Soda fork（capture r27）、PP-OCRv6 与 Microsoft release VC runtime 14.44.35211.0 的应用本地依赖和许可证。此版优化翻行后的重复确认，修复 A/B 品级边界误判和恢复全屏窗口后的启动顺序；补全失败环节、停止位置及窗口状态，网页反馈保留提交编号并支持一致的重试、复制和下载。沿用现有安装窗口和打包，协议 5 和数据 schema 2 不变。
 
@@ -28,3 +32,5 @@
 源码遵守本仓库 MIT 许可。运行包与 VC runtime 保留各自的许可证；VC release DLL 不修改，来源与分发条件见 [Microsoft 可分发文件清单](https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution)。
 
 压缩壳使用未修改的 [NSIS 3.13](https://nsis.sourceforge.io/Download) 与 LZMA 模块，许可及链接例外全文保留在 `NSIS-COPYING.txt`。原作者为 NSIS contributors，不将其视为本项目原创；原始源代码获取位置保留在 `nsis-toolchain.json`。
+
+Installation and repair also create the current-user Start menu entry "Soda Terminal · 画面扫描". It opens the existing protocol service and does not begin scanning. The Unicode InternetShortcut uses the installed Soda uninstaller icon; its URL and icon path identify the exact managed root. Conflicting same-name contents are preserved and installation rolls back. Uninstall removes only the exact owned entry; synthetic tests keep this file inside their isolated root, never the user's Start menu.

@@ -38,7 +38,7 @@ internal static class PayloadFiles
         if (parent.StartTime > current.StartTime || parent.HasExited)
             throw new InvalidOperationException("setup_asset_parent_unavailable");
         var parentPath = parent.MainModule?.FileName ?? throw new InvalidOperationException("setup_asset_parent_unavailable");
-        if (FileVersionInfo.GetVersionInfo(parentPath).FileDescription != "扫描助手安装程序")
+        if (FileVersionInfo.GetVersionInfo(parentPath).FileDescription != "画面扫描安装程序")
             throw new InvalidOperationException("setup_asset_parent_invalid");
         var ownPath = Environment.ProcessPath ?? throw new InvalidOperationException("setup_asset_apphost_unavailable");
         if (!Path.GetFileName(ownPath).Equals("Soda-Scanner-Setup-inner.exe", StringComparison.OrdinalIgnoreCase))

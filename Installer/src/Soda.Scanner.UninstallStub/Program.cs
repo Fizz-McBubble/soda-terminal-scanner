@@ -56,7 +56,7 @@ static class Program
         {
             if (!silent)
             {
-                MessageBox(IntPtr.Zero, "安装目录不可用，请检查后重试。", "扫描助手", MB_OK | MB_ICONERROR);
+                MessageBox(IntPtr.Zero, "安装目录不可用，请检查后重试。", "画面扫描", MB_OK | MB_ICONERROR);
             }
             Console.Error.WriteLine($"Root validation failed: {ex.Message}");
             return 2;
@@ -67,8 +67,8 @@ static class Program
         {
             var confirmResult = MessageBox(
                 IntPtr.Zero,
-                "卸载扫描助手？\n扫描结果会保留。",
-                "卸载扫描助手",
+                "卸载画面扫描？\n扫描结果会保留。",
+                "卸载画面扫描",
                 MB_YESNO | MB_ICONQUESTION);
 
             if (confirmResult != IDYES)
@@ -117,7 +117,7 @@ static class Program
             {
                 if (!silent)
                 {
-                    MessageBox(IntPtr.Zero, "卸载未完成，请关闭扫描助手后重试。", "扫描助手", MB_OK | MB_ICONERROR);
+                    MessageBox(IntPtr.Zero, "卸载未完成，请关闭画面扫描后重试。", "画面扫描", MB_OK | MB_ICONERROR);
                 }
                 Console.Error.WriteLine($"Failed to start relocated uninstaller: {ex.Message}");
                 return 2;
@@ -130,9 +130,9 @@ static class Program
             try
             {
                 using var proc = Process.GetProcessById(waitPid);
-                proc.WaitForExit(10000);
+                if (!proc.WaitForExit(10000)) { Console.Error.WriteLine("uninstaller_parent_busy"); return 2; }
             }
-            catch { }
+            catch (ArgumentException) { }
         }
 
         string? selfHash = null;
@@ -160,7 +160,7 @@ static class Program
         {
             if (!silent)
             {
-                MessageBox(IntPtr.Zero, "卸载未完成，请关闭扫描助手后重试。", "扫描助手", MB_OK | MB_ICONERROR);
+                MessageBox(IntPtr.Zero, "卸载未完成，请关闭画面扫描后重试。", "画面扫描", MB_OK | MB_ICONERROR);
             }
             Console.Error.WriteLine($"Uninstall error: {ex.Message}");
             return 2;

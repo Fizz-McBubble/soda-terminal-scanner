@@ -15,12 +15,16 @@ public sealed class RegistrySnapshot
         public Dictionary<string, KeySnapshot> SubKeys { get; init; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
-    public void Restore()
+    public void Restore(string? installRoot = null)
     {
         if (TestMode) return;
 
-        RestoreKey(Registry.CurrentUser, ScannerConstants.ProtocolRegistryKeyPath, ProtocolSnapshot);
-        RestoreKey(Registry.CurrentUser, ScannerConstants.UninstallRegistryKeyPath, UninstallSnapshot);
+        if (installRoot == null) throw new InvalidOperationException("registry_restore_identity_required");
+        var current = RegistryHelper.Capture();
+        if (RegistrationIdentity.ProtocolOwned(current.ProtocolSnapshot, Path.Combine(installRoot, ScannerConstants.HelperExecutableRelative)))
+            RestoreKey(Registry.CurrentUser, ScannerConstants.ProtocolRegistryKeyPath, ProtocolSnapshot);
+        if (RegistrationIdentity.UninstallOwned(current.UninstallSnapshot, installRoot))
+            RestoreKey(Registry.CurrentUser, ScannerConstants.UninstallRegistryKeyPath, UninstallSnapshot);
     }
 
     private static void RestoreKey(RegistryKey rootKey, string subKeyPath, KeySnapshot? snapshot)
@@ -143,6 +147,9 @@ public static class RegistryHelper
         if (testMode) return;
 
         var fullHelper = Path.GetFullPath(managedHelperPath);
+        var protocolIdentity = CaptureKey(Registry.CurrentUser, ScannerConstants.ProtocolRegistryKeyPath);
+        if (protocolIdentity.Exists && !RegistrationIdentity.ProtocolOwned(protocolIdentity, fullHelper))
+            throw new InvalidOperationException("scanner_protocol_owned_by_another_path");
         using (var existing = Registry.CurrentUser.OpenSubKey(ScannerConstants.ProtocolRegistryKeyPath + @"\shell\open\command"))
         {
             var command = existing?.GetValue("") as string;
@@ -167,12 +174,21 @@ public static class RegistryHelper
         cmdKey.SetValue("", $"\"{fullHelper}\" \"%1\"", RegistryValueKind.String);
     }
 
+    public static bool RegisterStartMenuShortcut(string root, string origin, bool testMode = false) => ScannerShortcut.Create(root, origin, testMode);
+    public static ScannerShortcutChange ApplyStartMenuShortcut(string root, string origin, bool testMode = false) => ScannerShortcut.Apply(root, origin, testMode);
+    public static void RollbackStartMenuShortcut(string root, string origin, bool testMode, bool created) => ScannerShortcut.RollbackCreated(root, origin, testMode, created);
+    public static void RollbackStartMenuShortcut(string root, string origin, bool testMode, ScannerShortcutChange? change) => ScannerShortcut.Rollback(root, origin, testMode, change);
+    public static void RemoveStartMenuShortcut(string root, bool testMode = false) => ScannerShortcut.RemoveOwned(root, testMode);
+
     public static void RegisterUninstallEntry(string installRoot, string uninstallExePath, bool testMode = false)
     {
         if (testMode) return;
 
         var fullRoot = Path.GetFullPath(installRoot);
         var fullUninstall = Path.GetFullPath(uninstallExePath);
+        var uninstallIdentity = CaptureKey(Registry.CurrentUser, ScannerConstants.UninstallRegistryKeyPath);
+        if (uninstallIdentity.Exists && !RegistrationIdentity.UninstallOwned(uninstallIdentity, fullRoot))
+            throw new InvalidOperationException("scanner_uninstall_entry_owned_by_another_path");
         using (var existing = Registry.CurrentUser.OpenSubKey(ScannerConstants.UninstallRegistryKeyPath))
         {
             if (existing != null && !UninstallRegistrationMatches(existing.GetValue("InstallLocation") as string, existing.GetValue("UninstallString") as string, fullRoot))
@@ -202,7 +218,7 @@ public static class RegistryHelper
 
             var location = key.GetValue("InstallLocation") as string;
             var uninstallString = key.GetValue("UninstallString") as string;
-            if (UninstallRegistrationMatches(location, uninstallString, installRoot))
+            if (UninstallRegistrationMatches(location, uninstallString, installRoot) && RegistrationIdentity.UninstallOwned(CaptureKey(Registry.CurrentUser, ScannerConstants.UninstallRegistryKeyPath), installRoot))
             {
                 key.Close();
                 Registry.CurrentUser.DeleteSubKeyTree(ScannerConstants.UninstallRegistryKeyPath, throwOnMissingSubKey: false);
@@ -219,7 +235,7 @@ public static class RegistryHelper
             if (cmdKey != null)
             {
                 var val = cmdKey.GetValue("") as string;
-                if (ProtocolCommandMatches(val, managedHelperPath))
+                if (ProtocolCommandMatches(val, managedHelperPath) && RegistrationIdentity.ProtocolOwned(CaptureKey(Registry.CurrentUser, ScannerConstants.ProtocolRegistryKeyPath), managedHelperPath))
                 {
                     cmdKey.Close();
                     Registry.CurrentUser.DeleteSubKeyTree(ScannerConstants.ProtocolRegistryKeyPath, throwOnMissingSubKey: false);

@@ -172,15 +172,7 @@ public sealed partial class ScanController
         }
         FastOcrAssistEngine? fastOcrAssist = null;
         FastOcrAssistRecorder? fastOcrAssistRecorder = null;
-        var resourceMonitor = ResourceMonitor.Start(
-            Path.Combine(outputDir, "resource.csv"),
-            options.ProcessName,
-            () => new ResourceCounterSnapshot(
-                Volatile.Read(ref counters.Visited),
-                Volatile.Read(ref counters.Queued),
-                Volatile.Read(ref counters.Completed),
-                Volatile.Read(ref counters.Failed)),
-            scanLog.Write);
+        ResourceMonitor? resourceMonitor = null;
         Exception? pendingException = null;
         Exception? ocrException = null;
         ScanSessionDiagnostics? sessionDiagnostics = null;
@@ -190,6 +182,9 @@ public sealed partial class ScanController
         {
             Report(progress, counters, $"加载窗口：{options.ProcessName}");
             using var window = GameWindow.Find(options.ProcessName);
+            resourceMonitor = ResourceMonitor.Start(Path.Combine(outputDir, "resource.csv"), window.ProcessName,
+                () => new ResourceCounterSnapshot(Volatile.Read(ref counters.Visited), Volatile.Read(ref counters.Queued),
+                    Volatile.Read(ref counters.Completed), Volatile.Read(ref counters.Failed)), scanLog.Write);
             var ppOcrGeometry = options.OcrEngine == OcrEngine.PpOcrV6
                 ? PpOcrV6CaptureGeometryContract.Load()
                 : null;
@@ -198,11 +193,9 @@ public sealed partial class ScanController
                 window.BringToFront();
             }
 
-            // Fullscreen clients can report 0x0 while inactive. Activation
-            // refreshes their metrics; validate the restored size before
-            // preflight can send any navigation or selection input.
-            ppOcrGeometry?.EnsureCompatible(profile, window.ClientScreenRect.Size);
-
+            // Inactive fullscreen clients can temporarily report 0x0. Validate
+            // the restored content size before preflight can send game input.
+            ppOcrGeometry?.EnsureCompatible(profile, window.ClientScreenRect.Size, window.IsCloud);
             window.BindCaptureContext();
             window.ConfigureCaptureMode(options.CaptureMode, scanLog.Write);
 
@@ -314,7 +307,7 @@ public sealed partial class ScanController
                 // retry even in a neutral visual environment; legacy engines
                 // keep the existing shifted-environment-only behavior.
                 var normalizedRetryEnabled = shiftedVisualEnvironment || options.OcrEngine == OcrEngine.PpOcrV6;
-                ocrWorkers = StartOcrWorkers(queue, ocrResults, outputDir, options, scanLog, ocrWorkerCount, ocrIntraOpThreads, counters, ocrDiagnostics, ocrShadowDataset, fastOcrShadow, fastOcrAssist, fastOcrAssistRecorder, normalizedRetryEnabled, linked);
+                ocrWorkers = StartOcrWorkers(queue, ocrResults, outputDir, options, scanLog, ocrWorkerCount, ocrIntraOpThreads, counters, ocrDiagnostics, ocrShadowDataset, fastOcrShadow, fastOcrAssist, fastOcrAssistRecorder, normalizedRetryEnabled, window.IsCloud, linked);
                 resultConsumer = StartGuardedOcrTask(() => ConsumeOcrResults(ocrResults, results, r4Records, counters, outputDir, progress, scanLog, options, linked), linked);
                 await ProduceCapturesAsync(window, profile, queue, options, runtimeState, counters, progress, scanLog, preflight.InventoryCount, traversalMode, linked.Token);
                 captureCompleted = true;
@@ -400,7 +393,7 @@ public sealed partial class ScanController
         finally
         {
             fastOcrAssistRecorder?.Dispose();
-            await resourceMonitor.StopAsync();
+            if (resourceMonitor is not null) await resourceMonitor.StopAsync();
         }
 
         var ordered = results.OrderBy(x => x.Index).ToList();

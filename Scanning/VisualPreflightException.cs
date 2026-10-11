@@ -31,7 +31,7 @@ public sealed class VisualPreflightException : InvalidOperationException, IScann
     {
         "capture_failed" => "请保持游戏可见且未最小化，并关闭遮挡窗口后重试。",
         "inventory_screen_unreadable" => "已检测到部分仓库证据，但标题和布局无法同时确认；请关闭遮挡并保持仓库界面完整可见。",
-        "unsupported_display_layout" => "请切换到受支持的 16:9 分辨率后重试。",
+        "unsupported_display_layout" => "云·绝区零请使用全屏、大尺寸窗口或窗口模式，关闭云端面板并完整显示驱动仓库；本机版请使用受支持的 16:9 分辨率。",
         _ => "请确认游戏为简体中文并打开背包中的驱动盘页面后重试。"
     };
     public bool Retryable => true;

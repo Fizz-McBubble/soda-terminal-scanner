@@ -39,9 +39,9 @@ internal static partial class DirectForkDiagnostics
     {
         "helper_unavailable" or "helper_incompatible" or "helper_pairing_denied" => "connection",
         "permission_denied" or "elevation_cancelled" => "permission",
-        "game_process_not_found" or "visual_preflight_failed" or "ppocrv6_detail_geometry_incompatible" or "inventory_count_ocr_failed" => "preflight",
+        "game_process_not_found" or "game_window_ambiguous" or "visual_preflight_failed" or "ppocrv6_detail_geometry_incompatible" or "inventory_count_ocr_failed" => "preflight",
         "game_window_not_foreground" or "game_window_not_visible" or "window_geometry_changed" or "warehouse_context_lost" => "capture",
-        "panel_capture_timeout" => "capture", "scan_navigation_failed" => "scroll", "ocr_worker_failed" or "duplicate_guard" => "ocr",
+        "scan_start_timeout" => "preflight", "scan_progress_timeout" or "panel_capture_timeout" => "capture", "scan_navigation_failed" => "scroll", "ocr_worker_failed" or "duplicate_guard" => "ocr",
         "direct_fork_result_missing" or "direct_fork_partial" or "previous_scan_recovery_failed" or "scan_result_timeout" or "scan_result_read_failed" or "scan_file_invalid" or "scan_no_importable_s_discs" => "result",
         "scan_import_handoff_failed" or "scan_import_failed" => "import",
         _ => "unknown"
