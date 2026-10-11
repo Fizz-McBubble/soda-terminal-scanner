@@ -234,6 +234,15 @@ internal sealed class PanelTargetEvidenceGate
     public double? ChangeMilliseconds { get; private set; }
     public bool Stable => Changed && StableFrames >= RequiredStableFrames;
 
+    public bool CanWaitForPendingCloudReturn(
+        bool isCloud,
+        bool allowSelectionEvidence,
+        bool selectionRoundTripReady,
+        double elapsedMilliseconds,
+        double timeoutMilliseconds) =>
+        isCloud && allowSelectionEvidence && selectionRoundTripReady
+        && Changed && !Stable && elapsedMilliseconds < timeoutMilliseconds;
+
     public bool Observe(bool changedFromBaseline, bool stableWithPreviousFrame, double elapsedMilliseconds)
     {
         if (!changedFromBaseline || elapsedMilliseconds < MinimumReliableChangeMilliseconds)

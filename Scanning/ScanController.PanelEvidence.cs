@@ -27,6 +27,7 @@ public sealed partial class ScanController
         public int SelectionObservedFrame { get; private set; } = -1;
         public bool SelectionStableForObservedFrame { get; private set; }
         public bool TargetEvidenceLogged { get; private set; }
+        public bool PendingReturnWaitLogged { get; set; }
         public bool SelectionChanged { get; set; }
         public double? SelectionChangeMilliseconds { get; set; }
         public bool SelectionAttestedPanel { get; set; }
@@ -100,12 +101,7 @@ public sealed partial class ScanController
             ref string acceptReason,
             out string blockedReason)
         {
-            blockedReason = "";
-            if (!ObserveSelectionChange(selectionProbeRect, beforeSelectionSignature, frameCount, elapsed))
-            {
-                return false;
-            }
-
+            ObserveSelectionChange(selectionProbeRect, beforeSelectionSignature, frameCount, elapsed);
             if (!EvidenceGate.CanPromote(
                     allowSelectionOnlyFallback,
                     postScrollFirstCell,

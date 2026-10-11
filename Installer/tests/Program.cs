@@ -6,6 +6,8 @@ if (args.Length == 4 && args[3] == "--focused-install")
     return FocusedInstallTests.Run(Path.GetFullPath(args[0]), Path.GetFullPath(args[1]), Path.GetFullPath(args[2]));
 if (args.Length == 2 && args[1] == "--version-identity")
     return FocusedInstallTests.RunVersionIdentity(Path.GetFullPath(args[0]));
+if (args.Length == 3 && args[1] == "--version-identity")
+    return FocusedInstallTests.RunVersionIdentity(Path.GetFullPath(args[0]), Path.GetFullPath(args[2]));
 
 var basePath = FileSystemSafety.ValidateRoot(Path.GetFullPath(args[0]), true);
 var archive = Path.GetFullPath(args[1]);

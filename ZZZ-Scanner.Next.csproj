@@ -19,12 +19,12 @@
     <Compile Remove="Launcher\**\*.cs" />
     <Compile Remove="Tests\**\*.cs" />
     <Compile Remove="WebSocket\**\*.cs" />
+    <Compile Remove="Installer\**\*.cs" />
+    <Compile Remove="OcrCli\**\*.cs" />
     <None Remove="Launcher\**\*" />
     <None Remove="Tests\**\*" />
     <None Include="Data\**\*.*" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Resources\models\**\*.*" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\src\data\drive-disc-data.v1.json" Link="Data\soda-drive-disc-data.v1.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\scripts\scanner-detail-geometry.v1.json" Link="Data\scanner-detail-geometry.v1.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

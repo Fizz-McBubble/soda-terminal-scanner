@@ -25,6 +25,7 @@ public sealed partial class ScanController
         DateTime start,
         double elapsedMilliseconds,
         TimeSpan unchangedFallbackDelay,
+        TimeSpan timeout,
         TimeSpan interval,
         Stopwatch frameLoop,
         CancellationToken token,
@@ -90,6 +91,29 @@ public sealed partial class ScanController
                         ref state.AcceptReason,
                         out var blockedReason))
                 {
+                    // The cloud return may first become visible in the capture that
+                    // crosses the short unchanged fallback. Keep observing that
+                    // pending target within the existing deadline; this is not
+                    // permission to accept its old detail panel.
+                    if (tracker.EvidenceGate.CanWaitForPendingCloudReturn(
+                            window.IsCloud,
+                            allowSelectionOnlyFallback,
+                            selectionRoundTripReady,
+                            (DateTime.UtcNow - start).TotalMilliseconds,
+                            timeout.TotalMilliseconds))
+                    {
+                        if (!tracker.PendingReturnWaitLogged)
+                        {
+                            tracker.PendingReturnWaitLogged = true;
+                            scanLog.WriteEvent("PANEL_PENDING_TARGET_RETURN",
+                                $"reason={blockedReason}, elapsedMs={elapsedMilliseconds:F1}, selectionChangeMs={FormatOptionalMs(tracker.SelectionChangeMilliseconds)}, selectionStableFrames={tracker.EvidenceGate.StableFrames}/{PanelTargetEvidenceGate.RequiredStableFrames}, timeoutMs={timeout.TotalMilliseconds:F0}");
+                        }
+                        frameLoop.Stop();
+                        state.FrameLoopMilliseconds += frameLoop.Elapsed.TotalMilliseconds;
+                        await Task.Delay(interval, token);
+                        return true;
+                    }
+
                     if (!string.IsNullOrWhiteSpace(blockedReason))
                     {
                         tracker.WriteSelectionOnlyBlocked(blockedReason, elapsedMilliseconds, postScrollFirstCell, allowSelectionOnlyFallback, scanLog);

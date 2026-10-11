@@ -210,7 +210,7 @@ static partial class Program
             Console.WriteLine(JsonSerializer.Serialize(new
             {
                 ok,
-                runtime = "ZZZ-Scanner.Next-1.0.49-soda-r30",
+                runtime = "ZZZ-Scanner.Next-1.0.49-soda-r31",
                 upstreamCommit = "ff90891140016d3f1b738d73cb6cd9b291e17cec",
                 accountWriteEnabled = false,
                 importAccess = false

@@ -133,6 +133,7 @@ public sealed partial class ScanController
                     start,
                     elapsedMilliseconds,
                     unchangedFallbackDelay,
+                    timeout,
                     interval,
                     frameLoop,
                     token,
