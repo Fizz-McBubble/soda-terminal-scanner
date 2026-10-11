@@ -6,6 +6,7 @@ public static class InstallerStartup
     {
         var pointer = PointerStore.ReadValidated(Path.Combine(root, "active.json"), root);
         if (pointer?.Version == ScannerConstants.LockedRuntimeVersion) return ScannerConstants.DisplayVersion;
+        if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-9-local-20261011") return "1.0.9";
         if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-8") return "1.0.8";
         return null;
     }

@@ -6,8 +6,8 @@
   },
   {
     "path": "helper\\ZZZ-Scanner-Helper.exe",
-    "size": 8271360,
-    "sha256": "1d43a4dbfaa8200e0a59fd95c486de7e1bc5a0075efec320c776d8568a87f1bc"
+    "size": 8274944,
+    "sha256": "0ada29090f3109f0e15688485715653004b38734d7d509553c884ddd2f1a0aca"
   },
   {
     "path": "LICENSE-ZZZ-Scanner.Next-MIT.txt",
@@ -198,5 +198,10 @@
     "path": "ocr\\vcruntime140.dll",
     "size": 124544,
     "sha256": "d5e4d9a3e835fa679450145d6a7d94e36573a509317111904d9b3712c30d9066"
+  },
+  {
+    "path": "scanner-runtime.json",
+    "size": 7773,
+    "sha256": "eb19c03fc0328b79a34f94871eda9d746e7eeb4ce6da917d90a8bc86453e56f6"
   }
 ]

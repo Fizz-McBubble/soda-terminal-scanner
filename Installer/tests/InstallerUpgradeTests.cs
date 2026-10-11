@@ -13,45 +13,46 @@ internal static class InstallerUpgradeTests
             var root = Path.Combine(basePath, "shortcut-contract"); Directory.CreateDirectory(root);
             var origin = ScannerConstants.DefaultPublicOrigin; var path = ScannerShortcut.PathFor(root, true);
             Check(RegistryHelper.RegisterStartMenuShortcut(root, origin, true));
-            Check(File.ReadAllText(path) == ScannerShortcut.Contents(root, origin));
+            Check(ScannerShortcut.IsOwned(root, origin, true));
             Check(!RegistryHelper.RegisterStartMenuShortcut(root, origin, true));
             RegistryHelper.RollbackStartMenuShortcut(root, origin, true, false); Check(File.Exists(path));
             RegistryHelper.RollbackStartMenuShortcut(root, origin, true, true); Check(!File.Exists(path));
             RegistryHelper.RegisterStartMenuShortcut(root, origin, true);
-            File.AppendAllText(path, "USER_EDIT");
+            File.WriteAllText(path, "USER_EDIT");
             var edited = Sha256Util.ComputeFileSha256(path);
             RegistryHelper.RollbackStartMenuShortcut(root, origin, true, true); Check(Sha256Util.ComputeFileSha256(path) == edited);
             RegistryHelper.RemoveStartMenuShortcut(root, true); Check(File.Exists(path));
             try { RegistryHelper.RegisterStartMenuShortcut(root, origin, true); throw new Exception("shortcut_conflict_missing"); }
             catch (InvalidOperationException error) when (error.Message == "scanner_start_menu_conflict") { }
-            File.WriteAllText(path, ScannerShortcut.Contents(root, origin));
+            File.Delete(path); RegistryHelper.RegisterStartMenuShortcut(root, origin, true);
             RegistryHelper.RemoveStartMenuShortcut(root, true); Check(!File.Exists(path));
         });
         test("start menu opens visible workspace and upgrades owned silent shortcut reversibly", () =>
         {
             var root = Path.Combine(basePath, "visible-shortcut-contract"); Directory.CreateDirectory(root);
             var origin = ScannerConstants.DefaultPublicOrigin; var path = ScannerShortcut.PathFor(root, true);
+            var oldPath = ScannerShortcut.OldPathFor(root, true);
             var legacy = ScannerShortcut.LegacyContents(root, origin);
-            File.WriteAllText(path, legacy);
+            File.WriteAllText(oldPath, legacy);
             var changed = RegistryHelper.ApplyStartMenuShortcut(root, origin, true);
-            Check(!changed.Created && changed.PreviousContents == legacy);
-            Check(File.ReadAllText(path).Contains("URL=" + origin + "/system/scanner\r\n", StringComparison.Ordinal));
+            Check(changed.Created && changed.PreviousContents == legacy);
+            Check(ScannerShortcut.IsOwned(root, origin, true) && !File.Exists(oldPath));
             RegistryHelper.RollbackStartMenuShortcut(root, origin, true, changed);
-            Check(File.ReadAllText(path) == legacy);
+            Check(File.ReadAllText(oldPath) == legacy && !File.Exists(path));
             changed = RegistryHelper.ApplyStartMenuShortcut(root, origin, true);
-            File.AppendAllText(path, "USER_EDIT"); var edited = Sha256Util.ComputeFileSha256(path);
+            File.WriteAllText(path, "USER_EDIT"); var edited = Sha256Util.ComputeFileSha256(path);
             RegistryHelper.RollbackStartMenuShortcut(root, origin, true, changed);
             Check(Sha256Util.ComputeFileSha256(path) == edited);
             RegistryHelper.RemoveStartMenuShortcut(root, true); Check(File.Exists(path));
-            File.WriteAllText(path, legacy);
-            RegistryHelper.RemoveStartMenuShortcut(root, true); Check(!File.Exists(path));
+            File.Delete(path); File.WriteAllText(oldPath, legacy);
+            RegistryHelper.RemoveStartMenuShortcut(root, true); Check(!File.Exists(oldPath));
         });
         test("failed repair restores previous silent shortcut after registration", () =>
         {
             var root = Path.Combine(basePath, "shortcut-repair-rollback");
             InstallEngine.ExecuteInstall(root, ScannerConstants.DefaultPublicOrigin, () => File.OpenRead(archive),
                 () => File.OpenRead(stub), testMode: true, noLaunch: true);
-            var path = ScannerShortcut.PathFor(root, true);
+            var path = ScannerShortcut.OldPathFor(root, true);
             var legacy = ScannerShortcut.LegacyContents(root, ScannerConstants.DefaultPublicOrigin);
             File.WriteAllText(path, legacy);
             try
@@ -64,7 +65,7 @@ internal static class InstallerUpgradeTests
             Check(File.ReadAllText(path) == legacy);
             Check(InstallerStartup.InstalledVersion(root) == ScannerConstants.DisplayVersion);
         });
-        test("installer starts background helper then opens visible workspace with retry", () =>
+        test("installer completion closes without opening a second webpage", () =>
         {
             Exception? failure = null;
             var thread = new Thread(() =>
@@ -77,9 +78,8 @@ internal static class InstallerUpgradeTests
                         _ => Task.FromResult(new InstallResult { Success = true, Started = false, InstallRoot = root, Message = "安装完成" }),
                         testOpenWorkspace: () => ++opened > 1);
                     Show(form); Button(form, "开始安装").PerformClick(); Pump(() => Has(form, "启动助手"));
-                    Button(form, "启动助手").PerformClick(); Check(Has(form, "返回网页") && opened == 0);
-                    Button(form, "返回网页").PerformClick(); Check(opened == 1 && Button(form, "返回网页").Enabled);
-                    Button(form, "返回网页").PerformClick(); Check(opened == 2 && !form.IsDisposed);
+                    Button(form, "启动助手").PerformClick(); Check(Has(form, "完成") && opened == 0);
+                    Button(form, "完成").PerformClick(); Check(opened == 0 && form.IsDisposed);
                     var start = ProcessHelper.WorkspaceStartInfo(ScannerConstants.DefaultPublicOrigin);
                     Check(start.UseShellExecute && start.FileName == ScannerConstants.DefaultPublicOrigin + "/system/scanner");
                     try { ProcessHelper.WorkspaceStartInfo("https://example.com"); throw new Exception("workspace_origin_gate_missing"); }

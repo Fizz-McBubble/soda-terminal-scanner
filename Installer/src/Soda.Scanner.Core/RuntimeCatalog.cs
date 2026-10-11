@@ -15,8 +15,11 @@ public static class RuntimeCatalog
         var assembly = Assembly.GetExecutingAssembly();
         var name = assembly.GetManifestResourceNames().Single(n => n.EndsWith("runtime-files.json", StringComparison.Ordinal));
         using var stream = assembly.GetManifestResourceStream(name)!;
-        return JsonSerializer.Deserialize<RuntimeFile[]>(stream, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+        var files = JsonSerializer.Deserialize<RuntimeFile[]>(stream, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
             ?? throw new InvalidOperationException("runtime_catalog_missing");
+        if (files.Count(file => file.Path == "scanner-runtime.json") != 1)
+            throw new InvalidOperationException("runtime_descriptor_catalog_missing");
+        return files;
     }
 
     public static bool Matches(string path, RuntimeFile entry) => File.Exists(path) &&

@@ -96,11 +96,9 @@ public class InstallerForm : Form
             var image = new Bitmap(brandStream);
             _cardPanel.Controls.Add(new PictureBox { Location = new Point(0, 0), Size = new Size(44, 44),
                 SizeMode = PictureBoxSizeMode.Zoom, Image = image, AccessibleName = "Soda Terminal" });
-            using var iconBitmap = new Bitmap(image, new Size(32, 32));
-            var handle = iconBitmap.GetHicon();
-            try { Icon = (Icon)Icon.FromHandle(handle).Clone(); }
-            finally { DestroyIcon(handle); }
         }
+        using var iconStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("soda-brand-icon.ico");
+        if (iconStream != null) Icon = new Icon(iconStream);
         _titleLabel = new Label { Location = new Point(58, 0), Size = new Size(398, 30),
             Font = new Font("Microsoft YaHei UI", 17f, FontStyle.Bold), ForeColor = Color.FromArgb(34, 30, 43), Text = "画面扫描" };
         _subtitleLabel = new Label { Location = new Point(59, 32), Size = new Size(395, 22),
@@ -180,9 +178,6 @@ public class InstallerForm : Form
         _cancelButton.Location = new Point(Unit(32), ClientSize.Height - Unit(58));
         _uninstallButton.Location = new Point(Unit(126), ClientSize.Height - Unit(58));
     }
-
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    private static extern bool DestroyIcon(IntPtr handle);
 
     private sealed class SodaProgressBar : ProgressBar
     {
@@ -274,7 +269,7 @@ public class InstallerForm : Form
             if (_actionButton.Text == "启动助手")
             {
                 if (ProcessHelper.StartManagedHelper(Path.Combine(_installRoot, ScannerConstants.HelperExecutableRelative), _publicOrigin, _testMode))
-                { _statusLabel.Text = "助手已在后台启动，请返回网页连接。"; _actionButton.Text = "返回网页"; }
+                { _statusLabel.Text = "助手已在后台启动，请返回网页连接。"; _actionButton.Text = "完成"; }
                 else _statusLabel.Text = "助手未启动，请重试或修复安装。";
                 return;
             }
@@ -341,7 +336,7 @@ public class InstallerForm : Form
             _completed = true;
             _progressBar.Value = 100;
             _actionButton.Text = (!_testMode && !_noLaunch) || _testOpenWorkspace != null
-                ? result.Started ? "返回网页" : "启动助手"
+                ? result.Started ? "完成" : "启动助手"
                 : "完成";
             _actionButton.Visible = true;
             _cancelButton.Visible = false;

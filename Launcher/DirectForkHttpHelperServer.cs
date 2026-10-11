@@ -65,9 +65,9 @@ internal static partial class Program
                     return;
                 }
                 var path = context.Request.Url?.AbsolutePath ?? "/";
-                if (context.Request.HttpMethod == "GET" && path == "/")
+                if (context.Request.HttpMethod == "GET" && (path == "/" || path == "/identity"))
                 {
-                    await JsonAsync(context.Response, 200, new JsonObject { ["service"] = ServiceName, ["version"] = HelperVersion, ["protocolVersion"] = ProtocolVersion, ["transport"] = "direct-fork-http", ["accountWriteEnabled"] = false, ["importAccess"] = false }, token);
+                    await JsonAsync(context.Response, 200, new JsonObject { ["service"] = ServiceName, ["version"] = HelperVersion, ["installerVersion"] = ScannerInstallerIdentity.ReadVersion(), ["protocolVersion"] = ProtocolVersion, ["transport"] = "direct-fork-http", ["accountWriteEnabled"] = false, ["importAccess"] = false }, token);
                     return;
                 }
                 if (context.Request.HttpMethod == "POST" && path == "/token")
@@ -217,7 +217,7 @@ internal static partial class Program
                     _snapshot["state"] = _resultPath is null ? "ready" : "completed";
                     _snapshot["permission"] = "checking";
                     _snapshot["distribution"] = new JsonObject { ["state"] = "ready", ["installedVersion"] = runtime.Version, ["targetVersion"] = runtime.Version, ["progressPercent"] = null, ["action"] = "open", ["message"] = "1.0.49 Soda fork、PP-OCRv6 与 R4 已完成文件校验。" };
-                    _snapshot["connectedVersions"] = new JsonObject { ["runtime"] = runtime.Version, ["scanner"] = runtime.CaptureVersion };
+                    _snapshot["connectedVersions"] = new JsonObject { ["installer"] = ScannerInstallerIdentity.ReadVersion(), ["runtime"] = runtime.Version, ["scanner"] = runtime.CaptureVersion };
                     _snapshot["error"] = null;
                 }
             }
@@ -229,7 +229,8 @@ internal static partial class Program
                     _snapshot["state"] = "connection_failed";
                     _snapshot["permission"] = "denied";
                     _snapshot["distribution"] = new JsonObject { ["state"] = "repair_required", ["action"] = "repair", ["message"] = "组件文件校验失败；不会回退旧核心。" };
-                    _snapshot["error"] = new JsonObject { ["userMessage"] = "当前锁定扫描组件尚未就绪。", ["recoveryAction"] = "retry", ["diagnosticCode"] = "helper_incompatible" };
+                    _snapshot["connectedVersions"] = new JsonObject { ["installer"] = ScannerInstallerIdentity.ReadVersion() };
+                    _snapshot["error"] = new JsonObject { ["userMessage"] = "扫描组件文件缺失或校验失败，请修复安装。", ["recoveryAction"] = "retry", ["diagnosticCode"] = "runtime_repair_required" };
                     RuntimeDiagnosticFailure();
                 }
             }
@@ -243,7 +244,7 @@ internal static partial class Program
             try
             {
                 if (!BeginDiagnosticAttempt(job)) return;
-                var runtime = SodaRuntimeLocator.Load();
+                var runtime = LoadDirectForkRuntime();
                 var outputRoot = Path.Combine(SodaRuntimeLocator.DefaultInstallRoot(), "outputs", $"live-{DateTime.UtcNow:yyyyMMddTHHmmssfffZ}-{job}");
                 Directory.CreateDirectory(outputRoot);
                 var start = new ProcessStartInfo { FileName = runtime.EntryPath, WorkingDirectory = runtime.Root, UseShellExecute = true, Verb = "runas", WindowStyle = ProcessWindowStyle.Hidden };
@@ -408,7 +409,7 @@ internal static partial class Program
                 var failure = ex as ScannerRuntimeFailureException;
                 var code = ex is System.ComponentModel.Win32Exception { NativeErrorCode: 1223 } ? "elevation_cancelled"
                     : ex is System.ComponentModel.Win32Exception { NativeErrorCode: 5 } or UnauthorizedAccessException ? "permission_denied"
-                    : failure?.DiagnosticCode ?? (ex.Message.StartsWith("soda_runtime_", StringComparison.Ordinal) ? "helper_incompatible" : ex.Message);
+                    : failure?.DiagnosticCode ?? (ex.Message.StartsWith("soda_runtime_", StringComparison.Ordinal) ? "runtime_repair_required" : ex.Message);
                 _snapshot["error"] = reportedError ?? new JsonObject
                 {
                     ["userMessage"] = failure?.UserMessage ?? "扫描器运行失败，结果未进入正式导入。",
@@ -423,7 +424,7 @@ internal static partial class Program
             else _jobs.Publish(job, PublishFailure);
         }
 
-        private sealed class ScannerRuntimeFailureException(string userMessage, string diagnosticCode) : Exception(diagnosticCode)
+        internal sealed class ScannerRuntimeFailureException(string userMessage, string diagnosticCode) : Exception(diagnosticCode)
         {
             internal string UserMessage { get; } = userMessage;
             internal string DiagnosticCode { get; } = diagnosticCode;

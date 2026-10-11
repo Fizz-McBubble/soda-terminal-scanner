@@ -15,7 +15,7 @@ internal static partial class DirectForkDiagnostics
     internal static JsonObject Create() => new()
     {
         ["reportId"] = Guid.NewGuid().ToString(), ["outcome"] = "unknown", ["stage"] = "connection", ["code"] = "none",
-        ["versions"] = new JsonObject { ["helper"] = Program.HelperVersion, ["protocol"] = Program.ProtocolVersion.ToString(CultureInfo.InvariantCulture) },
+        ["versions"] = new JsonObject { ["installer"] = ScannerInstallerIdentity.ReadVersion(), ["helper"] = Program.HelperVersion, ["protocol"] = Program.ProtocolVersion.ToString(CultureInfo.InvariantCulture) },
         ["counts"] = new JsonObject { ["processed"] = null, ["total"] = null }, ["durationMs"] = null,
         ["environment"] = new JsonObject(), ["evidence"] = new JsonObject()
     };
@@ -37,7 +37,7 @@ internal static partial class DirectForkDiagnostics
 
     internal static string Stage(string code) => code switch
     {
-        "helper_unavailable" or "helper_incompatible" or "helper_pairing_denied" => "connection",
+        "helper_unavailable" or "helper_incompatible" or "helper_pairing_denied" or "runtime_repair_required" => "connection",
         "permission_denied" or "elevation_cancelled" => "permission",
         "game_process_not_found" or "game_window_ambiguous" or "visual_preflight_failed" or "ppocrv6_detail_geometry_incompatible" or "inventory_count_ocr_failed" => "preflight",
         "game_window_not_foreground" or "game_window_not_visible" or "window_geometry_changed" or "warehouse_context_lost" => "capture",
@@ -164,7 +164,7 @@ internal static partial class Program
         private void RuntimeDiagnosticFailure()
         {
             var report = DirectForkDiagnostics.Create();
-            DirectForkDiagnostics.Finish(report, "failed", "helper_incompatible", null);
+            DirectForkDiagnostics.Finish(report, "failed", "runtime_repair_required", null);
             _snapshot["diagnostics"] = report;
         }
 

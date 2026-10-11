@@ -16,7 +16,7 @@ namespace ZZZScannerHelper;
 internal static partial class Program
 {
     private const string ServiceName = "soda-terminal-scanner-helper";
-    internal const string HelperVersion = "2.3.11";
+    internal const string HelperVersion = "2.3.12";
     internal const int ProtocolVersion = 5;
     private const int HelperPort = 43127;
     private const string ProtocolName = SodaProtocolRegistration.Scheme;
@@ -73,10 +73,12 @@ internal static partial class Program
 
     private static async Task<int> RunAsync(string[] args)
     {
-        var launchOrigin = TryReadLaunchOrigin(args);
+        var workspaceOrigin = ScannerWorkspaceLaunch.ReadOrigin(args);
+        var launchOrigin = workspaceOrigin ?? TryReadLaunchOrigin(args);
         using var mutex = new Mutex(initiallyOwned: true, "Local\\ZZZScannerHelper", out var ownsMutex);
         if (!ownsMutex)
         {
+            if (workspaceOrigin is not null) OpenWorkspace(workspaceOrigin);
             return 0;
         }
 
@@ -90,9 +92,16 @@ internal static partial class Program
         };
 
         using var server = new DirectForkHttpHelperServer(launchOrigin);
-        await server.RunAsync(cts.Token);
+        var serverTask = server.RunAsync(cts.Token);
+        if (!serverTask.IsFaulted && workspaceOrigin is not null) OpenWorkspace(workspaceOrigin);
+        await serverTask;
         return 0;
     }
+
+    private static void OpenWorkspace(string origin) => Process.Start(new ProcessStartInfo
+    {
+        FileName = origin + "/system/scanner", UseShellExecute = true
+    });
 
     private static void ShowStartupError(HelperErrorMessage error)
     {

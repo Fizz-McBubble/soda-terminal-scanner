@@ -5,7 +5,7 @@
   "retentionDays": 30,
   "maxBytes": 4096,
   "releasePattern": "^[A-Za-z0-9._-]{8,80}$",
-  "origins": ["https://app.sodaterminal.workers.dev", "https://sodaterminal.com"],
+  "origins": ["https://sodaterminal.com"],
   "outcomes": ["failed", "cancelled", "completed", "unknown"],
   "stages": [
     "connection",
@@ -21,10 +21,12 @@
   "codes": [
     "helper_unavailable",
     "helper_incompatible",
+    "runtime_repair_required",
     "helper_pairing_denied",
     "permission_denied",
     "elevation_cancelled",
     "game_process_not_found",
+    "game_window_ambiguous",
     "inventory_count_ocr_failed",
     "scan_no_importable_s_discs",
     "game_window_not_foreground",
@@ -44,13 +46,17 @@
     "scan_result_read_failed",
     "scan_import_handoff_failed",
     "scan_import_failed",
+    "scan_import_review_required",
     "scan_file_invalid",
     "scanner_exit",
     "scanner_failure",
     "none",
-    "unknown"
+    "unknown",
+    "scan_start_timeout",
+    "scan_progress_timeout"
   ],
   "versionPatterns": {
+    "installer": "^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$",
     "helper": "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}(?:[-+][A-Za-z0-9.-]{1,30})?$",
     "protocol": "^[0-9]{1,3}$",
     "scanner": "^ZZZ-Scanner\\.Next-[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}-soda-r[0-9]{1,4}$",
@@ -62,9 +68,20 @@
     "total": 100000,
     "visited": 100000,
     "queued": 100000,
-    "failed": 100000
+    "failed": 100000,
+    "reviewRequired": 100000,
+    "unresolvedSet": 100000,
+    "unresolvedMainStat": 100000,
+    "unresolvedSubStat": 100000,
+    "invalidValue": 100000,
+    "otherReview": 100000
   },
-  "environmentLimits": { "width": 20000, "height": 20000, "dpi": 1000, "browserMajor": 1000 },
+  "environmentLimits": {
+    "width": 20000,
+    "height": 20000,
+    "dpi": 1000,
+    "browserMajor": 1000
+  },
   "captureModes": ["gdi", "dxgi", "unknown"],
   "browsers": ["edge", "chrome", "firefox", "safari", "other", "unknown"],
   "evidenceLimits": {
@@ -107,7 +124,16 @@
     "maximumTicks": 100000,
     "wheelTicks": 100000,
     "topClicks": 100000,
-    "probeSamples": 100000
+    "probeSamples": 100000,
+    "beforeThumbHeight": 20000,
+    "afterThumbHeight": 20000,
+    "scrollbarDeltaPixels": 20000,
+    "scrollbarPixelsPerRowMilli": 20000000,
+    "structureNoMoveScore": 100000,
+    "structureOneRowScore": 100000,
+    "structureTwoRowScore": 100000,
+    "movementDistance": 100000,
+    "positionMovementDistance": 100000
   },
   "evidenceBooleans": [
     "sawPanelChange",
@@ -117,10 +143,31 @@
     "positionFound",
     "captureHealthy",
     "windowVisible",
-    "windowForeground"
+    "windowForeground",
+    "beforePositionFound",
+    "positionStrong",
+    "sawMovement"
   ],
   "evidenceEnums": {
-    "diagnosticSource": ["terminal_details", "legacy_log", "unavailable"],
+    "positionReason": [
+      "native_scrollbar_position_evidence_missing",
+      "scrollbar_thumb_geometry_changed",
+      "scrollbar_moved_opposite_direction",
+      "scrollbar_position_between_rows",
+      "scrollbar_advanced_more_than_two_rows",
+      "scrollbar_grid_movement_conflict",
+      "scrollbar_row_structure_conflict",
+      "scrollbar_no_move_confirmed",
+      "scrollbar_1_row_position_confirmed",
+      "scrollbar_2_row_position_confirmed",
+      "scrollbar_1_row_position_confirmed_weak_structure_override",
+      "scrollbar_2_row_position_confirmed_weak_structure_override",
+      "two_rows_structurally_confirmed",
+      "unknown"
+    ],
+    "positionDecision": ["NoMove", "OneRow", "TwoRows", "Ambiguous"],
+    "scrollbarDirection": ["up", "down", "stationary", "unavailable"],
+    "diagnosticSource": ["terminal_details", "legacy_log", "import_preflight", "unavailable"],
     "phase": [
       "preflight",
       "capture",
@@ -158,7 +205,8 @@
       "unscanned_rows_at_bottom",
       "traversal_iteration_limit",
       "scroll_top_position_unconfirmed",
-      "unknown"
+      "unknown",
+      "native_progress_unavailable"
     ]
   },
   "targetVerificationKinds": ["ChangedText", "IdenticalNeighborRoundTrip", "Unknown"],
@@ -178,5 +226,76 @@
     "rarity",
     "unknown"
   ],
-  "durationMaxMs": 3600000
+  "durationMaxMs": 3600000,
+  "assetQuickRead": {
+    "stages": ["connection", "permission", "startup", "waiting", "result", "import", "unknown"],
+    "codes": [
+      "bridge_unavailable",
+      "bridge_incompatible",
+      "session_invalid",
+      "origin_not_allowed",
+      "game_running",
+      "game_process_running",
+      "game_must_be_closed",
+      "runtime_hash_mismatch",
+      "runtime_identity_mismatch",
+      "invalid_client_directory",
+      "client_resources_missing",
+      "client_directory_rejected",
+      "client_directory_missing",
+      "client_resource_missing",
+      "linked_path_rejected",
+      "elevation_denied",
+      "job_active",
+      "capture_failed",
+      "wait_timeout",
+      "result_invalid",
+      "result_read_failed",
+      "import_failed",
+      "import_review_required",
+      "unknown",
+      "uac_declined",
+      "token_invalid",
+      "bridge_request_failed",
+      "body_timeout",
+      "capture_child_failed",
+      "capture_child_start_failed",
+      "capture_watchdog_timeout",
+      "worker_failed",
+      "bridge_apphost_missing",
+      "worker_launch_failed",
+      "worker_start_timeout",
+      "worker_completion_timeout",
+      "progress_invalid",
+      "candidate_size_invalid",
+      "candidate_schema_invalid",
+      "candidate_status_invalid",
+      "candidate_safety_flags_invalid",
+      "candidate_semantics_invalid",
+      "candidate_source_invalid",
+      "candidate_counts_invalid",
+      "capture_already_active"
+    ],
+    "versionPatterns": {
+      "bridge": "^1\\.0\\.[01]$",
+      "protocol": "^1$"
+    },
+    "countLimits": {
+      "processed": 100000,
+      "total": 100000,
+      "agents": 10000,
+      "discs": 100000,
+      "engines": 100000
+    },
+    "environmentLimits": {},
+    "browsers": [],
+    "captureModes": [],
+    "evidenceLimits": {
+      "remainingSeconds": 180
+    },
+    "evidenceBooleans": ["candidateAvailable"],
+    "evidenceEnums": {},
+    "targetVerificationKinds": [],
+    "missingRois": []
+  }
 }

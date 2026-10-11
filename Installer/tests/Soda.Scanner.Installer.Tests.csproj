@@ -13,5 +13,7 @@
     <Compile Include="../src/Soda.Scanner.Setup/SetupResources.cs" Link="SetupResources.cs" />
     <Compile Include="../src/Soda.Scanner.Setup/PayloadFiles.cs" Link="PayloadFiles.cs" />
     <EmbeddedResource Include="../src/Soda.Scanner.Setup/Resources/soda-brand-icon.png" Link="soda-brand-icon.png" />
+    <EmbeddedResource Include="../src/Soda.Scanner.Setup/Resources/soda-brand-icon.ico" LogicalName="soda-brand-icon.ico" />
+    <Compile Include="../../zzz-scanner-next/Launcher/SodaRuntimeLocator.cs" Link="SodaRuntimeLocator.cs" />
   </ItemGroup>
 </Project>

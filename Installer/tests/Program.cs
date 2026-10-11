@@ -2,6 +2,11 @@ using System.Diagnostics;
 using System.Text.Json;
 using Soda.Scanner.Core;
 
+if (args.Length == 4 && args[3] == "--focused-install")
+    return FocusedInstallTests.Run(Path.GetFullPath(args[0]), Path.GetFullPath(args[1]), Path.GetFullPath(args[2]));
+if (args.Length == 2 && args[1] == "--version-identity")
+    return FocusedInstallTests.RunVersionIdentity(Path.GetFullPath(args[0]));
+
 var basePath = FileSystemSafety.ValidateRoot(Path.GetFullPath(args[0]), true);
 var archive = Path.GetFullPath(args[1]);
 var stub = Path.GetFullPath(args[2]);
