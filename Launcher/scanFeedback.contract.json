@@ -49,6 +49,7 @@
     "scan_import_review_required",
     "scan_file_invalid",
     "scanner_exit",
+    "scanner_start_failed",
     "scanner_failure",
     "none",
     "unknown",
@@ -149,6 +150,17 @@
     "sawMovement"
   ],
   "evidenceEnums": {
+    "uiState": [
+      "unchecked",
+      "connecting",
+      "checking",
+      "awaiting_elevation",
+      "connection_failed",
+      "ready",
+      "scanning",
+      "paused",
+      "completed"
+    ],
     "positionReason": [
       "native_scrollbar_position_evidence_missing",
       "scrollbar_thumb_geometry_changed",
@@ -167,8 +179,27 @@
     ],
     "positionDecision": ["NoMove", "OneRow", "TwoRows", "Ambiguous"],
     "scrollbarDirection": ["up", "down", "stationary", "unavailable"],
-    "diagnosticSource": ["terminal_details", "legacy_log", "import_preflight", "unavailable"],
+    "diagnosticSource": [
+      "terminal_details",
+      "legacy_log",
+      "helper_lifecycle",
+      "browser_connection",
+      "import_preflight",
+      "unavailable"
+    ],
+    "connectionStep": ["identity", "pairing", "command", "events"],
+    "connectionFailure": [
+      "timeout",
+      "network",
+      "authentication",
+      "compatibility",
+      "http",
+      "invalid_response",
+      "disconnected",
+      "unknown"
+    ],
     "phase": [
+      "launch",
       "preflight",
       "capture",
       "row_scroll",
@@ -206,7 +237,10 @@
       "traversal_iteration_limit",
       "scroll_top_position_unconfirmed",
       "unknown",
-      "native_progress_unavailable"
+      "native_progress_unavailable",
+      "fork_start_failed",
+      "fork_exit_without_terminal",
+      "fork_terminal_unreadable"
     ]
   },
   "targetVerificationKinds": ["ChangedText", "IdenticalNeighborRoundTrip", "Unknown"],
@@ -277,7 +311,7 @@
       "capture_already_active"
     ],
     "versionPatterns": {
-      "bridge": "^1\\.0\\.[01]$",
+      "bridge": "^1\\.0\\.\\d{1,3}$",
       "protocol": "^1$"
     },
     "countLimits": {
@@ -287,14 +321,16 @@
       "discs": 100000,
       "engines": 100000
     },
-    "environmentLimits": {},
-    "browsers": [],
+    "environmentLimits": { "browserMajor": 1000 },
+    "browsers": ["edge", "chrome", "firefox", "safari", "other", "unknown"],
     "captureModes": [],
     "evidenceLimits": {
       "remainingSeconds": 180
     },
     "evidenceBooleans": ["candidateAvailable"],
-    "evidenceEnums": {},
+    "evidenceEnums": {
+      "jobState": ["starting", "capturing", "received", "timed_out", "stopped", "error"]
+    },
     "targetVerificationKinds": [],
     "missingRois": []
   }

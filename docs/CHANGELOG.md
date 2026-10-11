@@ -170,7 +170,7 @@
 - `scan.log` 开头新增 `AppVersion`、assembly/file version、exe 路径、exe 修改时间和 runtime 目录；WebSocket `hello/pong/scan_complete/scan_error` 返回同样的 scanner 诊断信息。
 - `--scan-benchmark` 新增 `overlap_conflict_*`、`overlap_hard_stop_count`、`full_scan_expected`、`full_scan_complete`、`missing_logical_rows_count`、`scanned_logical_rows_count` 和 `total_rows`。
 - 发布到 `publish 1.0.28`，不覆盖旧发布目录。`dotnet build -c Release`、self-contained publish、`npm run test:scanner-bridge` 与 `npm run build:pages` 均通过。
-- 用 1.0.28 benchmark 复查 1.0.26 网页失败目录 `C:\Users\ZZT\AppData\Local\ZZZScannerNext\runtime\1.0.26\Scans\2026-07-01-00-22-11-662-p904c-c955`：识别为 `overlap_conflict_count=1`、`full_scan_expected=true`、`full_scan_complete=false`、`missing_logical_rows_count=41`，可明确定位为全量滚动冲突中止。
+- 用 1.0.28 benchmark 复查 1.0.26 网页失败目录 `<local-path>`：识别为 `overlap_conflict_count=1`、`full_scan_expected=true`、`full_scan_complete=false`、`missing_logical_rows_count=41`，可明确定位为全量滚动冲突中止。
 - `zzz_calculator` manifest 与 bridge 已同步到 scanner `1.0.28`；网页默认 payload 追加 `overlapConflictMode="recover"`，扫描失败弹窗显示 scanner 版本和 runtime 目录。
 
 ## 2026-06-29 1.0.27 场景化面板下限与滚动 tick 矩阵

@@ -12,7 +12,7 @@ $ErrorActionPreference = 'Stop'
 $source = $PSScriptRoot
 $RuntimeArchive = [IO.Path]::GetFullPath($RuntimeArchive)
 $VCRuntimeArchive = [IO.Path]::GetFullPath($VCRuntimeArchive)
-$derivedRoot = if ($env:SODA_DERIVED_ROOT) { $env:SODA_DERIVED_ROOT } else { 'F:\AI项目\SodaTerminal\ZZZ-derived' }
+$derivedRoot = if ($env:SODA_DERIVED_ROOT) { $env:SODA_DERIVED_ROOT } else { Join-Path $source 'outputs' }
 if (-not $OutputRoot) {
     if ($env:InstallerArtifactsRoot) { $OutputRoot = $env:InstallerArtifactsRoot }
     else {

@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.RegularExpressions;
 
 namespace ZZZScannerHelper;
 
@@ -39,21 +38,16 @@ internal static class DirectForkProgress
     // Reuses established native log counters; no observed total means unknown.
     internal static JsonObject? Read(string log, string? terminalJson, int? previousTotal)
     {
-        var totals = Regex.Matches(log, @"\b(?:inventoryCount|warehouseTotal)=(\d+)\b");
-        if (totals.Count == 0) totals = Regex.Matches(log, @"\bexpectedTotal=(\d+)\b");
-        int? total = totals.Count > 0 && int.TryParse(totals[^1].Groups[1].Value, out var observed) && observed > 0 ? observed : previousTotal;
-        var counters = Regex.Matches(log, @"\bcompleted=(\d+)\b", RegexOptions.IgnoreCase);
-        var visited = Regex.Matches(log, @"\bvisited=(\d+)\b", RegexOptions.IgnoreCase);
-        int? completed = counters.Count > 0 ? int.Parse(counters[^1].Groups[1].Value) : null;
-        int? processed = visited.Count > 0 ? int.Parse(visited[^1].Groups[1].Value) : completed;
-        var diagnostics = DirectForkDiagnostics.Read(log, terminalJson, total);
+        var diagnostics = DirectForkDiagnostics.Read(log, terminalJson, previousTotal);
+        var counts = diagnostics["counts"]!;
+        int? total = counts["total"]?.GetValue<int>();
+        int? completed = counts["processed"]?.GetValue<int>();
+        int? processed = counts["visited"]?.GetValue<int>() ?? completed;
         JsonObject? error = null;
         if (terminalJson is not null)
         {
             using var terminal = JsonDocument.Parse(terminalJson);
             var result = terminal.RootElement;
-            completed = result.GetProperty("Completed").GetInt32();
-            processed = result.TryGetProperty("Visited", out var visitedNode) ? visitedNode.GetInt32() : completed;
             if (!result.GetProperty("Success").GetBoolean())
             {
                 // A visited cell may still be waiting for OCR. At failure the UI
@@ -91,7 +85,11 @@ internal static class DirectForkProgress
                 };
             }
         }
-        if (processed is null && total is null) return null;
+        // Startup/preflight can fail before any counter is written. Keep its safe
+        // environment and failure facts; only an entirely unobserved task is null.
+        if (processed is null && total is null && terminalJson is null &&
+            diagnostics["environment"]!.AsObject().Count == 0 &&
+            (diagnostics["code"]?.GetValue<string>() is "unknown" or "none")) return null;
         return new JsonObject
         {
             ["diagnostics"] = diagnostics,

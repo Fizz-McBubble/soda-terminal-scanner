@@ -41,7 +41,7 @@ internal static partial class DirectForkDiagnostics
         "permission_denied" or "elevation_cancelled" => "permission",
         "game_process_not_found" or "game_window_ambiguous" or "visual_preflight_failed" or "ppocrv6_detail_geometry_incompatible" or "inventory_count_ocr_failed" => "preflight",
         "game_window_not_foreground" or "game_window_not_visible" or "window_geometry_changed" or "warehouse_context_lost" => "capture",
-        "scan_start_timeout" => "preflight", "scan_progress_timeout" or "panel_capture_timeout" => "capture", "scan_navigation_failed" => "scroll", "ocr_worker_failed" or "duplicate_guard" => "ocr",
+        "scanner_start_failed" or "scan_start_timeout" => "preflight", "scan_progress_timeout" or "panel_capture_timeout" => "capture", "scan_navigation_failed" => "scroll", "ocr_worker_failed" or "duplicate_guard" => "ocr",
         "direct_fork_result_missing" or "direct_fork_partial" or "previous_scan_recovery_failed" or "scan_result_timeout" or "scan_result_read_failed" or "scan_file_invalid" or "scan_no_importable_s_discs" => "result",
         "scan_import_handoff_failed" or "scan_import_failed" => "import",
         _ => "unknown"
@@ -108,7 +108,14 @@ internal static partial class DirectForkDiagnostics
 
     internal static void Merge(JsonObject report, JsonObject facts)
     {
-        foreach (var field in new[] { "outcome", "code", "stage", "counts", "durationMs", "environment", "evidence" }) report[field] = facts[field]?.DeepClone();
+        foreach (var field in new[] { "outcome", "code", "stage", "counts", "durationMs", "environment", "evidence" })
+        {
+            // A startup log may contain only window metadata. It establishes facts,
+            // but unknown classification must not erase the lifecycle's last phase.
+            if ((field is "outcome" or "code" or "stage") && facts[field]?.GetValue<string>() == "unknown" &&
+                (field != "stage" || report[field]?.GetValue<string>() is not "connection" and not "unknown")) continue;
+            report[field] = facts[field]?.DeepClone();
+        }
     }
 
     private static string? ExactFailureCode(JsonElement result, string field)

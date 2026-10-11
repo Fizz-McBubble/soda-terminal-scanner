@@ -276,6 +276,7 @@ internal static partial class Program
                 {
                     _snapshot["state"] = "scanning";
                     _snapshot["permission"] = "granted";
+                    _snapshot["diagnostics"]!["stage"] = "preflight";
                     _snapshot["progress"]!["stageLabel"] = "正在读取并识别驱动盘";
                     Publish();
                 });
@@ -283,7 +284,7 @@ internal static partial class Program
             }
             catch (Exception ex)
             {
-                PublishJobFailure(job, ex, complete: process is null);
+                PublishJobFailure(job, ex, complete: process is null, launching: process is null);
                 if (process is not null)
                 {
                     RequestForkTermination(process);
@@ -319,8 +320,7 @@ internal static partial class Program
                         if (_snapshot["diagnostics"] is JsonObject report)
                         {
                             var evidence = report["evidence"]!.AsObject();
-                            evidence["phase"] = timeout.Phase;
-                            evidence["reason"] = "native_progress_unavailable";
+                            DirectForkLifecycleDiagnostics.Record(report, "native_progress_unavailable", timeout.Phase);
                             evidence["elapsedMs"] = timeout.ElapsedMs;
                             evidence["timeoutMs"] = timeout.TimeoutMs;
                         }
@@ -345,11 +345,16 @@ internal static partial class Program
                     if (_snapshot["diagnostics"] is JsonObject report) report["evidence"]!["exitCode"] = unchecked((uint)process.ExitCode);
                 });
                 var result = NewestFile(outputRoot, "scan-once-result.json");
+                var terminalJson = DirectForkLifecycleDiagnostics.ReadTerminal(result, out var terminalFailure);
+                if (terminalFailure is not null) _jobs.Publish(job, () =>
+                {
+                    DirectForkLifecycleDiagnostics.Record(_snapshot["diagnostics"]!.AsObject(), terminalFailure);
+                });
                 if (process.ExitCode != 0)
                 {
-                    if (result is not null)
+                    if (terminalJson is not null)
                     {
-                        using var failedRun = JsonDocument.Parse(File.ReadAllText(result));
+                        using var failedRun = JsonDocument.Parse(terminalJson);
                         var scannerError = failedRun.RootElement.TryGetProperty("Error", out var errorNode) ? errorNode.GetString() : null;
                         if (scannerError?.Contains("未找到游戏窗口进程", StringComparison.Ordinal) == true)
                             throw new ScannerRuntimeFailureException("请先启动绝区零并保持游戏窗口可用，然后重新扫描。", "game_process_not_found");
@@ -359,8 +364,8 @@ internal static partial class Program
                     throw new ScannerRuntimeFailureException("扫描器已退出，结果未进入正式导入。", $"direct_fork_exit_{unchecked((uint)process.ExitCode):X8}");
                 }
                 var staging = NewestFile(outputRoot, "scanner-r10c-r4-staging.json");
-                if (staging is null || result is null) throw new InvalidDataException("direct_fork_result_missing");
-                using var run = JsonDocument.Parse(File.ReadAllText(result));
+                if (staging is null || terminalJson is null) throw new InvalidDataException("direct_fork_result_missing");
+                using var run = JsonDocument.Parse(terminalJson);
                 if (!run.RootElement.GetProperty("Success").GetBoolean() || run.RootElement.GetProperty("Failed").GetInt32() != 0) throw new InvalidDataException("direct_fork_partial");
                 SetCompleted(staging, Path.Combine(Path.GetDirectoryName(staging)!, "r4-evidence"), job);
             }
@@ -380,7 +385,10 @@ internal static partial class Program
                 var terminal = NewestFile(outputRoot, "scan-once-result.json");
                 int? total;
                 lock (_gate) total = _snapshot["progress"]?["total"]?.GetValue<int>();
-                var update = DirectForkProgress.Read(log is null ? "" : DirectForkProgress.ReadLogFile(log), terminal is null ? null : DirectForkProgress.ReadFile(terminal), total);
+                // A partial/invalid sidecar must not hide readable log counters.
+                // Classify a bad sidecar only after actual exit; writing is transient.
+                var terminalJson = DirectForkLifecycleDiagnostics.ReadTerminal(terminal, out _);
+                var update = DirectForkProgress.Read(log is null ? "" : DirectForkProgress.ReadLogFile(log), terminalJson, total);
                 if (update is null) return;
                 _jobs.Publish(job, () =>
                 {
@@ -400,24 +408,32 @@ internal static partial class Program
 
         private void FailJob(long job, Exception ex) => PublishJobFailure(job, ex, complete: true);
 
-        private void PublishJobFailure(long job, Exception ex, bool complete)
+        private void PublishJobFailure(long job, Exception ex, bool complete, bool launching = false)
         {
             void PublishFailure()
             {
                 var reportedError = _snapshot["state"]?.GetValue<string>() == "connection_failed" ? _snapshot["error"]?.DeepClone() : null;
                 _snapshot["state"] = "connection_failed";
                 var failure = ex as ScannerRuntimeFailureException;
-                var code = ex is System.ComponentModel.Win32Exception { NativeErrorCode: 1223 } ? "elevation_cancelled"
+                var code = launching ? failure?.DiagnosticCode ?? DirectForkLifecycleDiagnostics.StartFailureCode(ex)
+                    : ex is System.ComponentModel.Win32Exception { NativeErrorCode: 1223 } ? "elevation_cancelled"
                     : ex is System.ComponentModel.Win32Exception { NativeErrorCode: 5 } or UnauthorizedAccessException ? "permission_denied"
                     : failure?.DiagnosticCode ?? (ex.Message.StartsWith("soda_runtime_", StringComparison.Ordinal) ? "runtime_repair_required" : ex.Message);
+                // A known terminal event in scan.log is useful even when a crash
+                // prevented scan-once-result.json from being written.
+                var observedCode = _snapshot["diagnostics"]?["code"]?.GetValue<string>();
+                if (!launching && observedCode is not null and not "unknown" and not "none" and not "scanner_failure") code = observedCode;
                 _snapshot["error"] = reportedError ?? new JsonObject
                 {
-                    ["userMessage"] = failure?.UserMessage ?? "扫描器运行失败，结果未进入正式导入。",
+                    ["userMessage"] = failure?.UserMessage ?? (code == "scanner_start_failed" ? "画面扫描未能启动，请修复安装后重试；仍失败时可反馈诊断。" : "扫描器运行失败，结果未进入正式导入。"),
                     ["recoveryAction"] = "retry",
                     ["diagnosticCode"] = DirectForkDiagnostics.Code(code)
                 };
                 if (_snapshot["diagnostics"] is JsonObject report)
+                {
+                    if (launching && code == "scanner_start_failed") DirectForkLifecycleDiagnostics.Record(report, "fork_start_failed", "launch");
                     DirectForkDiagnostics.Finish(report, "failed", reportedError?["diagnosticCode"]?.GetValue<string>() ?? code, DiagnosticElapsedMilliseconds());
+                }
                 Publish();
             }
             if (complete) _jobs.Complete(job, PublishFailure);

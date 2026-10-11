@@ -90,7 +90,7 @@ dotnet build Launcher\ZZZ-Scanner.Helper.csproj -c Release -p:NuGetAudit=false
 ```powershell
 dotnet run --project Tests\ZZZ-Scanner.Next.RegressionTests.csproj -c Release
 .\scripts\publish-slim.ps1 -Version 1.0.42
-cd E:\yan1\zzz\zzz_calculator
+cd ..\zzz_calculator
 npm test
 npm --prefix webapp run build
 cd webapp
@@ -120,7 +120,7 @@ npx playwright test e2e/helper-upgrade.e2e.ts --project=desktop-1366
 ```powershell
 dotnet run --project Tests\ZZZ-Scanner.Next.RegressionTests.csproj -c Release --no-restore -p:NuGetAudit=false
 .\scripts\publish-slim.ps1 -Version 1.0.41
-cd E:\yan1\zzz\zzz_calculator\webapp
+cd ..\zzz_calculator\webapp
 npm run test -- src/runtime/scanner-bridge.test.ts src/runtime/scanner-errors.test.ts
 ```
 
@@ -215,7 +215,7 @@ dotnet run --project Tests\ZZZ-Scanner.Next.RegressionTests.csproj -c Release -p
 $env:VSCMD_SKIP_SENDTELEMETRY = '1'
 dotnet publish Launcher\ZZZ-Scanner.Helper.csproj -c Release -r win-x64 --self-contained true -p:NuGetAudit=false -o artifacts\verify-helper-aot
 .\scripts\publish-slim.ps1 -Version 9.8.7 -OutputRoot artifacts\publish-script-verification
-dotnet run --project ZZZ-Scanner.Next.csproj -c Release --no-build -- --scan-benchmark "C:\Users\ZZT\AppData\Local\ZZZScannerNext\runtime\1.0.36\Scans\2026-07-09-18-19-25-040-p35e8-08b6"
+dotnet run --project ZZZ-Scanner.Next.csproj -c Release --no-build -- --scan-benchmark "<local-path>"
 ```
 
 结果：
@@ -234,11 +234,11 @@ dotnet run --project ZZZ-Scanner.Next.csproj -c Release --no-build -- --scan-ben
 
 ```powershell
 dotnet build ZZZ-Scanner.Next.csproj -c Release -p:NuGetAudit=false
-dotnet run --project ZZZ-Scanner.Next.csproj -c Release -- --scan-benchmark "C:\Users\ZZT\AppData\Local\ZZZScannerNext\runtime\1.0.34\Scans\2026-07-02-18-34-09-134-pf38-77d5"
+dotnet run --project ZZZ-Scanner.Next.csproj -c Release -- --scan-benchmark "<local-path>"
 dotnet run --project ZZZ-Scanner.Next.csproj -c Release -- --scan-benchmark ".\publish 1.0.32\Scans\2026-07-01-23-07-28-119-p8018-0736"
 dotnet publish ZZZ-Scanner.Next.csproj -c Release -r win-x64 --self-contained false -p:NuGetAudit=false -o "publish 1.0.36"
 .\scripts\publish-slim.ps1 -Version 1.0.36
-.\publish 1.0.36\ZZZ-Scanner.Next.exe --scan-benchmark "C:\Users\ZZT\AppData\Local\ZZZScannerNext\runtime\1.0.34\Scans\2026-07-02-18-34-09-134-pf38-77d5"
+.\publish 1.0.36\ZZZ-Scanner.Next.exe --scan-benchmark "<local-path>"
 .\publish 1.0.36\ZZZ-Scanner.Next.exe --scan-benchmark ".\publish 1.0.32\Scans\2026-07-01-23-07-28-119-p8018-0736"
 .\publish 1.0.36\ZZZ-Scanner.Next.exe --scan-benchmark ".\publish 1.0.36\Scans\2026-07-09-16-07-11-507-p2784-e284"
 Get-FileHash -Algorithm SHA256 ".\Data\ocr_fast_templates.json"
@@ -358,10 +358,10 @@ dotnet publish -c Release -r win-x64 --self-contained false -p:NuGetAudit=false 
 ```powershell
 dotnet build -c Release -p:NuGetAudit=false
 dotnet publish -c Release -r win-x64 --self-contained false -p:NuGetAudit=false -o "publish 1.0.32"
-dotnet run -c Release --no-build -- --ocr-fast-merge-indexes ".\tmp-fast-1.0.32\ocr_fast_templates.1280-1600.v6.dotnetrun.json" "E:\yan1\zzz\ZZZ-Scanner.Next-artifacts\tmp-1.0.31-local-1280x720-current-3runs-v6\ocr_fast_templates.v6.json" "E:\yan1\zzz\ZZZ-Scanner.Next-artifacts\tmp-1.0.31-local-1600x900-current-3runs-v6\ocr_fast_templates.v6.json"
-dotnet run -c Release --no-build -- --scan-benchmark "E:\yan1\zzz\ZZZ-Scanner.Next\publish 1.0.31\Scans\2026-07-01-21-42-57-562-p8d2c-1ef0"
+dotnet run -c Release --no-build -- --ocr-fast-merge-indexes ".\tmp-fast-1.0.32\ocr_fast_templates.1280-1600.v6.dotnetrun.json" ".\artifacts\tmp-1.0.31-local-1280x720-current-3runs-v6\ocr_fast_templates.v6.json" ".\artifacts\tmp-1.0.31-local-1600x900-current-3runs-v6\ocr_fast_templates.v6.json"
+dotnet run -c Release --no-build -- --scan-benchmark ".\publish 1.0.31\Scans\2026-07-01-21-42-57-562-p8d2c-1ef0"
 dotnet run -c Release --no-build -- --ocr-fast-calibrate-visual-profiles ".\tmp-fast-1.0.32\local-1920x1080-current-clean-shadow-patched" --output ".\tmp-fast-1.0.32\local-1920x1080-current-v6\ocr_fast_templates.v6.json" --feature v6
-dotnet run -c Release --no-build -- --ocr-fast-merge-indexes ".\tmp-fast-1.0.32\ocr_fast_templates.local-1280-1600-1920.v6.json" "E:\yan1\zzz\ZZZ-Scanner.Next-artifacts\tmp-1.0.31-local-1280x720-current-3runs-v6\ocr_fast_templates.v6.json" "E:\yan1\zzz\ZZZ-Scanner.Next-artifacts\tmp-1.0.31-local-1600x900-current-3runs-v6\ocr_fast_templates.v6.json" ".\tmp-fast-1.0.32\local-1920x1080-current-v6\ocr_fast_templates.v6.json"
+dotnet run -c Release --no-build -- --ocr-fast-merge-indexes ".\tmp-fast-1.0.32\ocr_fast_templates.local-1280-1600-1920.v6.json" ".\artifacts\tmp-1.0.31-local-1280x720-current-3runs-v6\ocr_fast_templates.v6.json" ".\artifacts\tmp-1.0.31-local-1600x900-current-3runs-v6\ocr_fast_templates.v6.json" ".\tmp-fast-1.0.32\local-1920x1080-current-v6\ocr_fast_templates.v6.json"
 ```
 
 结果：
@@ -387,8 +387,8 @@ dotnet run -c Release --no-build -- --ocr-fast-merge-indexes ".\tmp-fast-1.0.32\
 
 ```powershell
 dotnet build -c Release
-dotnet run -c Release -- --ocr-fast-calibrate-visual-profiles "E:\yan1\zzz\ZZZ-Scanner.Next-artifacts\2026-07-01-cleanup-20260701-191002\publish 1.0.30\Scans\2026-07-01-18-45-27-948-p82b0-a13b" --output "E:\yan1\zzz\ZZZ-Scanner.Next-artifacts\tmp-1.0.31-v6-smoke\ocr_fast_templates.v6.json" --feature v6
-dotnet run -c Release -- --ocr-fast-eval "E:\yan1\zzz\ZZZ-Scanner.Next-artifacts\tmp-1.0.31-v6-smoke\ocr_fast_templates.v6.json" "E:\yan1\zzz\ZZZ-Scanner.Next-artifacts\2026-07-01-cleanup-20260701-191002\publish 1.0.30\Scans\2026-07-01-18-45-27-948-p82b0-a13b"
+dotnet run -c Release -- --ocr-fast-calibrate-visual-profiles ".\artifacts\2026-07-01-cleanup-20260701-191002\publish 1.0.30\Scans\2026-07-01-18-45-27-948-p82b0-a13b" --output ".\artifacts\tmp-1.0.31-v6-smoke\ocr_fast_templates.v6.json" --feature v6
+dotnet run -c Release -- --ocr-fast-eval ".\artifacts\tmp-1.0.31-v6-smoke\ocr_fast_templates.v6.json" ".\artifacts\2026-07-01-cleanup-20260701-191002\publish 1.0.30\Scans\2026-07-01-18-45-27-948-p82b0-a13b"
 ```
 
 结果：
@@ -434,8 +434,8 @@ dotnet run -c Release -- --ocr-fast-eval "Data\ocr_fast_templates.local-1280x720
 ```powershell
 dotnet build -c Release
 dotnet publish -c Release -r win-x64 --self-contained true -o "publish 1.0.28"
-.\publish 1.0.28\ZZZ-Scanner.Next.exe --scan-benchmark "C:\Users\ZZT\AppData\Local\ZZZScannerNext\runtime\1.0.26\Scans\2026-07-01-00-22-11-662-p904c-c955"
-.\publish 1.0.28\ZZZ-Scanner.Next.exe --scan-benchmark "C:\Users\ZZT\AppData\Local\ZZZScannerNext\runtime\1.0.27\Scans\2026-06-29-23-29-14-798-p8064-37b4"
+.\publish 1.0.28\ZZZ-Scanner.Next.exe --scan-benchmark "<local-path>"
+.\publish 1.0.28\ZZZ-Scanner.Next.exe --scan-benchmark "<local-path>"
 .\publish 1.0.28\ZZZ-Scanner.Next.exe --scan-once --max-items 30
 .\publish 1.0.28\ZZZ-Scanner.Next.exe --scan-benchmark "publish 1.0.28\Scans\2026-07-01-01-12-25-603-p643c-f748"
 npm run test:scanner-bridge

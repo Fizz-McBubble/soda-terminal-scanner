@@ -345,10 +345,7 @@ public sealed partial class ScanController
         var distance = AverageSignatureDistance(before.Rows, after.Rows, [(0, 0), (1, 1), (2, 2)]);
         var structural = RowAdvanceEvaluator.Evaluate(verification.NoMoveScore,
             verification.OneRowScore, verification.TwoRowScore, distance);
-        var delta = ScrollbarDelta(before.Scrollbar, after.Scrollbar);
-        return NativeEdgePositionPolicy.Resolve(structural, before.Scrollbar.Found, after.Scrollbar.Found,
-            (before.Scrollbar.EndY - before.Scrollbar.StartY) - (after.Scrollbar.EndY - after.Scrollbar.StartY),
-            delta, pixelsPerRow);
+        return NativeEdgePositionPolicy.Resolve(structural, before.Scrollbar, after.Scrollbar, pixelsPerRow);
     }
 
     private static bool NativeEdgeFrameStable(NativeEdgeViewport before, NativeEdgeViewport after) =>

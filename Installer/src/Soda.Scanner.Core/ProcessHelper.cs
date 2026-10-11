@@ -45,7 +45,7 @@ public static class ProcessHelper
         }
     }
 
-    public static bool IsKnownProgram(string path, string relative) => RuntimeCatalog.Files.Concat(LegacyRuntimeCatalog.Files).Concat(LegacyRuntimeCatalog.Published109Files)
+    public static bool IsKnownProgram(string path, string relative) => RuntimeCatalog.Files.Concat(LegacyRuntimeCatalog.Files).Concat(LegacyRuntimeCatalog.Published109Files).Concat(LegacyRuntimeCatalog.Published110Files)
         .Any(entry => entry.Path == relative && RuntimeCatalog.Matches(path, entry));
 
     private static IEnumerable<Process> MatchingProcesses(IEnumerable<string> paths)

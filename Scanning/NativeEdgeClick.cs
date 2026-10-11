@@ -105,6 +105,32 @@ internal static class NativeEdgeClickPolicy
 internal static class NativeEdgePositionPolicy
 {
     public static RowAdvanceEvidence Resolve(RowAdvanceEvidence structural,
+        ScanController.ScrollbarThumbProbe before, ScanController.ScrollbarThumbProbe after,
+        double pixelsPerRow)
+    {
+        var heightDelta = (before.EndY - before.StartY) - (after.EndY - after.StartY);
+        var centerDelta = before.Found && after.Found ? after.CenterY - before.CenterY : (int?)null;
+        var strict = Resolve(structural, before.Found, after.Found, heightDelta, centerDelta, pixelsPerRow);
+        if (strict.Reason != "scrollbar_thumb_geometry_changed" || Math.Abs((long)heightDelta) != 2
+            || before.EndY < before.StartY || after.EndY < after.StartY)
+            return strict;
+
+        // Both live cloud failures had endpoint travel differing by two pixels,
+        // making the measured thumb height differ by two pixels. A center-only
+        // proof cannot distinguish that from a resized or clipped thumb. Keep
+        // the original strict gate unless BOTH endpoints independently prove
+        // the same single-row move using the unchanged alignment/structure gates.
+        var start = RowAdvanceEvaluator.ReconcileScrollbarPosition(structural, after.StartY - before.StartY, pixelsPerRow);
+        var end = RowAdvanceEvaluator.ReconcileScrollbarPosition(structural, after.EndY - before.EndY, pixelsPerRow);
+        var center = RowAdvanceEvaluator.ReconcileScrollbarPosition(structural, centerDelta!.Value, pixelsPerRow);
+        return start.Strong && start.Decision == RowAdvanceDecision.OneRow
+            && end.Strong && end.Decision == RowAdvanceDecision.OneRow
+            && center.Strong && center.Decision == RowAdvanceDecision.OneRow
+            ? center
+            : strict;
+    }
+
+    public static RowAdvanceEvidence Resolve(RowAdvanceEvidence structural,
         bool beforeThumbFound, bool afterThumbFound, int thumbHeightDelta,
         int? pixelDelta, double pixelsPerRow)
     {

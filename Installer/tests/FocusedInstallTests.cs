@@ -22,18 +22,20 @@ internal static class FocusedInstallTests
         try
         {
             Pointer(ScannerConstants.LockedRuntimeVersion);
-            foreach (var version in new[] { "1.0.9", "1.0.10", "1.1.0" })
+            foreach (var version in new[] { "1.0.9", "1.0.10", "1.1.0", "1.1.1" })
             {
                 var registration = ProductIdentity(root, version);
                 Check(RegistrationIdentity.UninstallOwned(registration, root), version + "_owned_uninstaller_accepted");
                 var current = InstallerStartup.InstalledVersion(root, registration);
                 Check(current == version, version + "_product_version_identity");
-                Check((current != ScannerConstants.DisplayVersion) == (version != "1.1.0"), version + "_upgrade_or_repair_branch");
+                Check((current != ScannerConstants.DisplayVersion) == (version != "1.1.1"), version + "_upgrade_or_repair_branch");
             }
-            Check(InstallerStartup.InstalledVersion(root, null) == "1.0.10", "shared_runtime_without_product_identity_is_1010");
-            Check(InstallerStartup.InstalledVersion(root, ProductIdentity(root + "-foreign", "1.1.0")) == "1.0.10", "foreign_root_cannot_claim_110");
+            Check(InstallerStartup.InstalledVersion(root, null) == "1.1.1", "unique_runtime_without_product_identity_is_111");
+            Check(InstallerStartup.InstalledVersion(root, ProductIdentity(root + "-foreign", "1.1.0")) == "1.1.1", "foreign_root_cannot_claim_110");
             var extra = ProductIdentity(root, "1.1.0"); extra.Values.Add("Unknown", ("PRESERVE", Microsoft.Win32.RegistryValueKind.String));
-            Check(InstallerStartup.InstalledVersion(root, extra) == "1.0.10", "foreign_registration_shape_cannot_claim_110");
+            Check(InstallerStartup.InstalledVersion(root, extra) == "1.1.1", "foreign_registration_shape_cannot_claim_110");
+            Pointer("soda-scanner-zzz-next-ppocrv6-18-rc8-10-local-20261011");
+            Check(InstallerStartup.InstalledVersion(root, null) == "1.0.10", "legacy_shared_runtime_without_product_identity_is_1010");
             Pointer("soda-scanner-zzz-next-ppocrv6-18-rc8-9-local-20261011");
             Check(InstallerStartup.InstalledVersion(root, null) == "1.0.9", "legacy_109_pointer_remains_upgrade");
             File.WriteAllText(Path.Combine(root, "version-identity.json"), JsonSerializer.Serialize(new { ok = true, checks, current = ScannerConstants.DisplayVersion, registryWrites = 0, runtimeRebuilt = false }));

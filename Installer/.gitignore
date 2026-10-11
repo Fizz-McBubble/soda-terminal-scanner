@@ -1,5 +1,7 @@
 **/bin/
 **/obj/
 outputs/
-src/Soda.Scanner.Setup/Resources/
+src/Soda.Scanner.Setup/Resources/*
+!src/Soda.Scanner.Setup/Resources/soda-brand-icon.png
+!src/Soda.Scanner.Setup/Resources/soda-brand-icon.ico
 src/Soda.Scanner.Core/*.zip
