@@ -8,6 +8,7 @@ public static class LegacyRuntimeCatalog
     public static IReadOnlyList<RuntimeFile> Files { get; } = Load();
     public static IReadOnlyList<RuntimeFile> Published109Files { get; } = Load("runtime-files-1.0.9.json");
     public static IReadOnlyList<RuntimeFile> Published110Files { get; } = Load("runtime-files-1.1.0.json");
+    public static IReadOnlyList<RuntimeFile> Published111Files { get; } = Load("runtime-files-1.1.1.json");
     private static RuntimeFile[] Load(string fileName = "runtime-files-1.0.8.json")
     {
         var assembly = typeof(LegacyRuntimeCatalog).Assembly;

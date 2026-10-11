@@ -21,6 +21,17 @@ public static class AppPaths
             ? Path.Combine(BaseDirectory, "Scans")
             : Path.GetFullPath(configuredRoot);
         Directory.CreateDirectory(root);
+        var exactDirectory = Environment.GetEnvironmentVariable("ZZZ_SCANNER_SCAN_DIRECTORY");
+        if (!string.IsNullOrWhiteSpace(exactDirectory))
+        {
+            var exact = Path.GetFullPath(exactDirectory);
+            if (!Path.GetDirectoryName(exact)!.Equals(root.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase)
+                || Directory.Exists(exact) || File.Exists(exact)
+                || (File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidDataException("scan_directory_not_fresh_or_owned");
+            Directory.CreateDirectory(exact);
+            return exact;
+        }
         var suffix = RandomNumberGenerator.GetHexString(4).ToLowerInvariant();
         var dir = Path.Combine(root, $"{DateTime.Now:yyyy-MM-dd-HH-mm-ss-fff}-p{Environment.ProcessId:x}-{suffix}");
         Directory.CreateDirectory(dir);

@@ -7,7 +7,6 @@ using ZZZScannerNext.Interop;
 using ZZZScannerNext.Ocr;
 using ZZZScannerNext.Scanning;
 using ZZZScannerNext.Ui;
-using ZZZScannerNext.WebSocket;
 
 static partial class Program
 {

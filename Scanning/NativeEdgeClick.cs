@@ -123,6 +123,15 @@ internal static class NativeEdgePositionPolicy
         var start = RowAdvanceEvaluator.ReconcileScrollbarPosition(structural, after.StartY - before.StartY, pixelsPerRow);
         var end = RowAdvanceEvaluator.ReconcileScrollbarPosition(structural, after.EndY - before.EndY, pixelsPerRow);
         var center = RowAdvanceEvaluator.ReconcileScrollbarPosition(structural, centerDelta!.Value, pixelsPerRow);
+        // At high density, endpoint quantization can disagree on one vs two
+        // rows even though the center and the independent grid both prove one.
+        // This is confined to the same exact two-pixel geometry change; neither
+        // pixel thresholds nor release/bottom-of-list gates are widened.
+        if (structural.Strong && structural.Decision == RowAdvanceDecision.OneRow
+            && !structural.UsesScrollbarPosition && structural.Reason == "one_row_structurally_confirmed"
+            && after.StartY >= before.StartY && after.EndY >= before.EndY
+            && center.Strong && center.Decision == RowAdvanceDecision.OneRow)
+            return center;
         return start.Strong && start.Decision == RowAdvanceDecision.OneRow
             && end.Strong && end.Decision == RowAdvanceDecision.OneRow
             && center.Strong && center.Decision == RowAdvanceDecision.OneRow

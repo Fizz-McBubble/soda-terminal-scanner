@@ -232,8 +232,10 @@ public sealed partial class ScanController
                             r4Record,
                             BuildOcrDetail(capture, ocr)), token);
                     }
+                    catch (OperationCanceledException) { throw; }
                     catch (Exception ex)
                     {
+                        token.ThrowIfCancellationRequested();
                         if (options.OcrEngine == OcrEngine.PpOcrV6)
                         {
                             if (normalizedRetryEnabled && NeedsNormalizedOcrRetry(ocr))
@@ -311,8 +313,10 @@ public sealed partial class ScanController
                                     BuildOcrDetail(capture, retryOcr)), token);
                                 continue;
                             }
+                            catch (OperationCanceledException) { throw; }
                             catch (Exception retryException)
                             {
+                                token.ThrowIfCancellationRequested();
                                 scanLog.WriteEvent("OCR_LUMINANCE_RETRY_REJECTED", $"index={capture.Index}, originalError={SanitizeLogValue(ex.Message)}, retryError={SanitizeLogValue(retryException.Message)}");
                             }
                         }
@@ -341,8 +345,10 @@ public sealed partial class ScanController
                         v5Diagnostics.RoiCount);
                 }
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
+                token.ThrowIfCancellationRequested();
                 foreach (var capture in batch)
                 {
                     ocrResults.Add(OcrWorkResult.Failure(

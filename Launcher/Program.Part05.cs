@@ -374,8 +374,6 @@ internal static partial class Program
             return false;
         }
 
-        if (origin.Equals("http://localhost:5173", StringComparison.OrdinalIgnoreCase)
-            || origin.Equals("http://127.0.0.1:5173", StringComparison.OrdinalIgnoreCase)) return true;
         return ScannerOriginPolicy.IsTrustedHttpsOrigin(origin,
             ScannerOriginPolicy.ReadAdditionalOrigin());
     }

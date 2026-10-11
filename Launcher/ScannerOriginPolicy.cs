@@ -60,25 +60,38 @@ internal static class ScannerOriginPolicy
 
 internal sealed class ScannerPairingStore
 {
+    internal const int MaximumTokens = 64;
     private readonly Dictionary<string, (string Origin, DateTimeOffset Expires)> _tokens = new(StringComparer.Ordinal);
     private readonly object _gate = new();
 
     internal string Issue(string origin, DateTimeOffset now)
     {
         var token = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
-        lock (_gate) _tokens[token] = (origin, now.AddHours(8));
+        lock (_gate)
+        {
+            RemoveExpired(now);
+            if (_tokens.Count >= MaximumTokens)
+                _tokens.Remove(_tokens.MinBy(pair => pair.Value.Expires).Key);
+            _tokens[token] = (origin, now.AddHours(8));
+        }
         return token;
     }
 
     internal bool Authorized(string? token, string? origin, DateTimeOffset now)
     {
-        if (string.IsNullOrEmpty(token)) return false;
+        if (string.IsNullOrEmpty(token) || string.IsNullOrWhiteSpace(origin)) return false;
         lock (_gate)
         {
-            if (!_tokens.TryGetValue(token, out var pairing)) return false;
-            if (pairing.Expires <= now) { _tokens.Remove(token); return false; }
-            return origin is null || origin.Equals(pairing.Origin, StringComparison.OrdinalIgnoreCase);
+            RemoveExpired(now);
+            return _tokens.TryGetValue(token, out var pairing)
+                && origin.Equals(pairing.Origin, StringComparison.OrdinalIgnoreCase);
         }
+    }
+
+    private void RemoveExpired(DateTimeOffset now)
+    {
+        foreach (var key in _tokens.Where(pair => pair.Value.Expires <= now).Select(pair => pair.Key).ToArray())
+            _tokens.Remove(key);
     }
 
     internal bool Revoke(string? token)

@@ -6,6 +6,7 @@ internal static partial class Program
 {
     private sealed partial class DirectForkHttpHelperServer
     {
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<long, SodaRuntimeFileLease> _runtimeLeases = new();
         private static Exception? RequestForkTermination(Process process)
         {
             var failure = DirectForkTermination.TryRequest(() =>
@@ -21,6 +22,7 @@ internal static partial class Program
             try
             {
                 await _jobs.CompleteAfterExitAsync(job, () => process.WaitForExitAsync());
+                if (_runtimeLeases.TryRemove(job, out var lease)) lease.Dispose();
                 process.Dispose();
             }
             catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)

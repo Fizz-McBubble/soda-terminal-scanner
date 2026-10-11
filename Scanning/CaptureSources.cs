@@ -219,10 +219,18 @@ internal sealed class GdiCaptureSource : IWindowCaptureSource
 
     public Bitmap Capture(Rectangle screenRect)
     {
+        return Capture(screenRect, image =>
+        {
+            using var graphics = Graphics.FromImage(image);
+            graphics.CopyFromScreen(screenRect.Location, Point.Empty, screenRect.Size);
+        });
+    }
+
+    internal static Bitmap Capture(Rectangle screenRect, Action<Bitmap> copy)
+    {
         var image = new Bitmap(screenRect.Width, screenRect.Height);
-        using var graphics = Graphics.FromImage(image);
-        graphics.CopyFromScreen(screenRect.Location, Point.Empty, screenRect.Size);
-        return image;
+        try { copy(image); return image; }
+        catch { image.Dispose(); throw; }
     }
 
     public Color GetPixel(Point point)

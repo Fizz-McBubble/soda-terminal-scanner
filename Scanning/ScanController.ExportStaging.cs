@@ -198,6 +198,7 @@ public sealed partial class ScanController
             var accepted = valid.Values.Single();
             return new PpOcrV6NormalizedRetryResult(true, accepted.Export, accepted.Ocr, null, valid.Count, accepted.Mask);
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             return new PpOcrV6NormalizedRetryResult(true, null, null, ex.Message);

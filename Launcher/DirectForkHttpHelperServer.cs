@@ -245,7 +245,9 @@ internal static partial class Program
             {
                 if (!BeginDiagnosticAttempt(job)) return;
                 var runtime = LoadDirectForkRuntime();
-                var outputRoot = Path.Combine(SodaRuntimeLocator.DefaultInstallRoot(), "outputs", $"live-{DateTime.UtcNow:yyyyMMddTHHmmssfffZ}-{job}");
+                try { _runtimeLeases[job] = SodaRuntimeFileLease.Acquire(runtime); }
+                catch { throw new ScannerRuntimeFailureException("扫描组件文件缺失或校验失败，请修复安装。", "runtime_repair_required"); }
+                var outputRoot = Path.Combine(SodaRuntimeLocator.DefaultInstallRoot(), "outputs", $"live-{DateTime.UtcNow:yyyyMMddTHHmmssfffZ}-{job}-{Guid.NewGuid():N}");
                 Directory.CreateDirectory(outputRoot);
                 var start = new ProcessStartInfo { FileName = runtime.EntryPath, WorkingDirectory = runtime.Root, UseShellExecute = true, Verb = "runas", WindowStyle = ProcessWindowStyle.Hidden };
                 foreach (var argument in DirectForkScanArguments(runtime, outputRoot)) start.ArgumentList.Add(argument);
@@ -296,7 +298,11 @@ internal static partial class Program
             {
                 // No process was launched (including UAC cancellation). It is
                 // now safe to release a stopped pending reservation.
-                if (process is null) _jobs.Complete(job, () => { });
+                if (process is null)
+                {
+                    if (_runtimeLeases.TryRemove(job, out var lease)) lease.Dispose();
+                    _jobs.Complete(job, () => { });
+                }
             }
         }
 
@@ -344,7 +350,7 @@ internal static partial class Program
                 {
                     if (_snapshot["diagnostics"] is JsonObject report) report["evidence"]!["exitCode"] = unchecked((uint)process.ExitCode);
                 });
-                var result = NewestFile(outputRoot, "scan-once-result.json");
+                var result = DirectForkTaskOutput.FileFor(outputRoot, "scan-once-result.json");
                 var terminalJson = DirectForkLifecycleDiagnostics.ReadTerminal(result, out var terminalFailure);
                 if (terminalFailure is not null) _jobs.Publish(job, () =>
                 {
@@ -363,9 +369,10 @@ internal static partial class Program
                     }
                     throw new ScannerRuntimeFailureException("扫描器已退出，结果未进入正式导入。", $"direct_fork_exit_{unchecked((uint)process.ExitCode):X8}");
                 }
-                var staging = NewestFile(outputRoot, "scanner-r10c-r4-staging.json");
+                var staging = DirectForkTaskOutput.FileFor(outputRoot, "scanner-r10c-r4-staging.json");
                 if (staging is null || terminalJson is null) throw new InvalidDataException("direct_fork_result_missing");
                 using var run = JsonDocument.Parse(terminalJson);
+                if (!DirectForkTaskOutput.MatchesTerminal(outputRoot, run.RootElement)) throw new InvalidDataException("direct_fork_result_identity_mismatch");
                 if (!run.RootElement.GetProperty("Success").GetBoolean() || run.RootElement.GetProperty("Failed").GetInt32() != 0) throw new InvalidDataException("direct_fork_partial");
                 SetCompleted(staging, Path.Combine(Path.GetDirectoryName(staging)!, "r4-evidence"), job);
             }
@@ -381,8 +388,8 @@ internal static partial class Program
         {
             try
             {
-                var log = NewestFile(outputRoot, "scan.log");
-                var terminal = NewestFile(outputRoot, "scan-once-result.json");
+                var log = DirectForkTaskOutput.FileFor(outputRoot, "scan.log");
+                var terminal = DirectForkTaskOutput.FileFor(outputRoot, "scan-once-result.json");
                 int? total;
                 lock (_gate) total = _snapshot["progress"]?["total"]?.GetValue<int>();
                 // A partial/invalid sidecar must not hide readable log counters.
@@ -476,7 +483,6 @@ internal static partial class Program
         }
 
 
-        private static string? NewestFile(string root, string name) => Directory.EnumerateFiles(root, name, SearchOption.AllDirectories).Select(path => new FileInfo(path)).OrderByDescending(info => info.LastWriteTimeUtc).Select(info => info.FullName).FirstOrDefault();
         private string SummaryString(string name) => _snapshot["summary"]![name]!.GetValue<string>();
         private JsonObject Snapshot() { lock (_gate) return _snapshot.DeepClone().AsObject(); }
 
@@ -506,7 +512,7 @@ internal static partial class Program
     }
 
     internal static string[] DirectForkScanArguments(SodaRuntimeIdentity runtime, string outputRoot) =>
-        ["--scan-once", "--output-root", outputRoot, "--max-items", "0", "--rarities", "S", "--include-non15",
+        ["--scan-once", "--output-root", outputRoot, "--scan-directory", DirectForkTaskOutput.DirectoryFor(outputRoot), "--max-items", "0", "--rarities", "S", "--include-non15",
          "--capture-mode", "gdi", "--ocr-engine", "ppocrv6", "--ppocrv6-worker", runtime.PpOcrV6.WorkerPath,
          "--ppocrv6-model", runtime.PpOcrV6.ModelPath, "--ppocrv6-config", runtime.PpOcrV6.ConfigPath];
 

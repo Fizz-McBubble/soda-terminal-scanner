@@ -7,7 +7,6 @@ using ZZZScannerNext.Interop;
 using ZZZScannerNext.Ocr;
 using ZZZScannerNext.Scanning;
 using ZZZScannerNext.Ui;
-using ZZZScannerNext.WebSocket;
 
 static partial class Program
 {    [STAThread]
@@ -18,6 +17,8 @@ static partial class Program
         {
             Environment.SetEnvironmentVariable("ZZZ_SCANNER_OUTPUT_ROOT", Path.GetFullPath(outputRoot));
         }
+
+        Environment.SetEnvironmentVariable("ZZZ_SCANNER_SCAN_DIRECTORY", ReadOption(args, "--scan-directory"));
 
         if (TryRunCommandLine(args, out var exitCode))
         {
@@ -32,7 +33,7 @@ static partial class Program
         return 0;
     }
 
-    private static bool TryRunCommandLine(string[] args, out int exitCode)
+    internal static bool TryRunCommandLine(string[] args, out int exitCode)
     {
         exitCode = 0;
         if (args.Length == 0)
@@ -209,7 +210,7 @@ static partial class Program
             Console.WriteLine(JsonSerializer.Serialize(new
             {
                 ok,
-                runtime = "ZZZ-Scanner.Next-1.0.49-soda-r28",
+                runtime = "ZZZ-Scanner.Next-1.0.49-soda-r30",
                 upstreamCommit = "ff90891140016d3f1b738d73cb6cd9b291e17cec",
                 accountWriteEnabled = false,
                 importAccess = false
@@ -247,46 +248,10 @@ static partial class Program
             return true;
         }
 
-        if (string.Equals(args[0], "--ws", StringComparison.OrdinalIgnoreCase))
-        {
-            var port = args.Length > 1 && int.TryParse(args[1], out var parsedPort) ? parsedPort : 22350;
-            var openBrowser = !args.Any(arg => string.Equals(arg, "--no-browser", StringComparison.OrdinalIgnoreCase));
-            exitCode = RunWebSocketHost(port, connectionToken: null, openBrowser);
-            return true;
-        }
-
-        if (string.Equals(args[0], "--ws-child", StringComparison.OrdinalIgnoreCase))
-        {
-            var port = args.Length > 1 && int.TryParse(args[1], out var parsedPort) ? parsedPort : 0;
-            var token = ReadOption(args, "--child-token");
-            if (port <= 0 || string.IsNullOrWhiteSpace(token))
-            {
-                Console.Error.WriteLine("Usage: ZZZ-Scanner.Next.exe --ws-child <port> --child-token <token> [--no-browser]");
-                exitCode = 2;
-                return true;
-            }
-
-            var openBrowser = !args.Any(arg => string.Equals(arg, "--no-browser", StringComparison.OrdinalIgnoreCase));
-            PpOcrV6RuntimeIdentity.TryFromChildArguments(
-                AppContext.BaseDirectory,
-                ReadOption(args, "--ppocrv6-worker"),
-                ReadOption(args, "--ppocrv6-model"),
-                ReadOption(args, "--ppocrv6-config"),
-                out var ppocrv6Runtime);
-            try
-            {
-                exitCode = RunWebSocketHost(port, token, openBrowser, ppocrv6Runtime);
-            }
-            catch (Exception ex)
-            {
-                exitCode = 3;
-                WriteChildEarlyDiagnostic(port, "child_websocket_start_failed", "launch", exitCode, ex.GetType().Name);
-                Console.Error.WriteLine("child_websocket_start_failed");
-            }
-            return true;
-        }
-
-        return false;
+        // Unknown/retired commands fail before DPI, UI, listener or game input.
+        Console.Error.WriteLine("unsupported_scanner_command");
+        exitCode = 2;
+        return true;
     }
 
     private static int RunCaptureStabilitySuite(string[] args)

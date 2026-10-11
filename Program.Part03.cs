@@ -7,43 +7,9 @@ using ZZZScannerNext.Interop;
 using ZZZScannerNext.Ocr;
 using ZZZScannerNext.Scanning;
 using ZZZScannerNext.Ui;
-using ZZZScannerNext.WebSocket;
 
 static partial class Program
 {
-    private static int RunWebSocketHost(
-        int port,
-        string? connectionToken,
-        bool openBrowser,
-        PpOcrV6RuntimeIdentity? ppocrv6Runtime = null)
-    {
-        NativeMethods.TryEnablePerMonitorDpiAwareness();
-        var profiles = ScanProfileFile.Load();
-        var wikiData = WikiData.Load();
-        using var cts = new CancellationTokenSource();
-        Console.CancelKeyPress += (_, e) =>
-        {
-            e.Cancel = true;
-            cts.Cancel();
-        };
-
-        using var host = new WebSocketHost(profiles, wikiData, port, connectionToken, ppocrv6Runtime);
-        if (openBrowser)
-        {
-            host.BrowserUrl = "http://localhost:8787/drive-discs.html";
-        }
-
-        try
-        {
-            host.RunAsync(cts.Token).GetAwaiter().GetResult();
-        }
-        catch (OperationCanceledException)
-        {
-        }
-
-        return 0;
-    }
-
     private static string? ReadOption(string[] args, string optionName)
     {
         for (var i = 0; i < args.Length; i++)
@@ -55,22 +21,6 @@ static partial class Program
         }
 
         return null;
-    }
-
-    private static void WriteChildEarlyDiagnostic(int port, string code, string phase, int exitCode, string type)
-    {
-        try
-        {
-            var outputRoot = Environment.GetEnvironmentVariable("ZZZ_SCANNER_OUTPUT_ROOT");
-            if (string.IsNullOrWhiteSpace(outputRoot)) return;
-            Directory.CreateDirectory(outputRoot);
-            var path = Path.Combine(outputRoot, $"child-{port}.early.json");
-            File.WriteAllText(path, JsonSerializer.Serialize(new { code, phase, exitCode, type }));
-        }
-        catch
-        {
-            // Early diagnostics must never alter child exit behavior.
-        }
     }
 
     private static bool TryReadIntOption(string[] args, string optionName, out int value)

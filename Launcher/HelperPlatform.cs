@@ -343,7 +343,8 @@ internal static class ScannerChildReaper
         foreach (var candidate in candidates)
         {
             examined++;
-            if (!IsOwnedOrphan(candidate, allowedRoots, currentHelperProcessId, IsProcessAlive))
+            if (!IsOwnedOrphan(candidate, allowedRoots, currentHelperProcessId, IsProcessAlive,
+                    Path.Combine(installRoot, "outputs")))
             {
                 skipped++;
                 continue;
@@ -353,9 +354,16 @@ internal static class ScannerChildReaper
             {
                 using var process = Process.GetProcessById(candidate.ProcessId);
                 process.Kill(entireProcessTree: true);
-                process.WaitForExit(5_000);
-                terminated++;
-                HelperLog.Write($"ORPHAN_SCANNER_TERMINATED pid={candidate.ProcessId}");
+                if (process.WaitForExit(5_000))
+                {
+                    terminated++;
+                    HelperLog.Write($"ORPHAN_SCANNER_TERMINATED pid={candidate.ProcessId}");
+                }
+                else
+                {
+                    skipped++;
+                    HelperLog.Write($"ORPHAN_SCANNER_EXIT_UNCONFIRMED pid={candidate.ProcessId}");
+                }
             }
             catch (Exception ex)
             {
@@ -364,6 +372,14 @@ internal static class ScannerChildReaper
             }
         }
 
+        // Elevated children may deny WMI path inspection or Kill from the
+        // unelevated Helper. Missing identity/confirmed exit never licenses a
+        // second scanner: ask the player to close the remaining window.
+        if (scannerProcessPresent())
+            throw new HelperFailureException(
+                "legacy_scanner_inspection_unavailable", "startup",
+                "旧扫描进程仍在运行", "无法确认旧扫描进程已经结束。",
+                "请先退出旧扫描进程后重试；无需重装或删除账户资料。", retryable: true);
         return new ScannerChildCleanupResult(examined, terminated, skipped);
     }
 
@@ -371,20 +387,44 @@ internal static class ScannerChildReaper
         ScannerChildProcessSnapshot candidate,
         IReadOnlyCollection<string> allowedRoots,
         int currentHelperProcessId,
-        Func<int, bool> parentAlive)
+        Func<int, bool> parentAlive,
+        string? ownedOutputRoot = null)
     {
         if (candidate.ProcessId <= 0
             || candidate.ParentProcessId <= 0
             || candidate.ParentProcessId == currentHelperProcessId
             || parentAlive(candidate.ParentProcessId)
             || !Path.GetFileName(candidate.ExecutablePath).Equals(ScannerExecutableName, StringComparison.OrdinalIgnoreCase)
-            || !candidate.CommandLine.Contains("--ws-child", StringComparison.OrdinalIgnoreCase))
+            || !IsOwnedCommandLine(candidate.CommandLine, ownedOutputRoot))
         {
             return false;
         }
 
         var executable = Path.GetFullPath(candidate.ExecutablePath);
         return allowedRoots.Any(root => IsWithin(root, executable));
+    }
+
+    private static bool IsOwnedCommandLine(string commandLine, string? ownedOutputRoot)
+    {
+        // Match argument tokens, never a substring embedded in a path or option.
+        if (commandLine.Count(character => character == '"') % 2 != 0) return false;
+        var arguments = System.Text.RegularExpressions.Regex.Matches(commandLine, "\"([^\"]*)\"|([^\\s\"]+)")
+            .Select(match => match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value).ToArray();
+        if (arguments.Length < 2) return false;
+        // Old managed children can still be left behind by a retired Helper.
+        if (arguments[1].Equals("--ws-child", StringComparison.OrdinalIgnoreCase)) return true;
+        if (!arguments[1].Equals("--scan-once", StringComparison.OrdinalIgnoreCase)
+            || ownedOutputRoot is null) return false;
+        var positions = Enumerable.Range(2, arguments.Length - 2)
+            .Where(index => arguments[index].Equals("--output-root", StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (positions.Length != 1 || positions[0] + 1 >= arguments.Length) return false;
+        try
+        {
+            var path = arguments[positions[0] + 1];
+            return Path.IsPathFullyQualified(path) && IsWithin(ownedOutputRoot, path)
+                && Path.GetFileName(path).StartsWith("live-", StringComparison.Ordinal);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException) { return false; }
     }
 
     private static IReadOnlyList<string> LoadAllowedRoots(string installRoot)
