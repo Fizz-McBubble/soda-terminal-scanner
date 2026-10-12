@@ -17,8 +17,9 @@ public static class InstallEngine
     public static InstallResult ExecuteInstall(string installRoot, string publicOrigin,
         Func<Stream> offlineArchiveStreamProvider, Func<Stream> uninstallStubStreamProvider,
         bool testMode = false, bool noLaunch = false, Action<string, int>? progressCallback = null,
-        string faultInjection = "none", bool firstRunOnly = false)
+        string faultInjection = "none", bool firstRunOnly = false, Action<string>? phaseCallback = null)
     {
+        Phase("prepare");
         var root = FileSystemSafety.ValidateRoot(installRoot, testMode);
         if (!ScannerConstants.AllowedOrigins.Contains(publicOrigin, StringComparer.Ordinal))
             throw new InvalidOperationException("scanner_public_origin_invalid");
@@ -43,6 +44,7 @@ public static class InstallEngine
         try
         {
             progressCallback?.Invoke("正在准备安装…", 5);
+            Phase("payload_verify");
             var archive = FileSystemSafety.SafePath(work, ScannerConstants.LockedAssetName);
             using (var input = offlineArchiveStreamProvider())
             using (var output = new FileStream(archive, FileMode.CreateNew, FileAccess.Write, FileShare.None)) input.CopyTo(output);
@@ -50,7 +52,9 @@ public static class InstallEngine
                 Sha256Util.ComputeFileSha256(archive) != ScannerConstants.LockedAssetSha256)
                 throw new InvalidOperationException("runtime_asset_identity_mismatch");
             var stagedRuntime = FileSystemSafety.SafePath(work, "runtime");
+            Phase("extract");
             ZipSecurity.ExtractSafe(archive, stagedRuntime, (done, total) => progressCallback?.Invoke("正在展开扫描组件…", 10 + (int)(done * 50 / total)));
+            Phase("verify");
             progressCallback?.Invoke("正在校验扫描组件…", 62);
             RuntimeCatalog.StageSupplement(work, stagedRuntime);
             RuntimeCatalog.Verify(stagedRuntime);
@@ -62,6 +66,7 @@ public static class InstallEngine
                 if (input.ReadByte() != 'M' || input.ReadByte() != 'Z') throw new InvalidOperationException("uninstaller_invalid");
 
             ProcessHelper.TerminateManagedComponents(root, testMode);
+            Phase("copy");
             var repeated = oldActive?.Version == ScannerConstants.LockedRuntimeVersion;
             // Replace only known program files; leave every extra installed file alone.
             var totalBytes = Math.Max(1, RuntimeCatalog.Files.Sum(entry => entry.Size));
@@ -77,11 +82,13 @@ public static class InstallEngine
             transaction.Copy(stub, FileSystemSafety.SafePath(root, ScannerConstants.UninstallExecutableName), preserveReplaced: true);
             Inject("components");
             RuntimeCatalog.Verify(versionRoot);
+            Phase("register");
             RegistryHelper.RegisterProtocol(FileSystemSafety.SafePath(root, ScannerConstants.HelperExecutableRelative), testMode);
             RegistryHelper.RegisterUninstallEntry(root, FileSystemSafety.SafePath(root, ScannerConstants.UninstallExecutableName), testMode);
             shortcutChange = RegistryHelper.ApplyStartMenuShortcut(root, publicOrigin, testMode);
             Inject("registration");
             progressCallback?.Invoke("正在完成安装…", 90);
+            Phase("commit");
             if (oldActive != null && oldActive.Version != ScannerConstants.LockedRuntimeVersion)
             {
                 var stagedPrevious = FileSystemSafety.SafePath(work, "previous.json");
@@ -99,6 +106,7 @@ public static class InstallEngine
             transaction.Commit();
             committed = true;
             cleanupWork = true;
+            Phase("start");
             var started = !noLaunch && !testMode && ProcessHelper.StartManagedHelper(
                 FileSystemSafety.SafePath(root, ScannerConstants.HelperExecutableRelative), publicOrigin);
             progressCallback?.Invoke("安装完成", 100);
@@ -129,6 +137,7 @@ public static class InstallEngine
         {
             if (faultInjection == point) throw new InvalidOperationException("runtime_injected_" + point);
         }
+        void Phase(string stage) { try { phaseCallback?.Invoke(stage); } catch { } }
     }
 
     public static bool VerifyRuntimeHealth(string runtimeRoot)

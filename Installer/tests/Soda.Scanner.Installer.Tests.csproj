@@ -12,6 +12,8 @@
     <Compile Include="../src/Soda.Scanner.Setup/InstallerForm.cs" Link="InstallerForm.cs" />
     <Compile Include="../src/Soda.Scanner.Setup/SetupResources.cs" Link="SetupResources.cs" />
     <Compile Include="../src/Soda.Scanner.Setup/PayloadFiles.cs" Link="PayloadFiles.cs" />
+    <Compile Include="../src/Soda.Scanner.Setup/InstallerFeedback.cs" Link="InstallerFeedback.cs" />
+    <Compile Include="../src/Soda.Scanner.Setup/InstallerDiagnostics.cs" Link="InstallerDiagnostics.cs" />
     <EmbeddedResource Include="../src/Soda.Scanner.Setup/Resources/soda-brand-icon.png" Link="soda-brand-icon.png" />
     <EmbeddedResource Include="../src/Soda.Scanner.Setup/Resources/soda-brand-icon.ico" LogicalName="soda-brand-icon.ico" />
     <Compile Include="../../zzz-scanner-next/Launcher/SodaRuntimeLocator.cs" Link="SodaRuntimeLocator.cs" />

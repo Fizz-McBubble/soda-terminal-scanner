@@ -2,6 +2,42 @@ using System.Diagnostics;
 using System.Text.Json;
 using Soda.Scanner.Core;
 
+if (args.Length == 2 && args[1] == "--installer-feedback")
+    return InstallerFeedbackTests.Run(Path.GetFullPath(args[0]));
+
+if (args.Length == 4 && args[3] == "--installer-safety")
+{
+    var safetyRoot = FileSystemSafety.ValidateRoot(Path.GetFullPath(args[0]), true);
+    Directory.CreateDirectory(safetyRoot);
+    var checks = new List<string>();
+    try
+    {
+        void SafetyTest(string name, Action action) { action(); checks.Add(name); Console.WriteLine("PASS " + name); }
+        PayloadFilesTests.Run(safetyRoot, SafetyTest);
+        InstallerUpgradeTests.Run(safetyRoot, Path.GetFullPath(args[1]), Path.GetFullPath(args[2]), SafetyTest);
+        SafetyTest("successful install reports finite phases without changing installed identity", () =>
+        {
+            var phases = new List<string>();
+            var target = Path.Combine(safetyRoot, "phase-success");
+            var result = InstallEngine.ExecuteInstall(target, ScannerConstants.DefaultPublicOrigin,
+                () => File.OpenRead(args[1]), () => File.OpenRead(args[2]), testMode: true, noLaunch: true,
+                phaseCallback: phases.Add);
+            if (!result.Success || !phases.SequenceEqual(new[] { "prepare", "payload_verify", "extract", "verify", "copy", "register", "commit", "start" }))
+                throw new Exception("successful_phase_sequence_changed");
+            RuntimeCatalog.Verify(Path.Combine(target, "versions", ScannerConstants.LockedRuntimeVersion));
+            if (Sha256Util.ComputeFileSha256(Path.Combine(target, ScannerConstants.UninstallExecutableName)) != Sha256Util.ComputeFileSha256(args[2]))
+                throw new Exception("new_uninstaller_identity_changed");
+        });
+        File.WriteAllText(Path.Combine(safetyRoot, "installer-safety.json"), JsonSerializer.Serialize(new { exitCode = 0, passed = checks.Count, checks, registryWrites = 0, actualInstall = false, uac = false, helperStarted = false }));
+        return 0;
+    }
+    catch (Exception error)
+    {
+        File.WriteAllText(Path.Combine(safetyRoot, "installer-safety.json"), JsonSerializer.Serialize(new { exitCode = 1, passed = checks.Count, checks, error = error.ToString() }));
+        Console.Error.WriteLine(error); return 1;
+    }
+}
+
 if (args.Length == 4 && args[3] == "--focused-install")
     return FocusedInstallTests.Run(Path.GetFullPath(args[0]), Path.GetFullPath(args[1]), Path.GetFullPath(args[2]));
 if (args.Length == 2 && args[1] == "--version-identity")

@@ -145,7 +145,7 @@ internal static class InstallerFormTests
                     {
                         pending.SetException(new IOException("TEST_DETAILS_ERROR"));
                         PumpUntil(() => ButtonOrNull(form, "重试")?.Enabled == true);
-                        Check(details.Text == "TEST_DETAILS_ERROR");
+                        Check(details.Text.Contains("安装未完成") && details.Text.Contains("尚未发送") && !details.Text.Contains("TEST_DETAILS_ERROR"));
                     }
                     else
                     {

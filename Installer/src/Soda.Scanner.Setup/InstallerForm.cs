@@ -17,6 +17,13 @@ public class InstallerForm : Form
     private readonly Func<Task<UninstallResult>>? _testUninstall;
     private readonly Func<bool>? _testConfirmUninstall;
     private readonly Func<bool>? _testOpenWorkspace;
+    private readonly Func<string, bool>? _testOpenFeedback;
+    private readonly Func<string, bool>? _testCopyFeedback;
+    private readonly Func<string, bool>? _testSaveFeedback;
+    private InstallerFeedbackReport? _feedbackReport;
+    private bool _feedbackFallback;
+    private Button _feedbackButton = null!;
+    private readonly ContextMenuStrip _feedbackRecovery = new();
 
     private Label _titleLabel = null!;
     private Label _subtitleLabel = null!;
@@ -36,9 +43,11 @@ public class InstallerForm : Form
     internal InstallerForm(string installRoot, string publicOrigin, bool testMode, bool noLaunch, string? overrideArchive,
         bool autoInstallEnabled, Func<Action<string, int>, Task<InstallResult>>? testInstall = null,
         Func<Task<UninstallResult>>? testUninstall = null, Func<bool>? testConfirmUninstall = null,
-        Func<bool>? testOpenWorkspace = null)
+        Func<bool>? testOpenWorkspace = null, Func<string, bool>? testOpenFeedback = null,
+        Func<string, bool>? testCopyFeedback = null, Func<string, bool>? testSaveFeedback = null)
     {
-        if ((testInstall != null || testUninstall != null || testConfirmUninstall != null || testOpenWorkspace != null) && !testMode) throw new InvalidOperationException("test_install_override_forbidden");
+        if ((testInstall != null || testUninstall != null || testConfirmUninstall != null || testOpenWorkspace != null ||
+             testOpenFeedback != null || testCopyFeedback != null || testSaveFeedback != null) && !testMode) throw new InvalidOperationException("test_install_override_forbidden");
         _installRoot = installRoot;
         _publicOrigin = publicOrigin;
         _testMode = testMode;
@@ -48,6 +57,7 @@ public class InstallerForm : Form
         _testInstall = testInstall;
         _testUninstall = testUninstall; _testConfirmUninstall = testConfirmUninstall;
         _testOpenWorkspace = testOpenWorkspace;
+        _testOpenFeedback = testOpenFeedback; _testCopyFeedback = testCopyFeedback; _testSaveFeedback = testSaveFeedback;
 
         InitializeComponent();
         FormClosing += (_, e) => { if (_busy) e.Cancel = true; };
@@ -123,7 +133,13 @@ public class InstallerForm : Form
         _cancelButton = MakeButton("关闭", false);
         _cancelButton.TabIndex = 1;
         _cancelButton.Click += (_, _) => Close();
-        Controls.AddRange([_actionButton, _uninstallButton, _cancelButton]);
+        _feedbackButton = MakeButton("反馈安装问题", false);
+        _feedbackButton.Width = 140; _feedbackButton.Visible = false; _feedbackButton.TabIndex = 3;
+        _feedbackButton.Click += (_, _) => OpenFeedback();
+        _feedbackRecovery.Items.Add("重新打开反馈页", null, (_, _) => { _feedbackFallback = false; OpenFeedback(); });
+        _feedbackRecovery.Items.Add("复制反馈链接", null, (_, _) => CopyFeedback());
+        _feedbackRecovery.Items.Add("下载反馈文件", null, (_, _) => ExportFeedback());
+        Controls.AddRange([_actionButton, _uninstallButton, _cancelButton, _feedbackButton]);
         AcceptButton = _actionButton;
         CancelButton = _cancelButton;
         AutoScaleDimensions = new SizeF(96, 96);
@@ -154,7 +170,7 @@ public class InstallerForm : Form
 
     private Button MakeButton(string text, bool primary)
     {
-        var button = new Button { Size = new Size(primary ? 124 : 84, 36), Text = text,
+        var button = new Button { Size = new Size(primary ? 124 : 84, 42), Text = text,
             BackColor = primary ? _purple : Color.White, ForeColor = primary ? Color.White : Color.FromArgb(108, 101, 120),
             FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, UseVisualStyleBackColor = false };
         button.FlatAppearance.BorderSize = primary ? 0 : 1;
@@ -168,6 +184,53 @@ public class InstallerForm : Form
         _actionButton.Location = new Point(ClientSize.Width - Unit(32) - _actionButton.Width, ClientSize.Height - Unit(58));
         _cancelButton.Location = new Point(Unit(32), ClientSize.Height - Unit(58));
         _uninstallButton.Location = new Point(Unit(126), ClientSize.Height - Unit(58));
+        _feedbackButton.Location = new Point(_actionButton.Left - Unit(8) - _feedbackButton.Width, _actionButton.Top);
+    }
+
+    private void ClearFeedback()
+    {
+        _feedbackReport = null; _feedbackFallback = false; _feedbackButton.Visible = false;
+        _feedbackButton.Text = "反馈安装问题"; _feedbackRecovery.Close();
+    }
+    internal void OpenFeedback()
+    {
+        if (_feedbackReport is null) return;
+        if (!_feedbackFallback)
+        {
+            var url = InstallerFeedback.LaunchUrl(_feedbackReport);
+            var opened = _testOpenFeedback?.Invoke(url) ?? (!_testMode && InstallerFeedback.OpenBrowser(url));
+            if (opened) { UpdateDetails("反馈页已打开，请在网页核对并主动发送。\r\n本次反馈仅包含安装版本、阶段和有限错误码。"); return; }
+            _feedbackFallback = true; _feedbackButton.Text = "复制 / 下载";
+            UpdateDetails("反馈页未打开，可复制反馈链接或下载反馈文件。\r\n反馈内容保留在本机，尚未发送。");
+        }
+        if (Visible) _feedbackRecovery.Show(_feedbackButton, new Point(0, _feedbackButton.Height));
+    }
+    internal void CopyFeedback()
+    {
+        if (_feedbackReport is null) return;
+        var url = InstallerFeedback.LaunchUrl(_feedbackReport);
+        var copied = _testCopyFeedback?.Invoke(url) ?? (!_testMode && InstallerFeedback.Copy(url));
+        UpdateDetails(copied ? "反馈链接已复制，可粘贴到浏览器打开后主动发送。" : "复制未完成，可下载反馈文件后重试。");
+    }
+    internal void ExportFeedback()
+    {
+        if (_feedbackReport is null) return;
+        var json = InstallerFeedback.Serialize(_feedbackReport);
+        if (_testSaveFeedback is not null)
+        {
+            UpdateDetails(_testSaveFeedback(json) ? "反馈文件已保存，尚未发送。" : "保存未完成，可复制反馈链接后重试。"); return;
+        }
+        if (_testMode) return;
+        using var dialog = new SaveFileDialog { Title = "下载安装反馈", Filter = "JSON 文件|*.json",
+            FileName = "Soda-画面扫描-安装反馈-" + _feedbackReport.InstallerVersion + ".json" };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        try { File.WriteAllText(dialog.FileName, json); UpdateDetails("反馈文件已保存，尚未发送。"); }
+        catch { UpdateDetails("保存未完成，可复制反馈链接后重试。"); }
+    }
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _feedbackRecovery.Dispose();
+        base.Dispose(disposing);
     }
 
     private sealed class SodaProgressBar : ProgressBar
@@ -219,6 +282,8 @@ public class InstallerForm : Form
             case "error":
                 _statusLabel.Text = "安装未完成，请关闭画面扫描后重试。"; _actionButton.Text = "重试";
             _cancelButton.Visible = true;
+                _feedbackReport = InstallerFeedback.Create("failed", "installer_local_operation_failed", 0);
+                _feedbackButton.Visible = true;
                 UpdateDetails("本图为错误状态渲染测试，不代表真实安装失败。"); break;
             case "repair":
                 _statusLabel.Text = "已检测到画面扫描，可以修复安装。"; _actionButton.Text = "修复安装"; _uninstallButton.Visible = true; break;
@@ -280,6 +345,8 @@ public class InstallerForm : Form
     private async Task InstallAsync(bool firstRunOnly = false)
     {
         if (_busy || _completed) return;
+        ClearFeedback();
+        var diagnostics = new InstallerDiagnostics();
         _actionButton.Enabled = false;
         _actionButton.Visible = false;
         _busy = true;
@@ -316,7 +383,8 @@ public class InstallerForm : Form
                     testMode: _testMode,
                     noLaunch: _noLaunch,
                     progressCallback: progress,
-                    firstRunOnly: firstRunOnly
+                    firstRunOnly: firstRunOnly,
+                    phaseCallback: diagnostics.Phase
                 );
             });
 
@@ -340,13 +408,13 @@ public class InstallerForm : Form
         {
             _busy = false;
             _progressBar.Indeterminate = false;
-            UpdateDetails(ex.Message);
-            _statusLabel.Text = ex.Message.StartsWith("setup_asset_parent", StringComparison.Ordinal) ||
-                ex.Message.StartsWith("setup_asset_apphost", StringComparison.Ordinal) ||
-                ex.Message is "setup_asset_prepare_timeout" or "setup_asset_extract_failed"
-                ? "安装准备中断，请重新打开安装包。"
-                : ex.Message.Contains("asset") || ex.Message.Contains("uninstaller_identity")
-                    ? "安装包不完整，请重新下载。" : "安装未完成，请关闭画面扫描后重试。";
+            _feedbackReport = diagnostics.Failure(ex);
+            var tracesAfterFailure = HasInstallationTraces();
+            var saved = InstallerDiagnostics.Save(_installRoot, _feedbackReport);
+            _feedbackButton.Visible = true;
+            UpdateDetails("安装未完成，可重试或反馈安装问题。\r\n" +
+                (saved ? "有限诊断已保存在本机，尚未发送。" : "有限诊断仍保留在窗口中，尚未发送。"));
+            _statusLabel.Text = "安装未完成，可以重试或反馈问题。";
             _progressBar.Visible = false;
             _actionButton.Text = "重试";
             _actionButton.Visible = true;
@@ -354,9 +422,10 @@ public class InstallerForm : Form
             _actionButton.Enabled = true;
             _cancelButton.Enabled = true;
             _cancelButton.Text = "关闭";
-            _uninstallButton.Visible = HasInstallationTraces();
+            _uninstallButton.Visible = tracesAfterFailure;
             _uninstallButton.Enabled = true;
             if (ex.Message == "scanner_setup_existing_installation") CheckInitialState();
+            LayoutFooter();
         }
     }
 
@@ -370,6 +439,7 @@ public class InstallerForm : Form
             MessageBoxIcon.Question);
 
         if (confirm != DialogResult.Yes) return;
+        ClearFeedback();
         _busy = true;
 
         _actionButton.Enabled = false;
@@ -404,10 +474,10 @@ public class InstallerForm : Form
             _cancelButton.Enabled = true;
             _cancelButton.Text = "关闭";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             _busy = false;
-            UpdateDetails(ex.Message);
+            UpdateDetails("卸载未完成，可以重试。扫描结果和个人文件继续保留。");
             _statusLabel.Text = "卸载未完成，请关闭画面扫描后重试。";
             _progressBar.Visible = false;
             _actionButton.Enabled = true;

@@ -151,6 +151,7 @@ static class Program
             }
             else
             {
+                var diagnostics = new InstallerDiagnostics();
                 try
                 {
                         var res = InstallEngine.ExecuteInstall(
@@ -163,14 +164,16 @@ static class Program
                         progressCallback: (msg, percent) =>
                         {
                             Console.WriteLine($"[{percent}%] {msg}");
-                        }, faultInjection: faultInjection
+                        }, faultInjection: faultInjection, phaseCallback: diagnostics.Phase
                     );
                     Console.WriteLine(res.Message);
                     return 0;
                 }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine($"Install error: {ex.Message}");
+                    var report = diagnostics.Failure(ex);
+                    InstallerDiagnostics.Save(installRoot, report);
+                    Console.Error.WriteLine("Install error: " + report.Code);
                     return 2;
                 }
             }
