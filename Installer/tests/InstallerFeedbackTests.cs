@@ -22,7 +22,7 @@ internal static class InstallerFeedbackTests
             Check(InstallerFeedback.Classify(new IOException("setup_asset_prepare_timeout")) == "setup_asset_prepare_timeout", "preparation_timeout_exact_match");
             var report = InstallerFeedback.Create("private unknown stage", "private unknown code", long.MaxValue);
             Check(report.Stage == "failed" && report.Code == "installer_local_operation_failed" && report.DurationMs == 3600000, "finite_bounded_projection");
-            Check(report.Tool == "screen_scanner_installer" && report.InstallerVersion == "1.1.6" && report.Attempts.Length == 0, "actual_product_identity_offline_attempts");
+            Check(report.Tool == "screen_scanner_installer" && report.InstallerVersion == ScannerConstants.DisplayVersion && report.Attempts.Length == 0, "actual_product_identity_offline_attempts");
             Check(Guid.TryParse(report.ReportId, out _), "report_id_is_uuid");
             var url = InstallerFeedback.LaunchUrl(report);
             Check(url.StartsWith(InstallerFeedback.FeedbackPage, StringComparison.Ordinal), "fixed_website_fragment");

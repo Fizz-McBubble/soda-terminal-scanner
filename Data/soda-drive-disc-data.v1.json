@@ -3,7 +3,7 @@
   "gameVersion": "3.0",
   "dataVersion": "zzz-drive-disc-3.0-s4.1",
   "updatedAt": "2026-06-29T00:00:00.000Z",
-  "contentHash": "1xt0qxt",
+  "contentHash": "187etbe",
   "sources": [
     {
       "id": "adepti-2.7-metadata",
@@ -380,8 +380,8 @@
     },
     "subStatStepsByRarity": {
       "B": [
-        { "stat": "hp_flat", "unit": "flat", "baseValue": 39 },
-        { "stat": "atk_flat", "unit": "flat", "baseValue": 7 },
+        { "stat": "hp_flat", "unit": "flat", "baseValue": 37 },
+        { "stat": "atk_flat", "unit": "flat", "baseValue": 6 },
         { "stat": "def_flat", "unit": "flat", "baseValue": 5 },
         { "stat": "hp_percent", "unit": "percent", "baseValue": 1 },
         { "stat": "atk_percent", "unit": "percent", "baseValue": 1 },
@@ -392,8 +392,8 @@
         { "stat": "anomaly_proficiency", "unit": "flat", "baseValue": 3 }
       ],
       "A": [
-        { "stat": "hp_flat", "unit": "flat", "baseValue": 79 },
-        { "stat": "atk_flat", "unit": "flat", "baseValue": 15 },
+        { "stat": "hp_flat", "unit": "flat", "baseValue": 75 },
+        { "stat": "atk_flat", "unit": "flat", "baseValue": 13 },
         { "stat": "def_flat", "unit": "flat", "baseValue": 10 },
         { "stat": "hp_percent", "unit": "percent", "baseValue": 2 },
         { "stat": "atk_percent", "unit": "percent", "baseValue": 2 },

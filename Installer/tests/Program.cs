@@ -15,6 +15,7 @@ if (args.Length == 4 && args[3] == "--installer-safety")
         void SafetyTest(string name, Action action) { action(); checks.Add(name); Console.WriteLine("PASS " + name); }
         PayloadFilesTests.Run(safetyRoot, SafetyTest);
         InstallerUpgradeTests.Run(safetyRoot, Path.GetFullPath(args[1]), Path.GetFullPath(args[2]), SafetyTest);
+        Legacy116RuntimeTests.Run(safetyRoot, Path.GetFullPath(args[1]), Path.GetFullPath(args[2]), SafetyTest);
         SafetyTest("successful install reports finite phases without changing installed identity", () =>
         {
             var phases = new List<string>();

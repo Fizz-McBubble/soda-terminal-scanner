@@ -15,6 +15,7 @@
     <EmbeddedResource Include="runtime-files-1.1.1.json" />
     <EmbeddedResource Include="runtime-files-1.1.2.json" />
     <EmbeddedResource Include="runtime-files-1.1.3.json" />
+    <EmbeddedResource Include="runtime-files-1.1.6.json" />
     <EmbeddedResource Include="vc-runtime-input.json" />
     <EmbeddedResource Include="$(VCRuntimeArchivePath)" Link="vc-runtime-14.44.35211-x64.zip" />
   </ItemGroup>

@@ -32,9 +32,11 @@ public sealed partial class DriveDiscCleaner
         {
             Index = index,
             Rarity = rarity,
+            SubStatPositions = new List<int>(),
             RawOcr = string.Join(" | ", result.Select(r => r.Text))
         };
         DriveDiscParseDiagnostic? partialDiagnostic = null;
+        var lastObservedSubStatPosition = -1;
 
         for (var i = 0; i < result.Count; i++)
         {
@@ -101,14 +103,19 @@ public sealed partial class DriveDiscCleaner
                         subValueText = mergedValue;
                     }
 
-                    if (string.IsNullOrWhiteSpace(subStatText) || string.IsNullOrWhiteSpace(subValueText))
+                    if (IsSetEffectText(subStatText) || IsSetEffectText(subValueText))
                     {
+                        i = result.Count;
                         break;
                     }
 
-                    if (IsSetEffectText(subStatText) || IsSetEffectText(subValueText))
+                    var position = (i - 4) / 2;
+                    if (!string.IsNullOrWhiteSpace(subStatText) || !string.IsNullOrWhiteSpace(subValueText))
+                        lastObservedSubStatPosition = position;
+
+                    if (string.IsNullOrWhiteSpace(subStatText) || string.IsNullOrWhiteSpace(subValueText))
                     {
-                        return ValidateSlotSafety(export);
+                        break;
                     }
 
                     try
@@ -123,6 +130,7 @@ public sealed partial class DriveDiscCleaner
                             allowOneCharacterNumericRepair: true);
                         var subValue = CleanStatValue(subValueText, subKey, rarity, false, export.Slot);
                         export.SubStats.Add(new Dictionary<string, object> { [subKey] = subValue });
+                        export.SubStatPositions.Add(position);
                     }
                     catch (InvalidDataException exception)
                     {
@@ -135,7 +143,7 @@ public sealed partial class DriveDiscCleaner
                             mainStat: false,
                             export.Slot,
                             export.Level,
-                            export.SubStats.Count);
+                            position);
                     }
                     i++;
                     break;
@@ -143,7 +151,10 @@ public sealed partial class DriveDiscCleaner
         }
 
         var requiredSubStats = export.Level >= 3 ? 4 : 3;
-        if (result.Count > 4 && export.SubStats.Count < requiredSubStats)
+        var positionCount = Math.Max(requiredSubStats, lastObservedSubStatPosition + 1);
+        export.MissingSubStatPositions = Enumerable.Range(0, positionCount)
+            .Except(export.SubStatPositions).ToList();
+        if (result.Count > 4 && export.MissingSubStatPositions.Count > 0)
         {
             partialDiagnostic ??= new DriveDiscParseDiagnostic(
                 "substat_domain_incomplete",
@@ -151,14 +162,18 @@ public sealed partial class DriveDiscCleaner
                 export.Slot,
                 Array.Empty<string>(),
                 export.SubStats.Count,
-                requiredSubStats)
+                positionCount)
             {
-                MissingPositions = Enumerable.Range(export.SubStats.Count, requiredSubStats - export.SubStats.Count).ToArray()
+                MissingPositions = export.MissingSubStatPositions.ToArray()
             };
         }
 
         if (partialDiagnostic is not null)
-            throw new DriveDiscPartialParseException(export, partialDiagnostic);
+            throw new DriveDiscPartialParseException(export, partialDiagnostic with
+            {
+                MissingPositions = partialDiagnostic.MissingPositions
+                    .Concat(export.MissingSubStatPositions).Distinct().Order().ToArray()
+            });
 
         return ValidateSlotSafety(export);
     }

@@ -6,8 +6,8 @@
   },
   {
     "path": "helper\\ZZZ-Scanner-Helper.exe",
-    "size": 8363008,
-    "sha256": "4c3b6a89ad68267635f9a2b2e0535ab586ca2d7b00a28f0ed39cab9877dabd32"
+    "size": 8367104,
+    "sha256": "489c44b6db7a59974d995642644b653a8be8e1b1f743ffb44cc260cea17f399d"
   },
   {
     "path": "LICENSE-ZZZ-Scanner.Next-MIT.txt",
@@ -26,8 +26,8 @@
   },
   {
     "path": "native\\Data\\drive_discs.json",
-    "size": 13164,
-    "sha256": "b692287ce7c1948dfa248a64408bab8eeb8f471eb97582e8e157d81d29ca46da"
+    "size": 12710,
+    "sha256": "b4bae0f9b15c1f8b70cb2906c39051d50088da67a0677471f182e5694b0a9d71"
   },
   {
     "path": "native\\Data\\scan_profiles.json",
@@ -42,7 +42,7 @@
   {
     "path": "native\\Data\\soda-drive-disc-data.v1.json",
     "size": 19694,
-    "sha256": "2a10914c97431f3490db4af1fa632757d5af9822bd17e8e3ef5f818b2b4200d9"
+    "sha256": "b6223ee0ebfa1aebc517194b54c1c695e463098165ed72cedbc0ba4557953d59"
   },
   {
     "path": "native\\Data\\stat_rules.json",
@@ -51,8 +51,8 @@
   },
   {
     "path": "native\\ZZZ-Scanner.Next.Soda.exe",
-    "size": 72588505,
-    "sha256": "05c08fba507e1af23977249a7708efa78b15d293c5c15ba5457e157f2492cd97"
+    "size": 72588825,
+    "sha256": "91c855d2237f94c591f1e4977a22235531c11790eb726b3dff18d3eb4084687d"
   },
   {
     "path": "notices\\DotNet-8-LICENSE.txt",
@@ -202,6 +202,6 @@
   {
     "path": "scanner-runtime.json",
     "size": 7774,
-    "sha256": "8b7ae9fb33fd30ca26d8226eb414cc0649c5b505451f0ba3ce6a4e1a4136cdf3"
+    "sha256": "ff793a2bbe5bb20a97cc6586d5041f11adf8be475a2501a1c5763daa93332d23"
   }
 ]

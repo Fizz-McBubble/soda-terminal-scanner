@@ -28,6 +28,14 @@ public sealed class DriveDiscExport
     [JsonPropertyName("副属性")]
     public List<Dictionary<string, object>> SubStats { get; set; } = new();
 
+    // Positions belong to the original four OCR rows, while SubStats remains the
+    // compatible compact legacy export. Null denotes a historical/manual export.
+    [JsonIgnore]
+    public List<int>? SubStatPositions { get; set; }
+
+    [JsonIgnore]
+    public List<int> MissingSubStatPositions { get; set; } = new();
+
     [JsonIgnore]
     public string RawOcr { get; set; } = "";
 }

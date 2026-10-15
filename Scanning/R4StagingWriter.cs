@@ -228,25 +228,31 @@ internal static partial class R4StagingWriter
 
         var subStats = new List<Dictionary<string, object?>>();
         var subMappingIssues = new List<R4Issue>();
-        for (var index = 0; index < (export?.SubStats.Count ?? 0); index++)
+        var expectedSubStats = export is not null && export.Level < 3 ? 3 : 4;
+        var positions = export?.SubStatPositions;
+        var usesOriginalPositions = positions is not null && positions.Count == export!.SubStats.Count;
+        var candidateCount = usesOriginalPositions
+            ? Math.Min(4, Math.Max(expectedSubStats, positions!.Concat(export!.MissingSubStatPositions).DefaultIfEmpty(-1).Max() + 1))
+            : export?.SubStats.Count ?? 0;
+        for (var position = 0; position < candidateCount; position++)
         {
-            var pair = export!.SubStats[index].Single();
-            var rawName = record.Ocr.ElementAtOrDefault(4 + index * 2).Text;
-            var rawValue = record.Ocr.ElementAtOrDefault(5 + index * 2).Text;
-            var stat = MapStat(pair.Key, pair.Value);
-            var upgrades = InferSubStatUpgrades(export.Rarity, pair.Key, pair.Value, rawName);
-            if (stat is null)
-                subMappingIssues.Add(new R4Issue($"subStats.{index}", "missing_sub_stat", $"副词条 {index + 1} 无法精确映射。"));
+            var index = usesOriginalPositions ? positions!.IndexOf(position) : position;
+            var rawName = record.Ocr.ElementAtOrDefault(4 + position * 2).Text;
+            var rawValue = record.Ocr.ElementAtOrDefault(5 + position * 2).Text;
+            var pair = index >= 0 ? export!.SubStats[index].Single() : (KeyValuePair<string, object>?)null;
+            var stat = pair is null ? null : MapStat(pair.Value.Key, pair.Value.Value);
+            int? upgrades = pair is null ? null : InferSubStatUpgrades(export!.Rarity, pair.Value.Key, pair.Value.Value, rawName);
+            if (stat is null && parserRoot?.Field != $"subStats.{position}")
+                subMappingIssues.Add(new R4Issue($"subStats.{position}", "missing_sub_stat", $"副词条 {position + 1} 无法精确映射。"));
             subStats.Add(new Dictionary<string, object?>
             {
                 ["stat"] = stat,
-                ["value"] = NumericValue(pair.Value),
+                ["value"] = pair is null ? null : NumericValue(pair.Value.Value),
                 ["upgrades"] = upgrades,
                 ["rawText"] = $"{rawName} {rawValue}".Trim(),
-                ["confidence"] = record.Ocr.ElementAtOrDefault(4 + index * 2).Score >= 0.75f ? "high" : "low"
+                ["confidence"] = pair is not null && record.Ocr.ElementAtOrDefault(4 + position * 2).Score >= 0.75f ? "high" : "low"
             });
         }
-        var expectedSubStats = export is not null && export.Level < 3 ? 3 : 4;
         if (subStats.Count < expectedSubStats)
         {
             foreach (var missingIndex in Enumerable.Range(subStats.Count, expectedSubStats - subStats.Count))
@@ -282,6 +288,8 @@ internal static partial class R4StagingWriter
                 ],
                 "card-bottom-right+detail-lock-button")
         };
+        if (parserRoot?.Field == "review")
+            fields["review"] = Field("", null, "low", "ppocrv6_domain_diagnostic", parserEvidence);
         for (var index = 0; index < subStats.Count; index++)
             fields[$"subStats.{index}"] = Field((string)subStats[index]["rawText"]!, subStats[index]["stat"],
                 (string)subStats[index]["confidence"]!, "exact_stat_catalog_plus_upgrade_marker");
@@ -289,7 +297,7 @@ internal static partial class R4StagingWriter
         {
             foreach (var missingPosition in record.ParseDiagnostic?.MissingPositions ?? Array.Empty<int>())
                 fields[$"subStats.{missingPosition}"] = Field(
-                    "",
+                    $"{record.Ocr.ElementAtOrDefault(4 + missingPosition * 2).Text} {record.Ocr.ElementAtOrDefault(5 + missingPosition * 2).Text}".Trim(),
                     null,
                     "low",
                     "ppocrv6_domain_diagnostic",
