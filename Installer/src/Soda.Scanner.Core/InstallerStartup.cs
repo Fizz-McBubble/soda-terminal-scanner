@@ -21,6 +21,11 @@ public static class InstallerStartup
         if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-10-local-20261011") return "1.0.10";
         if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-9-local-20261011") return "1.0.9";
         if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-8") return "1.0.8";
+        if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-7") return "1.0.7";
+        if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-6") return "1.0.6";
+        if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-5") return "1.0.5";
+        if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-4") return "1.0.2";
+        if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-3") return "1.0.0";
         return null;
     }
     // Even incomplete or unfamiliar contents can belong to a previous installation.

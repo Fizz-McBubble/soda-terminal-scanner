@@ -57,7 +57,7 @@ public static class ScannerShortcut
         if (created)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            var temporary = path + ".tmp-" + Guid.NewGuid().ToString("N") + ".lnk";
+            var temporary = Path.Combine(Path.GetDirectoryName(path)!, $".tmp-{Guid.NewGuid():N}"[..12] + ".lnk");
             try
             {
                 WithShortcut<bool>(temporary, link =>

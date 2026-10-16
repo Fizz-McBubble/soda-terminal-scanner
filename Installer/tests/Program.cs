@@ -5,7 +5,7 @@ using Soda.Scanner.Core;
 if (args.Length == 2 && args[1] == "--installer-feedback")
     return InstallerFeedbackTests.Run(Path.GetFullPath(args[0]));
 
-if (args.Length == 4 && args[3] == "--installer-safety")
+if (args.Length >= 4 && args[3] == "--installer-safety")
 {
     var safetyRoot = FileSystemSafety.ValidateRoot(Path.GetFullPath(args[0]), true);
     Directory.CreateDirectory(safetyRoot);
@@ -16,6 +16,9 @@ if (args.Length == 4 && args[3] == "--installer-safety")
         PayloadFilesTests.Run(safetyRoot, SafetyTest);
         InstallerUpgradeTests.Run(safetyRoot, Path.GetFullPath(args[1]), Path.GetFullPath(args[2]), SafetyTest);
         Legacy116RuntimeTests.Run(safetyRoot, Path.GetFullPath(args[1]), Path.GetFullPath(args[2]), SafetyTest);
+        var fixtureDir = args.Length >= 5 ? Path.GetFullPath(args[4]) : null;
+        var fixtures = Soda.Scanner.Installer.Tests.HistoricalFixtureConfig.Resolve(fixtureDir);
+        Soda.Scanner.Installer.Tests.HistoricalUninstallTests.Run(safetyRoot, Path.GetFullPath(args[1]), Path.GetFullPath(args[2]), SafetyTest, fixtures);
         SafetyTest("successful install reports finite phases without changing installed identity", () =>
         {
             var phases = new List<string>();
@@ -41,6 +44,26 @@ if (args.Length == 4 && args[3] == "--installer-safety")
 
 if (args.Length == 4 && args[3] == "--focused-install")
     return FocusedInstallTests.Run(Path.GetFullPath(args[0]), Path.GetFullPath(args[1]), Path.GetFullPath(args[2]));
+if (args.Length >= 4 && args[3] == "--historical-uninstall")
+{
+    var safetyRoot = FileSystemSafety.ValidateRoot(Path.GetFullPath(args[0]), true);
+    Directory.CreateDirectory(safetyRoot);
+    var checks = new List<string>();
+    try
+    {
+        void SafetyTest(string name, Action action) { action(); checks.Add(name); Console.WriteLine("PASS " + name); }
+        var fixtureDir = args.Length >= 5 ? Path.GetFullPath(args[4]) : null;
+        var fixtures = Soda.Scanner.Installer.Tests.HistoricalFixtureConfig.Resolve(fixtureDir);
+        Soda.Scanner.Installer.Tests.HistoricalUninstallTests.Run(safetyRoot, Path.GetFullPath(args[1]), Path.GetFullPath(args[2]), SafetyTest, fixtures);
+        File.WriteAllText(Path.Combine(safetyRoot, "historical-uninstall.json"), JsonSerializer.Serialize(new { exitCode = 0, passed = checks.Count, checks, registryWrites = 0, actualInstall = false, uac = false, helperStarted = false }));
+        return 0;
+    }
+    catch (Exception error)
+    {
+        File.WriteAllText(Path.Combine(safetyRoot, "historical-uninstall.json"), JsonSerializer.Serialize(new { exitCode = 1, passed = checks.Count, checks, error = error.ToString() }));
+        Console.Error.WriteLine(error); return 1;
+    }
+}
 if (args.Length == 2 && args[1] == "--version-identity")
     return FocusedInstallTests.RunVersionIdentity(Path.GetFullPath(args[0]));
 if (args.Length == 3 && args[1] == "--version-identity")

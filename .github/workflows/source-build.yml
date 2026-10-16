@@ -2,6 +2,14 @@ name: Public scanner source build
 
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: Source components to verify
+        type: choice
+        default: all
+        options:
+          - all
+          - installer
 
 permissions:
   contents: read
@@ -20,5 +28,23 @@ jobs:
         with:
           dotnet-version: 8.0.423
       - name: Build scanner, Helper and OCR CLI
+        if: inputs.target != 'installer'
         shell: pwsh
         run: ./build.ps1 -ArtifactsRoot (Join-Path $env:RUNNER_TEMP 'soda-source-build')
+      - name: Build installer sources and verify version identities
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $artifacts = Join-Path $env:RUNNER_TEMP 'soda-installer/outputs'
+          New-Item -ItemType Directory -Path $artifacts -Force | Out-Null
+          $descriptor = Get-Content -LiteralPath 'Installer/src/Soda.Scanner.Core/vc-runtime-input.json' -Raw | ConvertFrom-Json
+          $archive = Join-Path $artifacts $descriptor.fileName
+          $url = 'https://github.com/Fizz-McBubble/soda-terminal-scanner/releases/download/scanner-installer-v1.0.0/' + $descriptor.fileName
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          if ((Get-Item -LiteralPath $archive).Length -ne $descriptor.size) { throw 'VC archive size mismatch' }
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $descriptor.sha256) { throw 'VC archive digest mismatch' }
+          dotnet build 'Installer/tests/Soda.Scanner.Installer.Tests.csproj' -c Release "-p:InstallerArtifactsRoot=$artifacts/" "-p:VCRuntimeArchivePath=$archive"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $tests = Join-Path $artifacts 'bin/Soda.Scanner.Installer.Tests/Release/net8.0-windows/Soda.Scanner.Installer.Tests.dll'
+          dotnet $tests (Join-Path $artifacts 'version-identity') --version-identity
+          exit $LASTEXITCODE

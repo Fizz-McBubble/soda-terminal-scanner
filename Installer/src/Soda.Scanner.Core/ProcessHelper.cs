@@ -20,11 +20,20 @@ public static class ProcessHelper
         if (testMode) return;
         var paths = new List<string>();
         AddSafe(root, ScannerConstants.HelperExecutableRelative);
+        AddSafe(root, "helper-bootstrap\\ZZZ-Scanner-Helper.exe");
+        foreach (var pkg in LegacyRuntimeCatalog.AllPackages)
+        {
+            var vRoot = Path.Combine(root, "versions", pkg.Version);
+            AddSafe(vRoot, "native\\ZZZ-Scanner.Next.Soda.exe");
+            AddSafe(vRoot, "ocr\\Soda.ScannerPpOcrV6.exe");
+            AddSafe(vRoot, "helper\\ZZZ-Scanner-Helper.exe");
+        }
         var pointer = PointerStore.ReadValidated(FileSystemSafety.SafePath(root, "active.json"), root);
         if (pointer != null)
         {
             AddSafe(pointer.Path, "native\\ZZZ-Scanner.Next.Soda.exe");
             AddSafe(pointer.Path, "ocr\\Soda.ScannerPpOcrV6.exe");
+            AddSafe(pointer.Path, "helper\\ZZZ-Scanner-Helper.exe");
         }
         foreach (var process in MatchingProcesses(paths))
         {
@@ -45,8 +54,21 @@ public static class ProcessHelper
         }
     }
 
-    public static bool IsKnownProgram(string path, string relative) => RuntimeCatalog.Files.Concat(LegacyRuntimeCatalog.Files).Concat(LegacyRuntimeCatalog.Published109Files).Concat(LegacyRuntimeCatalog.Published110Files).Concat(LegacyRuntimeCatalog.Published111Files).Concat(LegacyRuntimeCatalog.Published112Files).Concat(LegacyRuntimeCatalog.Published113Files).Concat(LegacyRuntimeCatalog.Published116Files).Concat(LegacyRuntimeCatalog.Published117Files)
-        .Any(entry => entry.Path == relative && RuntimeCatalog.Matches(path, entry));
+    public static bool IsKnownProgram(string path, string relative)
+    {
+        var catalogRelative = NormalizeCatalogRelative(relative);
+        return LegacyRuntimeCatalog.AllDistinctFiles
+            .Any(entry => entry.Path.Equals(catalogRelative, StringComparison.OrdinalIgnoreCase) && RuntimeCatalog.Matches(path, entry));
+    }
+
+    private static string NormalizeCatalogRelative(string relative)
+    {
+        if (relative.StartsWith("helper-bootstrap\\", StringComparison.OrdinalIgnoreCase))
+            return "helper\\" + relative["helper-bootstrap\\".Length..];
+        if (relative.StartsWith("helper-bootstrap/", StringComparison.OrdinalIgnoreCase))
+            return "helper\\" + relative["helper-bootstrap/".Length..];
+        return relative.Replace('/', '\\');
+    }
 
     private static IEnumerable<Process> MatchingProcesses(IEnumerable<string> paths)
     {

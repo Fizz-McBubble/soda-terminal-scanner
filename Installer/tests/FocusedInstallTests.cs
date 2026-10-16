@@ -22,7 +22,7 @@ internal static class FocusedInstallTests
         try
         {
             Pointer(ScannerConstants.LockedRuntimeVersion);
-            foreach (var version in new[] { "1.0.9", "1.0.10", "1.1.0", "1.1.1", "1.1.2", "1.1.3", "1.1.4", "1.1.5", "1.1.6", "1.1.7", "1.1.8" })
+            foreach (var version in new[] { "1.0.9", "1.0.10", "1.1.0", "1.1.1", "1.1.2", "1.1.3", "1.1.4", "1.1.5", "1.1.6", "1.1.7", "1.1.8", "1.1.9" })
             {
                 var registration = ProductIdentity(root, version);
                 Check(RegistrationIdentity.UninstallOwned(registration, root), version + "_owned_uninstaller_accepted");
