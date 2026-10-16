@@ -33,14 +33,16 @@ jobs:
         run: ./build.ps1 -ArtifactsRoot (Join-Path $env:RUNNER_TEMP 'soda-source-build')
       - name: Build installer sources and verify version identities
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
           $artifacts = Join-Path $env:RUNNER_TEMP 'soda-installer/outputs'
           New-Item -ItemType Directory -Path $artifacts -Force | Out-Null
           $descriptor = Get-Content -LiteralPath 'Installer/src/Soda.Scanner.Core/vc-runtime-input.json' -Raw | ConvertFrom-Json
           $archive = Join-Path $artifacts $descriptor.fileName
-          $url = 'https://github.com/Fizz-McBubble/soda-terminal-scanner/releases/download/scanner-installer-v1.0.0/' + $descriptor.fileName
-          Invoke-WebRequest -Uri $url -OutFile $archive
+          gh release download scanner-installer-v1.2.0 --repo "${{ github.repository }}" --pattern $descriptor.fileName --dir $artifacts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if ((Get-Item -LiteralPath $archive).Length -ne $descriptor.size) { throw 'VC archive size mismatch' }
           if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $descriptor.sha256) { throw 'VC archive digest mismatch' }
           dotnet build 'Installer/tests/Soda.Scanner.Installer.Tests.csproj' -c Release "-p:InstallerArtifactsRoot=$artifacts/" "-p:VCRuntimeArchivePath=$archive"
