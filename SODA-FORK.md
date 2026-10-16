@@ -5,24 +5,23 @@
 - Commit: `ff90891140016d3f1b738d73cb6cd9b291e17cec`
 - License: MIT; see `LICENSE`.
 
-## Soda 执行层承接（R10F）
+## Soda runtime integration
 
-| 原 Soda 模块 | 当前生产执行 | 承接 | 可核对的提交与决定依据 |
-| --- | --- | --- | --- |
-| `scanner-next-core/CaptureOnly` 的会话与捕获原型 | 本 fork 的 `Scanning/ScanController.cs`、`Scanning/CaptureSources.cs` | 生产捕获已替换；原型及测试保留 | `d1bcc98a` 首次建立直连 fork；R10F 运行与 R16 恢复见 `docs/audits/SCANNER-EXECUTION-R16/`。未找到完整执行层替换范围的原始用户批准记录。 |
-| `scanner-next-core/WindowsCapture` 的游戏窗口、导航、截图原型 | 本 fork 的 `Scanning/GameWindow.cs`、`Scanning/ScanController.cs`、`Interop/NativeMethods.cs` | 生产导航与捕获已替换；原型及测试保留 | 同上；代码与运行拓扑可核对，不能用提交或智能体文档代替用户授权。 |
-| Soda PP-OCRv6 独立组件 | `Ocr/PpOcrV6ProcessRecognizer.cs` 调用 `Soda.ScannerPpOcrV6` | 保留独立 OCR，修改调用适配；由 fork 编排 | `d1bcc98a` 建立调用链，后续 R10C/R10F 补适配与生产封装；原始完整替换批准依据仍缺。 |
-| Soda Helper、R4 契约、安全交接、审阅和导入 | `Launcher/DirectForkHttpHelperServer.cs` 与 Soda 网页审阅/导入 | 产品流程保留，Helper 修改为直启 fork | `d1bcc98a` 建立直连链；R16 恢复与后续实际扫描证据确认现行拓扑，未把上游视为这些产品流程的整体替代。 |
+| Component | Runtime implementation | Responsibility |
+| --- | --- | --- |
+| Capture session | `Scanning/ScanController.cs`, `Scanning/CaptureSources.cs` | The fork owns production capture and session orchestration. |
+| Game window and navigation | `Scanning/GameWindow.cs`, `Scanning/ScanController.cs`, `Interop/NativeMethods.cs` | The fork verifies the foreground game window before navigation and capture. |
+| PP-OCRv6 | `Ocr/PpOcrV6ProcessRecognizer.cs`, `Soda.ScannerPpOcrV6` | The fork orchestrates the independent OCR component; there is no automatic PP-OCRv5 fallback. |
+| Helper and browser handoff | `Launcher/DirectForkHttpHelperServer.cs` | The loopback Helper starts the fork directly; browser review and import retain the R4 integrity and account-write boundaries. |
 
-该表只记录模块关系和可回查事实，不把工程完成或用户后来完成扫描旅程推断为当初对全部替换范围的明确批准。
+See the patch ledger below for implementation differences from the pinned upstream version.
 
-## RC6 Helper 升级边界
+## Helper upgrade safety
 
-R8 临时接管中，旧 2.3.1 Helper 在进程退出后可执行文件消失；现有记录未定位删除者。此前安装器允许一个新数据根关闭另一个数据根的 Helper，且没有先保护旧可执行文件。Helper 2.3.3 拒绝跨根自动接管并提示从旧安装目录同根升级；同根接管在终止旧进程前保存并校验旧文件，替换或启动同步失败时从备份恢复。`*.previous-install` 保留供故障恢复。
-
-当前本地 RC7 r3 候选以已校验 RC6 为源，仅替换 Helper 与 `scanner-runtime.json`；包内 30 个路径与 RC6 一致。有效包位于 `scanner-rc7-local-r3-20260927`，ZIP 为 169,038,143 bytes、SHA-256 `039a8ba7a6d88611bd80b2c05c8917d5fdee35bca00163a47acc166341097fbf`，Helper 为 68,375,274 bytes、SHA-256 `d216d1c21add82e829e0c16a28dbc3132269a14efa929d5905296bb91518a0cd`。隔离 RC6 首次安装、注入失败回滚、成功升级及重复安装在 r3 重跑通过。`source-inputs.json` 记录构建时 HEAD `553c580ee7e41d48d27a6b43b198346c896a90f0`、未提交状态与修改过的源码/打包脚本逐文件哈希；最终冻结仍需关联源码提交。此前 `scanner-rc7-local-20260927` 首次包因过期 R10F capture 标识安装失败；r2 是源码拆分前的旧本地包，均不作为当前候选。
-
-经具名授权的 2026-09-27 Windows 实测使用 r2 字节：切换前原 2.3.1 Helper 文件和协议键正确，进程本来未运行；先备份原 EXE 与目标 HKCU 协议键。隔离 RC7 2.3.3 完成协议注册，`soda-terminal-scanner://` 由 Windows 启动正确 Helper。Edge 153 在授权本地网络后完成配对、带令牌健康读取、撤销与旧令牌 401 拒绝；未发起扫描或账户写入。`finally` 后独立回读：原 EXE SHA-256 `67B2C1D48B0BC2DD86F3D080AEC4E2AC495AAD72D505526E666241822D53F4EE`、原协议命令、无 Helper 进程、43127 无服务，与前态一致。可复验入口为 `Tests/rc7-windows-edge-isolated.ps1`；备份留在隔离候选目录。r3 尚未重复系统协议与 Edge 实测；浏览器可见的外部应用弹窗、运行后异步崩溃回滚或其他用户设备上的升级仍未确认。RC7 尚未公开发布，网页下载指针仍指向 RC6。
+- Validate that an upgrade targets the same installation root; do not automatically take over a Helper from another data root.
+- Save and verify the existing executable before stopping or replacing it.
+- Restore the verified backup when replacement or synchronous startup fails. Keep `*.previous-install` available for recovery.
+- Installer and runtime releases have separate versioned assets. Use the repository Release pages for current downloads and retain older pinned assets needed for recovery.
 
 ## Patch ledger
 
