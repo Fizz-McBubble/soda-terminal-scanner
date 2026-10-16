@@ -5,15 +5,23 @@ internal static class Legacy116RuntimeTests
     internal static void Run(string basePath, string archive, string stub, Action<string, Action> test)
     {
         var oldArchive = Environment.GetEnvironmentVariable("SODA_SCANNER_LEGACY_116_ARCHIVE");
-        if (oldArchive is null) return;
-        test("published 1.1.6 runtime upgrade rollback and exact uninstall preserve unknown bytes", () =>
+        if (oldArchive is not null)
+            RunPublished(basePath, archive, stub, test, oldArchive, "116", LegacyRuntimeCatalog.Published116Version, "1.1.4", LegacyRuntimeCatalog.Published116Files);
+        var published117 = Environment.GetEnvironmentVariable("SODA_SCANNER_LEGACY_117_ARCHIVE");
+        if (published117 is not null)
+            RunPublished(basePath, archive, stub, test, published117, "117", LegacyRuntimeCatalog.Published117Version, "1.1.7", LegacyRuntimeCatalog.Published117Files);
+    }
+    private static void RunPublished(string basePath, string archive, string stub, Action<string, Action> test,
+        string oldArchive, string release, string runtimeVersion, string productVersion, IReadOnlyList<RuntimeFile> files)
+    {
+        test("published " + productVersion + " runtime upgrade rollback and exact uninstall preserve unknown bytes", () =>
         {
-            var root = Path.Combine(basePath, "published-116-upgrade");
-            var old = Path.Combine(root, "versions", LegacyRuntimeCatalog.Published116Version);
+            var root = Path.Combine(basePath, "published-" + release + "-upgrade");
+            var old = Path.Combine(root, "versions", runtimeVersion);
             ZipSecurity.ExtractSafe(oldArchive, old);
-            foreach (var pin in LegacyRuntimeCatalog.Published116Files)
+            foreach (var pin in files)
                 Check(RuntimeCatalog.Matches(Path.Combine(old, pin.Path), pin));
-            foreach (var pin in LegacyRuntimeCatalog.Published116Files.Where(pin => pin.Path.StartsWith("helper\\", StringComparison.Ordinal)))
+            foreach (var pin in files.Where(pin => pin.Path.StartsWith("helper\\", StringComparison.Ordinal)))
             {
                 var target = Path.Combine(root, pin.Path);
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
@@ -21,8 +29,8 @@ internal static class Legacy116RuntimeTests
             }
             var helper = Path.Combine(root, ScannerConstants.HelperExecutableRelative);
             Check(ProcessHelper.IsKnownProgram(helper, ScannerConstants.HelperExecutableRelative));
-            PointerStore.WritePointerAtomic(Path.Combine(root, "active.json"), new PointerInfo { Version = LegacyRuntimeCatalog.Published116Version, Path = old });
-            Check(InstallerStartup.InstalledVersion(root, null) == "1.1.4");
+            PointerStore.WritePointerAtomic(Path.Combine(root, "active.json"), new PointerInfo { Version = runtimeVersion, Path = old });
+            Check(InstallerStartup.InstalledVersion(root, null) == productVersion);
             var result = Path.Combine(root, "outputs", "keep.json");
             Directory.CreateDirectory(Path.GetDirectoryName(result)!);
             File.WriteAllText(result, "SYNTHETIC_RESULT");
@@ -37,14 +45,14 @@ internal static class Legacy116RuntimeTests
             }
             Check(Install("none").Success);
             Check(InstallerStartup.InstalledVersion(root, null) == ScannerConstants.DisplayVersion);
-            Check(PointerStore.ReadValidated(Path.Combine(root, "previous.json"), root)?.Version == LegacyRuntimeCatalog.Published116Version);
+            Check(PointerStore.ReadValidated(Path.Combine(root, "previous.json"), root)?.Version == runtimeVersion);
             // A known catalog path with replacement bytes must remain untouched.
-            var replaced = LegacyRuntimeCatalog.Published116Files.First(pin => pin.Path == "native\\ZZZ-Scanner.Next.Soda.exe");
+            var replaced = files.First(pin => pin.Path == "native\\ZZZ-Scanner.Next.Soda.exe");
             File.WriteAllText(Path.Combine(old, replaced.Path), "USER_REPLACED_PROGRAM");
             UninstallEngine.ExecuteUninstall(root, true, expectedUninstallerHash: Sha256Util.ComputeFileSha256(stub));
             Check(File.ReadAllText(result) == "SYNTHETIC_RESULT" && File.ReadAllText(unknown) == "USER_FILE");
             Check(File.ReadAllText(Path.Combine(old, replaced.Path)) == "USER_REPLACED_PROGRAM");
-            Check(LegacyRuntimeCatalog.Published116Files.Where(pin => pin.Path != replaced.Path).All(pin => !File.Exists(Path.Combine(old, pin.Path))));
+            Check(files.Where(pin => pin.Path != replaced.Path).All(pin => !File.Exists(Path.Combine(old, pin.Path))));
             Check(RuntimeCatalog.Files.All(pin => !File.Exists(Path.Combine(root, "versions", ScannerConstants.LockedRuntimeVersion, pin.Path))));
             Check(!File.Exists(helper));
             InstallResult Install(string fault) => InstallEngine.ExecuteInstall(root, ScannerConstants.DefaultPublicOrigin,
@@ -53,5 +61,5 @@ internal static class Legacy116RuntimeTests
     }
     private static Dictionary<string, string> Snapshot(string root) => Directory.GetFiles(root, "*", SearchOption.AllDirectories)
         .ToDictionary(path => Path.GetRelativePath(root, path), Sha256Util.ComputeFileSha256);
-    private static void Check(bool value) { if (!value) throw new Exception("legacy_116_compatibility_failed"); }
+    private static void Check(bool value) { if (!value) throw new Exception("published_runtime_compatibility_failed"); }
 }

@@ -24,12 +24,14 @@ public static class UninstallEngine
         foreach (var entry in LegacyRuntimeCatalog.Files) RemoveMatching(legacyRoot, entry);
         var published116Root = Path.Combine(root, "versions", LegacyRuntimeCatalog.Published116Version);
         foreach (var entry in LegacyRuntimeCatalog.Published116Files) RemoveMatching(published116Root, entry);
+        var published117Root = Path.Combine(root, "versions", LegacyRuntimeCatalog.Published117Version);
+        foreach (var entry in LegacyRuntimeCatalog.Published117Files) RemoveMatching(published117Root, entry);
         foreach (var directory in new[] { "helper", "helper-bootstrap" })
         foreach (var entry in RuntimeCatalog.Files.Where(entry => entry.Path.StartsWith("helper\\", StringComparison.Ordinal)))
             RemoveMatching(root, entry with { Path = directory + "\\" + entry.Path["helper\\".Length..] });
         foreach (var entry in LegacyRuntimeCatalog.Files.Where(entry => entry.Path.StartsWith("helper\\", StringComparison.Ordinal)))
             RemoveMatching(root, entry);
-        foreach (var entry in LegacyRuntimeCatalog.Published116Files.Where(entry => entry.Path.StartsWith("helper\\", StringComparison.Ordinal)))
+        foreach (var entry in LegacyRuntimeCatalog.Published116Files.Concat(LegacyRuntimeCatalog.Published117Files).Where(entry => entry.Path.StartsWith("helper\\", StringComparison.Ordinal)))
         foreach (var directory in new[] { "helper", "helper-bootstrap" })
             RemoveMatching(root, entry with { Path = directory + "\\" + entry.Path["helper\\".Length..] });
         // Repair/upgrade recovery copies may include known executable bytes.
@@ -43,12 +45,13 @@ public static class UninstallEngine
             var safe = SafeCandidate(root, Path.GetRelativePath(root, directory));
             if (safe == null) continue;
             recoveryRoots.Add(safe);
-            foreach (var entry in RuntimeCatalog.Files.Concat(LegacyRuntimeCatalog.Files).Concat(LegacyRuntimeCatalog.Published116Files))
+            foreach (var entry in RuntimeCatalog.Files.Concat(LegacyRuntimeCatalog.Files).Concat(LegacyRuntimeCatalog.Published116Files).Concat(LegacyRuntimeCatalog.Published117Files))
             {
                 RemoveMatching(safe, entry);
                 RemoveMatching(safe, entry with { Path = "versions\\" + ScannerConstants.LockedRuntimeVersion + "\\" + entry.Path });
                 RemoveMatching(safe, entry with { Path = "versions\\" + LegacyRuntimeCatalog.Version + "\\" + entry.Path });
                 RemoveMatching(safe, entry with { Path = "versions\\" + LegacyRuntimeCatalog.Published116Version + "\\" + entry.Path });
+                RemoveMatching(safe, entry with { Path = "versions\\" + LegacyRuntimeCatalog.Published117Version + "\\" + entry.Path });
             }
         }
         RemoveMatching(root, new RuntimeFile("downloads\\" + ScannerConstants.LockedAssetName,
@@ -89,9 +92,15 @@ public static class UninstallEngine
                 for (var parent = Path.GetDirectoryName(entry.Path); !string.IsNullOrEmpty(parent); parent = Path.GetDirectoryName(parent)) parents.Add(Path.Combine(published116Root, parent));
                 return parents;
             })).Append(published116Root)
+            .Concat(LegacyRuntimeCatalog.Published117Files.SelectMany(entry =>
+            {
+                var parents = new List<string>();
+                for (var parent = Path.GetDirectoryName(entry.Path); !string.IsNullOrEmpty(parent); parent = Path.GetDirectoryName(parent)) parents.Add(Path.Combine(published117Root, parent));
+                return parents;
+            })).Append(published117Root)
             .Concat(new[] { "helper", "helper-bootstrap", "downloads" }.Select(name => Path.Combine(root, name)));
-        knownDirectories = knownDirectories.Concat(recoveryRoots.SelectMany(owner => RuntimeCatalog.Files.Concat(LegacyRuntimeCatalog.Files)
-            .SelectMany(entry => new[] { entry.Path, "versions\\" + ScannerConstants.LockedRuntimeVersion + "\\" + entry.Path, "versions\\" + LegacyRuntimeCatalog.Version + "\\" + entry.Path })
+        knownDirectories = knownDirectories.Concat(recoveryRoots.SelectMany(owner => RuntimeCatalog.Files.Concat(LegacyRuntimeCatalog.Files).Concat(LegacyRuntimeCatalog.Published117Files)
+            .SelectMany(entry => new[] { entry.Path, "versions\\" + ScannerConstants.LockedRuntimeVersion + "\\" + entry.Path, "versions\\" + LegacyRuntimeCatalog.Version + "\\" + entry.Path, "versions\\" + LegacyRuntimeCatalog.Published117Version + "\\" + entry.Path })
             .SelectMany(relative =>
             {
                 var parents = new List<string>();

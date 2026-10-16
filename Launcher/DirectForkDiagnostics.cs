@@ -121,8 +121,8 @@ internal static partial class DirectForkDiagnostics
     private static string? ExactFailureCode(JsonElement result, string field)
     {
         if (!result.TryGetProperty(field, out var value) || value.ValueKind != JsonValueKind.String) return null;
-        var code = value.GetString();
-        return code is not "none" and not "unknown" && Contract["codes"]!.AsArray().Any(item => item!.GetValue<string>() == code) ? code : null;
+        var code = Code(value.GetString());
+        return code is not "none" and not "unknown" ? code : null;
     }
 
     private static int? Number(string text, string key, int maximum)

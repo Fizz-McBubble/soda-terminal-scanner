@@ -11,7 +11,8 @@ public sealed partial class ScanController
         Rectangle headerRect,
         IOcrRecognizer recognizer,
         WarehousePreflightPolicy policy,
-        ScanLog scanLog)
+        ScanLog scanLog,
+        Action<WarehouseHeaderProbeResult>? observeHeader = null)
     {
         headerRect = ClampRectangle(headerRect, source.Size);
         if (headerRect.IsEmpty)
@@ -26,6 +27,7 @@ public sealed partial class ScanController
             var raw = rawOcr.Count > 0
                 ? WarehousePreflightEvaluator.EvaluateHeader(rawOcr[0].Text, rawOcr[0].Score, policy)
                 : WarehousePreflightEvaluator.EvaluateHeader(string.Empty, 0, policy);
+            if (rawOcr.Count > 0) observeHeader?.Invoke(raw);
             if (raw.HeaderDetected && raw.InventoryCountDetected)
             {
                 scanLog.Write($"Warehouse header OCR raw accepted. text='{SanitizeLogValue(raw.NormalizedText)}', confidence={raw.Confidence:F3}, headerScore={raw.HeaderScore}, inventoryCountDetected=True.");
@@ -38,6 +40,8 @@ public sealed partial class ScanController
                 ? WarehousePreflightEvaluator.EvaluateHeader(normalizedOcr[0].Text, normalizedOcr[0].Score, policy, usedNormalizedImage: true)
                 : WarehousePreflightEvaluator.EvaluateHeader(string.Empty, 0, policy, usedNormalizedImage: true);
             var selected = WarehousePreflightEvaluator.ChooseHeaderResult(raw, normalized);
+            if (selected.UsedNormalizedImage ? normalizedOcr.Count > 0 : rawOcr.Count > 0)
+                observeHeader?.Invoke(selected);
             scanLog.Write($"Warehouse header OCR evaluated. rawText='{SanitizeLogValue(raw.NormalizedText)}', rawConfidence={raw.Confidence:F3}, normalizedText='{SanitizeLogValue(normalized.NormalizedText)}', normalizedConfidence={normalized.Confidence:F3}, selected={(selected.UsedNormalizedImage ? "normalized" : "raw")}, headerDetected={selected.HeaderDetected}, headerScore={selected.HeaderScore}, inventoryCountDetected={selected.InventoryCountDetected}.");
             return selected;
         }

@@ -25,6 +25,8 @@
     <None Remove="Tests\**\*" />
     <None Include="Data\**\*.*" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Resources\models\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Soda production uses the separately pinned PP-OCRv6 runtime, never this optional upstream v5 model. -->
+    <None Update="Resources\models\PP-OCRv5_mobile_rec_infer.onnx" CopyToPublishDirectory="Never" />
   </ItemGroup>
 
   <ItemGroup>

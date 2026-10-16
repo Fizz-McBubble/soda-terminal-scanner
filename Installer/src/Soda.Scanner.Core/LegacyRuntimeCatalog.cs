@@ -14,6 +14,8 @@ public static class LegacyRuntimeCatalog
     // 1.1.4 through 1.1.6 share the exact published RC8.14 runtime.
     public const string Published116Version = "soda-scanner-zzz-next-ppocrv6-18-rc8-14-local-20261011";
     public static IReadOnlyList<RuntimeFile> Published116Files { get; } = Load("runtime-files-1.1.6.json");
+    public const string Published117Version = "soda-scanner-zzz-next-ppocrv6-18-rc8-15-local-20261015";
+    public static IReadOnlyList<RuntimeFile> Published117Files { get; } = Load("runtime-files-1.1.7.json");
     private static RuntimeFile[] Load(string fileName = "runtime-files-1.0.8.json")
     {
         var assembly = typeof(LegacyRuntimeCatalog).Assembly;

@@ -30,7 +30,7 @@ public sealed class VisualPreflightException : InvalidOperationException, IScann
     public string Remedy => Code switch
     {
         "capture_failed" => "请保持游戏可见且未最小化，并关闭遮挡窗口后重试。",
-        "inventory_screen_unreadable" => "已检测到部分仓库证据，但标题和布局无法同时确认；请关闭遮挡并保持仓库界面完整可见。",
+        "inventory_screen_unreadable" => "已检测到部分仓库特征，但未达到联合确认条件；请检查驱动仓库标题和完整列表是否可见后重试。",
         "unsupported_display_layout" => "云·绝区零请使用全屏、大尺寸窗口或窗口模式，关闭云端面板并完整显示驱动仓库；本机版请使用受支持的 16:9 分辨率。",
         _ => "请确认游戏为简体中文并打开背包中的驱动盘页面后重试。"
     };
@@ -50,7 +50,9 @@ public sealed class VisualPreflightException : InvalidOperationException, IScann
         int stableFrames,
         int requiredStableFrames,
         GameWindow window,
-        string visualProfileId)
+        string visualProfileId,
+        CaptureHealthResult? captureHealth = null,
+        WarehouseHeaderProbeResult? headerObservation = null)
     {
         anchor ??= new ChromaticProbeResult(false, 0, 0, 0, 0, 0, 180, 100, 100, System.Drawing.Color.Empty, VisualTransformClass.Unknown, 0, 0);
         return new VisualPreflightException(
@@ -76,7 +78,9 @@ public sealed class VisualPreflightException : InvalidOperationException, IScann
                 window.ClientScreenRect.Height,
                 window.Dpi,
                 window.ActiveCaptureMode,
-                visualProfileId));
+                visualProfileId,
+                captureHealth,
+                headerObservation));
     }
 }
 

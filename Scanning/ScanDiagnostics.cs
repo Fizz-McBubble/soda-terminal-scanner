@@ -87,9 +87,11 @@ internal static class ScanDiagnosticDetails
         int clientHeight,
         int dpi,
         string captureMode,
-        string visualProfileId)
+        string visualProfileId,
+        CaptureHealthResult? captureHealth = null,
+        WarehouseHeaderProbeResult? headerObservation = null)
     {
-        return new Dictionary<string, object?>
+        var details = new Dictionary<string, object?>
         {
             ["preflightState"] = preflightState,
             ["visualTransformClass"] = visualTransformClass,
@@ -112,6 +114,21 @@ internal static class ScanDiagnosticDetails
             ["captureMode"] = captureMode,
             ["visualProfileId"] = visualProfileId
         };
+        // These are observations, not failure defaults. In particular, an early
+        // geometry rejection has no capture, and an unhealthy capture has no OCR.
+        if (captureHealth is { } health)
+        {
+            details["captureHealthy"] = health.Passed;
+            details["captureScore"] = health.Score;
+        }
+        if (headerObservation is { } header)
+        {
+            details["titleEditDistance"] = header.TitleEditDistance;
+            if (float.IsFinite(header.Confidence))
+                details["headerConfidencePermille"] = (int)Math.Round(Math.Clamp(header.Confidence, 0f, 1f) * 1000);
+            details["usedNormalizedImage"] = header.UsedNormalizedImage;
+        }
+        return details;
     }
 
     public static IReadOnlyDictionary<string, object?> PanelCapture(

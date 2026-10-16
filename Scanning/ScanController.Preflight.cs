@@ -67,6 +67,8 @@ public sealed partial class ScanController
         var poll = TimeSpan.FromMilliseconds(Math.Clamp(warehousePolicy.PollMilliseconds, 100, 1000));
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(Math.Max(1, profile.WaitForBackpackSeconds));
         var gate = new VisualPreflightGate(requiredStableFrames);
+        CaptureHealthResult? observedHealth = null;
+        WarehouseHeaderProbeResult? observedHeader = null;
         var lastHealth = new CaptureHealthResult(false, 0, 0, 0, 100, 0, 0);
         var lastHeader = new WarehouseHeaderProbeResult(false, 0, 4, 0, null, null, false, string.Empty);
         var lastStructure = new WarehouseStructureProbeResult(0, 0, 0, 0, 0, 0, 0);
@@ -76,11 +78,14 @@ public sealed partial class ScanController
             token.ThrowIfCancellationRequested();
             using var frame = window.Capture(probeBounds);
             lastHealth = WarehousePreflightEvaluator.EvaluateCaptureHealth(frame);
+            observedHealth = lastHealth;
             var localHeaderRect = ToLocalRectangle(headerRect, probeBounds, frame.Size);
             var localListGridRect = ToLocalRectangle(listGridRect, probeBounds, frame.Size);
             var localDetailPanelRect = ToLocalRectangle(detailPanelRect, probeBounds, frame.Size);
+            observedHeader = null;
             lastHeader = lastHealth.Passed
-                ? ReadWarehouseHeader(frame, localHeaderRect, inventoryRecognizer, warehousePolicy, scanLog)
+                ? ReadWarehouseHeader(frame, localHeaderRect, inventoryRecognizer, warehousePolicy, scanLog,
+                    header => observedHeader = header)
                 : new WarehouseHeaderProbeResult(false, 0, 4, 0, null, null, false, string.Empty);
             lastStructure = lastHealth.Passed
                 ? WarehousePreflightEvaluator.EvaluateStructure(
@@ -140,7 +145,9 @@ public sealed partial class ScanController
                             window.ClientScreenRect.Height,
                             window.Dpi,
                             window.ActiveCaptureMode,
-                            visualProfileId));
+                            visualProfileId,
+                            observedHealth,
+                            observedHeader));
                 }
 
                 var monitorPlan = CreateWarehouseMonitorPlan(window, profile);
@@ -191,7 +198,9 @@ public sealed partial class ScanController
             gate.StableFrames,
             requiredStableFrames,
             window,
-            visualProfileId);
+            visualProfileId,
+            observedHealth,
+            observedHeader);
     }
 
     private static async Task ResetListToTopAsync(

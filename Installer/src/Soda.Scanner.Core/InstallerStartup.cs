@@ -11,6 +11,7 @@ public static class InstallerStartup
             return productIdentity!.Values["DisplayVersion"].Value as string;
         var pointer = PointerStore.ReadValidated(Path.Combine(root, "active.json"), root);
         if (pointer?.Version == ScannerConstants.LockedRuntimeVersion) return ScannerConstants.DisplayVersion;
+        if (pointer?.Version == LegacyRuntimeCatalog.Published117Version) return "1.1.7";
         // Runtime identity is shared by multiple product releases. Without a
         // trusted product registration it can prove only the first shipped version.
         if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-14-local-20261011") return "1.1.4";
