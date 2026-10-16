@@ -67,7 +67,7 @@ static class Program
         {
             var confirmResult = MessageBox(
                 IntPtr.Zero,
-                "卸载画面扫描？\n扫描结果会保留。",
+                "卸载画面扫描？\n请先完成或取消正在进行的扫描。\n扫描结果和账户数据会保留。",
                 "卸载画面扫描",
                 MB_YESNO | MB_ICONQUESTION);
 
@@ -117,7 +117,7 @@ static class Program
             {
                 if (!silent)
                 {
-                    MessageBox(IntPtr.Zero, "卸载未完成，请关闭画面扫描后重试。", "画面扫描", MB_OK | MB_ICONERROR);
+                    MessageBox(IntPtr.Zero, "卸载未完成，请先完成或取消扫描，关闭画面扫描后重试。仍失败请打开安装器重试卸载并反馈问题。", "卸载画面扫描", MB_OK | MB_ICONERROR);
                 }
                 Console.Error.WriteLine($"Failed to start relocated uninstaller: {ex.Message}");
                 return 2;
@@ -160,7 +160,7 @@ static class Program
         {
             if (!silent)
             {
-                MessageBox(IntPtr.Zero, "卸载未完成，请关闭画面扫描后重试。", "画面扫描", MB_OK | MB_ICONERROR);
+                MessageBox(IntPtr.Zero, "卸载未完成，请先完成或取消扫描，关闭画面扫描后重试。仍失败请打开安装器重试卸载并反馈问题。", "卸载画面扫描", MB_OK | MB_ICONERROR);
             }
             Console.Error.WriteLine($"Uninstall error: {ex.Message}");
             return 2;

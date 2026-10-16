@@ -433,8 +433,8 @@ public class InstallerForm : Form
     {
         if (_busy || _completed) return;
         var confirm = _testConfirmUninstall != null ? (_testConfirmUninstall() ? DialogResult.Yes : DialogResult.No) : MessageBox.Show(
-            "卸载画面扫描？\n扫描结果会保留。",
-            "确认卸载",
+            "卸载画面扫描？\n请先完成或取消正在进行的扫描。\n扫描结果和账户数据会保留。",
+            "卸载画面扫描",
             MessageBoxButtons.YesNo,
             MessageBoxIcon.Question);
 
@@ -463,7 +463,7 @@ public class InstallerForm : Form
             });
 
             _statusLabel.Text = result.Message;
-            UpdateDetails("卸载完成。扫描结果和个人文件已保留。");
+            UpdateDetails("卸载完成。扫描结果和账户数据已保留。");
             _busy = false;
             _progressBar.Value = 100;
             _completed = true;
@@ -474,11 +474,15 @@ public class InstallerForm : Form
             _cancelButton.Enabled = true;
             _cancelButton.Text = "关闭";
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             _busy = false;
-            UpdateDetails("卸载未完成，可以重试。扫描结果和个人文件继续保留。");
-            _statusLabel.Text = "卸载未完成，请关闭画面扫描后重试。";
+            _feedbackReport = InstallerFeedback.Create("failed", InstallerFeedback.Classify(ex), 0);
+            var saved = InstallerDiagnostics.Save(_installRoot, _feedbackReport);
+            _feedbackButton.Visible = true;
+            UpdateDetails("请先完成或取消扫描，关闭画面扫描后重试卸载；仍失败可反馈问题。\r\n扫描结果和账户数据继续保留。\r\n" +
+                (saved ? "有限诊断已保存在本机，尚未发送。" : "有限诊断仍保留在窗口中，尚未发送。"));
+            _statusLabel.Text = "卸载未完成，可以重试或反馈问题。";
             _progressBar.Visible = false;
             _actionButton.Enabled = true;
             _actionButton.Visible = true;
@@ -487,6 +491,7 @@ public class InstallerForm : Form
             _cancelButton.Enabled = true;
             _cancelButton.Visible = true;
             _cancelButton.Text = "关闭";
+            LayoutFooter();
         }
     }
 }

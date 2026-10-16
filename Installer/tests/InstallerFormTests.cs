@@ -77,6 +77,26 @@ internal static class InstallerFormTests
                 Check(calls == 0 && Button(form, "修复安装").Enabled && Button(form, "卸载").Visible);
                 Check(File.ReadAllText(sentinel) == "DAMAGED_POINTER");
             });
+            test("uninstall failure uses existing feedback then completion closes without reinstall", () =>
+            {
+                var candidate = Path.Combine(root, "uninstall-feedback"); Directory.CreateDirectory(candidate);
+                File.WriteAllText(Path.Combine(candidate, "active.json"), "PRESERVE");
+                var removals = 0; var installs = 0; var feedbackOpens = 0;
+                using var form = new InstallerForm(candidate, ScannerConstants.DefaultPublicOrigin, true, true, null, false,
+                    testInstall: _ => { installs++; return Task.FromResult(new InstallResult()); },
+                    testUninstall: () => ++removals == 1 ? Task.FromException<UninstallResult>(new IOException("scanner_still_running"))
+                        : Task.FromResult(new UninstallResult { Success = true, Message = "扫描结果和账户数据已保留。" }),
+                    testConfirmUninstall: () => true, testOpenFeedback: _ => { feedbackOpens++; return true; });
+                ShowHidden(form); Button(form, "卸载").PerformClick();
+                PumpUntil(() => ButtonOrNull(form, "反馈安装问题")?.Visible == true);
+                Check(feedbackOpens == 0 && installs == 0 && Button(form, "卸载").Enabled);
+                var report = File.ReadAllText(Path.Combine(candidate, "installer-diagnostics", "latest.json"));
+                Check(report.Contains("scanner_still_running") && !report.Contains(candidate));
+                Button(form, "反馈安装问题").PerformClick(); Check(feedbackOpens == 1);
+                Button(form, "卸载").PerformClick(); PumpUntil(() => ButtonOrNull(form, "完成")?.Enabled == true);
+                Check(ButtonOrNull(form, "反馈安装问题")?.Visible != true);
+                Button(form, "完成").PerformClick(); Check(form.IsDisposed && installs == 0 && removals == 2);
+            });
             test("installation traces appearing before shown prevent auto start", () =>
             {
                 var late = Path.Combine(root, "late-trace"); var calls = 0;
