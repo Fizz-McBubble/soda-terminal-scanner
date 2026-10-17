@@ -236,7 +236,7 @@ public sealed partial class ScanController
         var resetClientHeight = window.ClientScreenRect.Height;
         var maximumThumbHeight = ScrollbarTopResetPlanner.MaximumScrollableThumbHeight(
             scrollTop.Y, scrollBottom.Y, inventoryCount, profile.VisibleColumns, profile.VisibleRows);
-        const int resetWheelDelta = 120 * 16;
+        var traceWheelDelta = ScrollTopResetCoordinator.InitialKickDelta;
 
         bool IsValidResetThumb(ScrollbarThumbProbe thumb) => thumb.Found
             && ScrollbarTopResetPlanner.IsScrollableThumb(
@@ -259,9 +259,13 @@ public sealed partial class ScanController
                         $"phase={trace.Phase}, batch={trace.Batch}, sample={trace.Sample}/{ScrollTopResetCoordinator.ProbeSampleCount}, tick={trace.WheelTicks}/{maximumWheelTicks}, actual={ColorText(trace.ActualColor)}, expected={ColorText(trace.ExpectedColor)}, delta=({Math.Abs(trace.ActualColor.R - trace.ExpectedColor.R)},{Math.Abs(trace.ActualColor.G - trace.ExpectedColor.G)},{Math.Abs(trace.ActualColor.B - trace.ExpectedColor.B)}), tolerance={trace.Tolerance}, matched={trace.Matched}, matchReason={trace.MatchReason}, stableMatches={trace.StableMatches}/{ScrollTopResetCoordinator.RequiredStableMatches}, thumbFound={lastResetThumb.Found}, thumbX={lastResetThumb.CenterX}, thumb={lastResetThumb.StartY}-{lastResetThumb.EndY}, thumbReferenceHeight={resetThumbHeight}, thumbHeightTolerance={ScrollbarTopResetPlanner.HeightTolerancePixels(resetClientHeight)}, elapsedMs={trace.ElapsedMilliseconds}");
                     break;
                 case ScrollTopResetTraceKind.Wheel:
-                    scanLog.WriteEvent(
-                        "RESET_WHEEL",
-                        $"batch={trace.Batch}, event={trace.WheelTicks}/{maximumWheelTicks}, delta={resetWheelDelta}, cursor={wheelPoint}, elapsedMs={trace.ElapsedMilliseconds}");
+                    if (trace.WheelTicks == 1
+                        || trace.WheelTicks % ScrollTopResetCoordinator.WheelBatchSize == 0)
+                    {
+                        scanLog.WriteEvent(
+                            "RESET_WHEEL",
+                            $"batch={trace.Batch}, event={trace.WheelTicks}/{maximumWheelTicks}, delta={traceWheelDelta}, cursor={wheelPoint}, elapsedMs={trace.ElapsedMilliseconds}");
+                    }
                     break;
                 case ScrollTopResetTraceKind.Settle:
                     scanLog.WriteEvent(
@@ -269,8 +273,18 @@ public sealed partial class ScanController
                         $"phase={trace.Phase}, batch={trace.Batch}, tick={trace.WheelTicks}/{maximumWheelTicks}, delayMs={trace.DelayMilliseconds}, elapsedMs={trace.ElapsedMilliseconds}");
                     break;
                 case ScrollTopResetTraceKind.Click:
-                    scanLog.WriteEvent("RESET_TOP_FAST_WHEEL",
-                        $"phase={trace.Phase}, delta={resetWheelDelta}, cursor={wheelPoint}, attempt={trace.TopClicks}, wheelEvents={trace.WheelTicks}/{maximumWheelTicks}, elapsedMs={trace.ElapsedMilliseconds}");
+                    if (fallbackResetAction.StartsWith("track_click", StringComparison.Ordinal))
+                    {
+                        scanLog.WriteEvent(
+                            "RESET_TOP_TRACK_CLICK",
+                            $"phase={trace.Phase}, action={fallbackResetAction}, cursor={scrollTop}, attempt={trace.TopClicks}, wheelEvents={trace.WheelTicks}/{maximumWheelTicks}, elapsedMs={trace.ElapsedMilliseconds}");
+                    }
+                    else
+                    {
+                        scanLog.WriteEvent(
+                            "RESET_TOP_FAST_WHEEL",
+                            $"phase={trace.Phase}, delta={traceWheelDelta}, cursor={wheelPoint}, attempt={trace.TopClicks}, wheelEvents={trace.WheelTicks}/{maximumWheelTicks}, elapsedMs={trace.ElapsedMilliseconds}");
+                    }
                     break;
                 case ScrollTopResetTraceKind.Confirmed:
                     scanLog.WriteEvent(
@@ -293,17 +307,23 @@ public sealed partial class ScanController
             profile.ColorTolerance,
             () =>
             {
-                lastResetThumb = CaptureScrollbarThumbProbe(window, profile);
+                lastResetThumb = CaptureScrollbarThumbProbe(
+                    window, profile, maximumCandidateHeight: maximumThumbHeight);
                 ObserveResetThumb(lastResetThumb);
                 return window.GetPixel(scrollTop);
             },
-            () => window.MouseWheel(resetWheelDelta),
+            () =>
+            {
+                traceWheelDelta = ScrollTopResetCoordinator.RecoveryNotchDelta;
+                window.MouseWheel(ScrollTopResetCoordinator.RecoveryNotchDelta);
+            },
             () =>
             {
                 token.ThrowIfCancellationRequested();
                 window.MoveCursor(wheelPoint);
+                traceWheelDelta = ScrollTopResetCoordinator.InitialKickDelta;
                 fallbackResetAction = "fast_wheel";
-                window.MouseWheel(resetWheelDelta);
+                window.MouseWheel(ScrollTopResetCoordinator.InitialKickDelta);
             },
             Trace,
             token,
@@ -316,7 +336,19 @@ public sealed partial class ScanController
                     scrollBottom.Y,
                     lastResetThumb.StartY,
                     lastResetThumb.EndY),
-            resetBeforeProbe: true);
+            resetBeforeProbe: true,
+            fallbackReset: () =>
+            {
+                token.ThrowIfCancellationRequested();
+                traceWheelDelta = 0;
+                var fallbackThumb = CaptureScrollbarThumbProbe(
+                    window, profile, includeThumbEnds: true, maximumCandidateHeight: maximumThumbHeight);
+                fallbackResetAction = fallbackThumb.Found
+                    ? $"track_click, thumb={fallbackThumb.StartY}-{fallbackThumb.EndY}"
+                    : "track_click, thumb_missing";
+                window.LeftClick(scrollTop, durationMs: 30);
+                window.MoveCursor(wheelPoint);
+            });
         if (!result.Confirmed)
         {
             throw NavigationFailure(

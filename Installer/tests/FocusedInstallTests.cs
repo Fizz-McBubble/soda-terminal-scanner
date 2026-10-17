@@ -22,7 +22,7 @@ internal static class FocusedInstallTests
         try
         {
             Pointer(ScannerConstants.LockedRuntimeVersion);
-            foreach (var version in new[] { "1.0.9", "1.0.10", "1.1.0", "1.1.1", "1.1.2", "1.1.3", "1.1.4", "1.1.5", "1.1.6", "1.1.7", "1.1.8", "1.1.9" })
+            foreach (var version in new[] { "1.0.9", "1.0.10", "1.1.0", "1.1.1", "1.1.2", "1.1.3", "1.1.4", "1.1.5", "1.1.6", "1.1.7", "1.1.8", "1.1.9", "1.2.0" })
             {
                 var registration = ProductIdentity(root, version);
                 Check(RegistrationIdentity.UninstallOwned(registration, root), version + "_owned_uninstaller_accepted");
@@ -37,6 +37,9 @@ internal static class FocusedInstallTests
             Pointer(LegacyRuntimeCatalog.Published117Version);
             Check(InstallerStartup.InstalledVersion(root, null) == "1.1.7", "legacy_117_pointer_remains_upgrade");
             Check(LegacyRuntimeCatalog.Published117Files.Any(file => file.Path == ScannerConstants.HelperExecutableRelative), "legacy_117_helper_catalog_embedded");
+            Pointer(LegacyRuntimeCatalog.Published120Version);
+            Check(InstallerStartup.InstalledVersion(root, null) == "1.2.0", "legacy_120_pointer_remains_upgrade");
+            Check(LegacyRuntimeCatalog.Published120Files.Any(file => file.Path == ScannerConstants.HelperExecutableRelative), "legacy_120_helper_catalog_embedded");
             Pointer(LegacyRuntimeCatalog.Published116Version);
             Check(InstallerStartup.InstalledVersion(root, null) == "1.1.4", "legacy_116_shared_runtime_is_114_without_registration");
             Pointer("soda-scanner-zzz-next-ppocrv6-18-rc8-13-local-20261011");

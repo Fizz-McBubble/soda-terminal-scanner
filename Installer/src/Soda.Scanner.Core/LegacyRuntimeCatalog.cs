@@ -31,6 +31,8 @@ public static class LegacyRuntimeCatalog
     public static IReadOnlyList<RuntimeFile> Published116Files { get; } = Load("runtime-files-1.1.6.json");
     public const string Published117Version = "soda-scanner-zzz-next-ppocrv6-18-rc8-15-local-20261015";
     public static IReadOnlyList<RuntimeFile> Published117Files { get; } = Load("runtime-files-1.1.7.json");
+    public const string Published120Version = "soda-scanner-zzz-next-ppocrv6-18-rc8-16-local-20261016";
+    public static IReadOnlyList<RuntimeFile> Published120Files { get; } = Load("runtime-files-1.2.0.json");
 
     public static IReadOnlyList<HistoricalRuntimePackage> Packages { get; } = new List<HistoricalRuntimePackage>
     {
@@ -47,6 +49,7 @@ public static class LegacyRuntimeCatalog
         new("soda-scanner-zzz-next-ppocrv6-18-rc8-13-local-20261011", "soda-scanner-runtime-18-rc8-13-local-20261011-win-x64.zip", 131758361L, "fc3eeb8ca7c8f8ef033038f1673c98ad8e1973c348b800b6f1ef3fae551d8842", Published113Files),
         new(Published116Version, "soda-scanner-runtime-18-rc8-14-local-20261011-win-x64.zip", 131761101L, "91c72d605303af04cad3ae07d13d6b31c6a85e46dd2b7989464e50325d7ee31c", Published116Files),
         new(Published117Version, "soda-scanner-runtime-18-rc8-15-local-20261015-win-x64.zip", 131762244L, "5cb44df256e3d36470f5ecc58b2ce634cc2e4cb1dec1af6c49f9eb814220e3a4", Published117Files),
+        new(Published120Version, "soda-scanner-runtime-18-rc8-16-local-20261016-win-x64.zip", 131763326L, "7bc5d50172d66760ff1d94b1ebd8982101122b756fb2932040d583a0139798e1", Published120Files),
     };
 
     public static IReadOnlyList<HistoricalRuntimePackage> AllPackages { get; } = Packages

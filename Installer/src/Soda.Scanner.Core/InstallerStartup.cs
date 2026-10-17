@@ -14,6 +14,7 @@ public static class InstallerStartup
         if (pointer?.Version == LegacyRuntimeCatalog.Published117Version) return "1.1.7";
         // Runtime identity is shared by multiple product releases. Without a
         // trusted product registration it can prove only the first shipped version.
+        if (pointer?.Version == LegacyRuntimeCatalog.Published120Version) return "1.2.0";
         if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-14-local-20261011") return "1.1.4";
         if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-13-local-20261011") return "1.1.3";
         if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-12-local-20261011") return "1.1.2";

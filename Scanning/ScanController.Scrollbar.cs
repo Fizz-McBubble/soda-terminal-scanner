@@ -24,11 +24,21 @@ public sealed partial class ScanController
         int CenterX,
         int CenterY);
 
-    private static ScrollbarThumbProbe CaptureScrollbarThumbProbe(GameWindow window, ScanProfile profile, bool includeThumbEnds = false)
+    private static ScrollbarThumbProbe CaptureScrollbarThumbProbe(
+        GameWindow window,
+        ScanProfile profile,
+        bool includeThumbEnds = false,
+        int? maximumCandidateHeight = null)
     {
         var bounds = ScrollbarProbeBounds(window, profile, includeThumbEnds);
         using var image = window.CaptureFrame(bounds);
-        return ExtractScrollbarThumbProbe(image, bounds, bounds, profile.Color("scrollBar"), Math.Max(0, profile.ColorTolerance));
+        return ExtractScrollbarThumbProbe(
+            image,
+            bounds,
+            bounds,
+            profile.Color("scrollBar"),
+            Math.Max(0, profile.ColorTolerance),
+            maximumCandidateHeight);
     }
 
     private static Rectangle ScrollbarProbeBounds(GameWindow window, ScanProfile profile, bool includeThumbEnds = false)
@@ -49,7 +59,12 @@ public sealed partial class ScanController
     }
 
     internal static ScrollbarThumbProbe ExtractScrollbarThumbProbe(
-        CapturedFrame image, Rectangle frameBounds, Rectangle bounds, Color expected, int tolerance)
+        CapturedFrame image,
+        Rectangle frameBounds,
+        Rectangle bounds,
+        Color expected,
+        int tolerance,
+        int? maximumCandidateHeight = null)
     {
         var minY = bounds.Top;
         var maxY = bounds.Bottom - 1;
@@ -60,6 +75,7 @@ public sealed partial class ScanController
         {
             return default;
         }
+
         var bestStart = -1;
         var bestEnd = -1;
         var bestCenterX = bounds.Left + bounds.Width / 2;
@@ -117,9 +133,129 @@ public sealed partial class ScanController
         }
 
         CompleteRun(maxY);
+        // Preserve the proven detector for ordinary (including narrow or
+        // antialiased) thumbs. Only recover an oversized row union that reset
+        // would otherwise reject. Never split an oversized connected region.
+        if (bestStart >= 0 && maximumCandidateHeight is int maximumHeight
+            && bestEnd - bestStart + 1 > maximumHeight)
+        {
+            return ExtractBoundedScrollbarThumbProbe(
+                image, bounds, localLeft, localTop, expected, tolerance, maximumHeight);
+        }
+
         return bestStart < 0
             ? default
             : new ScrollbarThumbProbe(true, bestStart, bestEnd, bestCenterX, (bestStart + bestEnd) / 2);
+    }
+
+    private static ScrollbarThumbProbe ExtractBoundedScrollbarThumbProbe(
+        CapturedFrame image,
+        Rectangle bounds,
+        int localLeft,
+        int localTop,
+        Color expected,
+        int tolerance,
+        int maximumHeight)
+    {
+        if (maximumHeight <= 0)
+        {
+            return default;
+        }
+
+        var matched = new bool[bounds.Width * bounds.Height];
+        for (var localY = 0; localY < bounds.Height; localY++)
+        {
+            for (var localX = 0; localX < bounds.Width; localX++)
+            {
+                matched[localY * bounds.Width + localX] =
+                    image.GetPixel(localLeft + localX, localTop + localY)
+                    .IsCloseTo(expected, tolerance);
+            }
+        }
+
+        var visited = new bool[matched.Length];
+        var legalCandidate = default(ScrollbarThumbProbe);
+        var legalCandidates = 0;
+        var pending = new Stack<(int X, int Y)>();
+
+        for (var localY = 0; localY < bounds.Height; localY++)
+        {
+            for (var localX = 0; localX < bounds.Width; localX++)
+            {
+                var startIndex = localY * bounds.Width + localX;
+                if (!matched[startIndex] || visited[startIndex])
+                {
+                    continue;
+                }
+
+                var minX = localX;
+                var maxX = localX;
+                var minY = localY;
+                var maxY = localY;
+                var pixelCount = 0;
+                visited[startIndex] = true;
+                pending.Push((localX, localY));
+
+                while (pending.Count > 0)
+                {
+                    var (x, y) = pending.Pop();
+                    pixelCount++;
+                    minX = Math.Min(minX, x);
+                    maxX = Math.Max(maxX, x);
+                    minY = Math.Min(minY, y);
+                    maxY = Math.Max(maxY, y);
+
+                    Visit(x - 1, y);
+                    Visit(x + 1, y);
+                    Visit(x, y - 1);
+                    Visit(x, y + 1);
+                }
+
+                var height = maxY - minY + 1;
+                var width = maxX - minX + 1;
+                // Two columns of support, allowing a pixel per rounded corner;
+                // a thin border with one sideways spur is not a thumb.
+                if (height < 3 || height > maximumHeight || width < 2
+                    || pixelCount < 2 * height - 4)
+                {
+                    continue;
+                }
+
+                legalCandidates++;
+                if (legalCandidates > 1)
+                {
+                    return default;
+                }
+
+                var centerX = bounds.Left + (int)Math.Round(
+                    (minX + maxX) / 2d, MidpointRounding.AwayFromZero);
+                legalCandidate = new ScrollbarThumbProbe(
+                    true,
+                    bounds.Top + minY,
+                    bounds.Top + maxY,
+                    centerX,
+                    bounds.Top + (minY + maxY) / 2);
+            }
+        }
+
+        return legalCandidate;
+
+        void Visit(int x, int y)
+        {
+            if (x < 0 || x >= bounds.Width || y < 0 || y >= bounds.Height)
+            {
+                return;
+            }
+
+            var index = y * bounds.Width + x;
+            if (!matched[index] || visited[index])
+            {
+                return;
+            }
+
+            visited[index] = true;
+            pending.Push((x, y));
+        }
     }
 
     private static int? ScrollbarDelta(ScrollbarThumbProbe before, ScrollbarThumbProbe after) =>

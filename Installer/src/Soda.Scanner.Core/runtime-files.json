@@ -51,8 +51,8 @@
   },
   {
     "path": "native\\ZZZ-Scanner.Next.Soda.exe",
-    "size": 72590068,
-    "sha256": "2f36495cac1cb4f5e13a49641b2cd95d489f4dcaf1285edbaf867d6706a5aa9e"
+    "size": 72591102,
+    "sha256": "7f54c827e4582fbcd745214e955026f10e1f086b31711070fdbcd9a887bbb2b5"
   },
   {
     "path": "notices\\DotNet-8-LICENSE.txt",
@@ -202,6 +202,6 @@
   {
     "path": "scanner-runtime.json",
     "size": 7774,
-    "sha256": "320a245fd9222f0ef3e2c13dd24d122671be0dbcb9d17f722ec47dba5baff948"
+    "sha256": "162829990f0cafa2c2ffbfb48511e232d05c53912d337d1bf630ce8a9bc499b2"
   }
 ]

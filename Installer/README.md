@@ -2,7 +2,7 @@
 
 开始菜单中的「Soda Terminal · 画面扫描」启动后台助手并打开扫描工作区；助手不显示独立窗口。安装完成默认关闭安装窗口，返回原网页后连接，不再自动打开第二个网页。已运行的助手按成功处理，不把重复启动误报为无法打开。旧的静默协议快捷入口仅在归属完全匹配时迁移；安装失败恢复原入口，用户修改的入口继续保留。
 
-发布入口为 `Soda-Scanner-Setup.exe`（Windows x64），当前安装器 1.2.0、Helper 2.3.18、锁定 1.0.49 Soda fork r34，运行组件 RC8.16。具体下载大小与 SHA256 以网页发行清单和对应 GitHub Release 为准。玩家下载并打开 EXE 后，首次安装自动准备组件并启动画面扫描，无需再点击“开始安装”。窗口展示准备、安装与完成进度，安装事务执行期间不能关闭；失败后可手动重试。已有安装、残留文件或协议/卸载登记时保留修复和卸载入口，不自动覆盖。也可从 Windows“已安装的应用”卸载。当前安装器可一次卸载全部已交付旧版中大小/SHA匹配的程序组件，无需先升级或逐版卸载；卸载保留扫描结果、日志、未知文件和用户替换的文件。
+发布入口为 `Soda-Scanner-Setup.exe`（Windows x64），当前安装器 1.2.1、Helper 2.3.18、锁定 1.0.49 Soda fork r35，运行组件 RC8.17。具体下载大小与 SHA256 以网页发行清单和对应 GitHub Release 为准。玩家下载并打开 EXE 后，首次安装自动准备组件并启动画面扫描，无需再点击“开始安装”。窗口展示准备、安装与完成进度，安装事务执行期间不能关闭；失败后可手动重试。已有安装、残留文件或协议/卸载登记时保留修复和卸载入口，不自动覆盖。也可从 Windows“已安装的应用”卸载。当前安装器可一次卸载全部已交付旧版中大小/SHA匹配的程序组件，无需先升级或逐版卸载；卸载保留扫描结果、日志、未知文件和用户替换的文件。
 
 历史版本记录：1.1.0 统一安装包、网页、诊断及升级提示的产品版本，保留 1.0.10 的修复：必需描述文件漏装、图标透明掩码与开始菜单入口，内置 Helper 2.3.12 / r28。识别 1.0.8、1.0.9、1.0.10 后可升级；同版可修复。安装完成默认关闭窗口，开始菜单才主动启动助手并打开工作区。组件缺失显示修复，产品版本与助手内部版本分开。以下为 1.0.9 的安装边界记录：窗口和 EXE 使用 Soda 自有图标，显示工具名与安装版本；识别已发布 1.0.8 的有效同根指针时显示“当前 1.0.8 → 安装 1.0.9”和“升级安装”，同版显示修复，陌生/不完整安装不冒充已知版本。安装沿用事务及被替换程序的恢复副本；失败恢复文件与原指针，注册回退仅覆盖仍符合本次同根身份的入口。卸载使用编译入程序的当前与已发布 1.0.8 文件目录，不读取玩家磁盘上的描述文件决定删除；仅删除大小/SHA 相符的程序、完整归属协议和卸载入口，陌生注册值和程序改写保留。
 
@@ -12,8 +12,8 @@
 
 需要 Windows x64 与 .NET 8 SDK。先取得两个精确输入：
 
-- [RC8.16 运行包](https://github.com/Fizz-McBubble/soda-terminal-scanner/releases/download/scanner-runtime-v18.0.0-rc.8.16-local.20261016/soda-scanner-runtime-18-rc8-16-local-20261016-win-x64.zip)
-- [应用本地 VC runtime 包](https://github.com/Fizz-McBubble/soda-terminal-scanner/releases/download/scanner-installer-v1.2.0/vc-runtime-14.44.35211-x64.zip)
+- [RC8.17 运行包](https://github.com/Fizz-McBubble/soda-terminal-scanner/releases/download/scanner-runtime-v18.0.0-rc.8.17-local.20261017/soda-scanner-runtime-18-rc8-17-local-20261017-win-x64.zip)
+- [应用本地 VC runtime 包](https://github.com/Fizz-McBubble/soda-terminal-scanner/releases/download/scanner-installer-v1.2.1/vc-runtime-14.44.35211-x64.zip)
 
 执行 `./Installer/build.ps1 -RuntimeArchive <ZIP> -VCRuntimeArchive <VC-ZIP> -NsisPath <makensis.exe>`。脚本检查固定输入和编译器 SHA256，不自动下载或运行安装器。NSIS 3.13 的精确来源见 `nsis-toolchain.json`；仅解压官方便携 ZIP，不要求系统安装。中间文件与产物默认写在 `Installer/outputs`。输入、产物与 SDK 依赖不进入源码提交。
 

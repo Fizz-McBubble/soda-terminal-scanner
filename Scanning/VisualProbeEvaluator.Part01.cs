@@ -10,6 +10,8 @@ internal static class ScrollTopResetCoordinator
     public const int WheelBatchSize = 12;
     public const int MaximumWheelTicks = 1024;
     public const int MaximumResetMilliseconds = 60_000;
+    public const int InitialKickDelta = 120 * 16;
+    public const int RecoveryNotchDelta = 120;
     public const int ProbeSampleCount = 3;
     public const int RequiredStableMatches = 2;
     public const int ProbeSampleDelayMilliseconds = 40;
@@ -33,7 +35,8 @@ internal static class ScrollTopResetCoordinator
         Func<int, CancellationToken, Task>? delayAsync = null,
         Func<bool>? captureTopPosition = null,
         bool resetBeforeProbe = false,
-        Func<long>? monotonicElapsedMilliseconds = null)
+        Func<long>? monotonicElapsedMilliseconds = null,
+        Action? fallbackReset = null)
     {
         ArgumentNullException.ThrowIfNull(captureTopPixel);
         ArgumentNullException.ThrowIfNull(wheelUp);
@@ -169,10 +172,10 @@ internal static class ScrollTopResetCoordinator
             return Result(false, "deadline", batch);
         }
 
-        async Task<bool> ResetAndProbeAsync(string phase, int batch)
+        async Task<bool> ResetAndProbeAsync(string phase, int batch, Action resetAction)
         {
             if (!HasTime()) return false;
-            clickTop();
+            resetAction();
             topClicks++;
             if (!HasTime()) return false;
             trace?.Invoke(new ScrollTopResetTrace(
@@ -189,7 +192,7 @@ internal static class ScrollTopResetCoordinator
 
         var initialPhase = resetBeforeProbe ? "direct" : "initial";
         var initiallyConfirmed = resetBeforeProbe
-            ? await ResetAndProbeAsync(initialPhase, 0)
+            ? await ResetAndProbeAsync(initialPhase, 0, clickTop)
             : await ProbeAsync(initialPhase, 0);
         if (!HasTime()) return DeadlineResult(0);
         if (initiallyConfirmed)
@@ -256,7 +259,10 @@ internal static class ScrollTopResetCoordinator
         }
 
         if (!HasTime()) return DeadlineResult(batch);
-        var fallbackConfirmed = await ResetAndProbeAsync("fallback", batch);
+        var fallbackConfirmed = await ResetAndProbeAsync(
+            "fallback",
+            batch,
+            fallbackReset ?? clickTop);
         if (!HasTime()) return DeadlineResult(batch);
         if (fallbackConfirmed)
         {

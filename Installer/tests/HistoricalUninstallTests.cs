@@ -40,7 +40,7 @@ internal static class HistoricalUninstallTests
 
         test("historical catalog and stub identities coverage", () =>
         {
-            Check(LegacyRuntimeCatalog.AllPackages.Count == 14, "historical_packages_count_mismatch");
+            Check(LegacyRuntimeCatalog.AllPackages.Count == 15, "historical_packages_count_mismatch");
             Check(LegacyRuntimeCatalog.AllDistinctFiles.Count > 0, "all_distinct_files_empty");
             Check(LegacyRuntimeCatalog.AllHelperFiles.Count > 0, "all_helper_files_empty");
             Check(LegacyRuntimeCatalog.KnownStubs.Count >= 20, "historical_stubs_under_coverage");
@@ -60,18 +60,19 @@ internal static class HistoricalUninstallTests
                 Check(stub.Sha256.Length == 64, $"stub_{stub.Version}_invalid_sha256");
             }
 
-            // Verify all 21 versions 1.0.0 - 1.1.9 have corresponding stub identities
+            // Verify all 22 versions 1.0.0 - 1.2.0 have corresponding stub identities
             var expectedVersions = new[]
             {
                 "1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9",
-                "1.0.10", "1.1.0", "1.1.1", "1.1.2", "1.1.3", "1.1.4", "1.1.5", "1.1.6", "1.1.7", "1.1.8", "1.1.9"
+                "1.0.10", "1.1.0", "1.1.1", "1.1.2", "1.1.3", "1.1.4", "1.1.5", "1.1.6", "1.1.7", "1.1.8", "1.1.9",
+                "1.2.0"
             };
             foreach (var v in expectedVersions)
             {
                 Check(LegacyRuntimeCatalog.KnownStubs.Any(s => s.Version == v), $"missing_stub_for_version_{v}");
             }
 
-            // 1. Cross-check with all 21 stub pins extracted from real release archives
+            // 1. Cross-check with the 21 pre-1.2.0 stub pins extracted from real release archives
             var allStubPinsPath = fixtures.AllStubPinsJsonPath;
             AssertFixtureFile(allStubPinsPath, "all_stub_pins_json");
             using (var doc = JsonDocument.Parse(File.ReadAllText(allStubPinsPath)))
