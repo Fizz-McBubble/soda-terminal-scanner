@@ -361,6 +361,12 @@ public sealed partial class ScanController
                     ["wheelTicks"] = result.WheelTicks,
                     ["topClicks"] = result.TopClicks,
                     ["fallbackResetAction"] = fallbackResetAction,
+                    ["resetAction"] = fallbackResetAction.StartsWith("track_click", StringComparison.Ordinal) ? "track_click"
+                        : fallbackResetAction == "fast_wheel" ? "fast_wheel" : "not_run",
+                    ["resetThumbReferenceKnown"] = resetThumbHeight > 0,
+                    ["resetColorMaxDelta"] = Math.Max(Math.Abs(result.LastActualColor.R - expectedColor.R),
+                        Math.Max(Math.Abs(result.LastActualColor.G - expectedColor.G), Math.Abs(result.LastActualColor.B - expectedColor.B))),
+                    ["resetColorTolerance"] = profile.ColorTolerance,
                     ["probeSamples"] = result.ProbeSamples,
                     ["actualColor"] = ColorText(result.LastActualColor),
                     ["expectedColor"] = ColorText(expectedColor),

@@ -79,6 +79,9 @@ internal sealed class PpOcrV6CaptureGeometryContract
                 : $"请在本机绝区零的全屏或窗口模式中选择 16:9 分辨率（1280×720 至 3840×2160）；推荐 {_referenceClient.Width}×{_referenceClient.Height}，再重新扫描。",
             new Dictionary<string, object?>
             {
+                ["geometryFailure"] = !profileMatches ? "profile_mismatch" : !clientSupported ? "client_size_unsupported"
+                    : panel.Left < 0 || panel.Top < 0 || panel.Right > clientSize.Width || panel.Bottom > clientSize.Height
+                        ? "detail_bounds_invalid" : "roi_mapping_incompatible",
                 ["clientWidth"] = clientSize.Width,
                 ["clientHeight"] = clientSize.Height,
                 ["clientKind"] = isCloud ? "cloud" : "local",

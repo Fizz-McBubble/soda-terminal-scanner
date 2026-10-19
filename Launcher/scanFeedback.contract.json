@@ -96,6 +96,13 @@
   "captureModes": ["gdi", "dxgi", "unknown"],
   "browsers": ["edge", "chrome", "firefox", "safari", "other", "unknown"],
   "evidenceLimits": {
+    "detailWidth": 20000,
+    "detailHeight": 20000,
+    "requiredDetailWidth": 20000,
+    "requiredDetailHeight": 20000,
+    "fixedFieldCount": 100,
+    "resetColorMaxDelta": 255,
+    "resetColorTolerance": 255,
     "itemIndex": 100000,
     "logicalRow": 100000,
     "visualRow": 100,
@@ -150,6 +157,7 @@
     "positionMovementDistance": 100000
   },
   "evidenceBooleans": [
+    "resetThumbReferenceKnown",
     "sawPanelChange",
     "selectionChanged",
     "warehouseHeaderDetected",
@@ -164,6 +172,14 @@
     "sawMovement"
   ],
   "evidenceEnums": {
+    "clientKind": ["local", "cloud"],
+    "geometryFailure": [
+      "profile_mismatch",
+      "client_size_unsupported",
+      "detail_bounds_invalid",
+      "roi_mapping_incompatible"
+    ],
+    "resetAction": ["not_run", "fast_wheel", "track_click"],
     "preflightState": [
       "capture_unavailable",
       "inventory_screen_unreadable",
@@ -309,6 +325,7 @@
       "import_review_required",
       "import_recovery_limit_reached",
       "import_snapshot_reused",
+      "status_only",
       "unknown",
       "uac_declined",
       "token_invalid",
@@ -326,6 +343,8 @@
       "candidate_size_invalid",
       "candidate_schema_invalid",
       "candidate_status_invalid",
+      "candidate_coverage_incomplete",
+      "candidate_validation_issues",
       "candidate_safety_flags_invalid",
       "candidate_semantics_invalid",
       "candidate_source_invalid",
@@ -401,10 +420,46 @@
     "evidenceLimits": {
       "remainingSeconds": 180,
       "nativeErrorCode": 4294967295,
-      "childExitCode": 4294967295
+      "childExitCode": 4294967295,
+      "candidateIssueCount": 100,
+      "healthProbeAttempts": 10000
     },
-    "evidenceBooleans": ["candidateAvailable"],
+    "evidenceBooleans": [
+      "candidateAvailable",
+      "candidateStatusReported",
+      "protocolLaunchAttempted"
+    ],
     "evidenceEnums": {
+      "candidateStatus": [
+        "validation_failed",
+        "staged_for_field_review",
+        "response_semantics_unverified",
+        "load_responses_observed",
+        "timed_out",
+        "cancelled",
+        "unknown"
+      ],
+      "uiState": [
+        "idle",
+        "connecting",
+        "starting",
+        "capturing",
+        "received",
+        "timed_out",
+        "stopped",
+        "error",
+        "completed"
+      ],
+      "lastAction": ["connect", "start", "inspect_file", "import", "status_feedback"],
+      "connectionStage": ["health_probe", "protocol_launch", "connect_exchange"],
+      "captureOpenReason": [
+        "file_not_found",
+        "access_denied",
+        "sharing_violation",
+        "invalid_parameter",
+        "system_resources_unavailable",
+        "other"
+      ],
       "jobState": ["starting", "capturing", "received", "timed_out", "stopped", "error"],
       "jobPhase": [
         "uac",
@@ -422,6 +477,36 @@
     "missingRois": []
   },
   "assetQuickReadInstaller": {
+    "failureKinds": [
+      "access_denied",
+      "read_only",
+      "sharing_violation",
+      "invalid_data",
+      "file_missing",
+      "path_too_long",
+      "io_error",
+      "cancelled",
+      "other"
+    ],
+    "failureOperations": [
+      "prepare",
+      "payload_path",
+      "payload_extract",
+      "payload_wait",
+      "payload_verify",
+      "copy",
+      "protocol",
+      "verify",
+      "register",
+      "service_start",
+      "uninstall",
+      "delete_preflight",
+      "delete_files",
+      "delete_uninstaller",
+      "remove_protocol",
+      "remove_registration",
+      "remove_directories"
+    ],
     "stages": [
       "prepare",
       "payload_verify",
@@ -430,12 +515,18 @@
       "verify",
       "register",
       "service_start",
+      "uninstall",
       "failed"
     ],
     "codes": [
       "installer_access_denied",
       "installer_local_operation_failed",
+      "uninstaller_service_stop_failed",
+      "uninstaller_files_in_use",
       "local_service_bind_or_identity_unavailable",
+      "local_service_identity_unavailable",
+      "local_service_port_conflict",
+      "local_service_address_unavailable",
       "local_service_readiness_timeout",
       "local_service_start_failed",
       "protocol_source_rejected",
@@ -465,6 +556,10 @@
       "protocol_download_failed_http_503",
       "protocol_download_failed_http_504",
       "installed_file_set_mismatch",
+      "installed_repair_files_in_use",
+      "installed_repair_switch_unavailable",
+      "installed_repair_restore_conflict",
+      "installed_version_path_conflict",
       "linked_path_rejected"
     ],
     "attemptSources": ["github_raw", "github_contents", "verified_local", "github_archive"],
@@ -531,6 +626,6 @@
     "maxAttempts": 0,
     "maxItemIndex": 0,
     "durationMaxMs": 3600000,
-    "versionPattern": "^1\\.1\\.\\d{1,3}$"
+    "versionPattern": "^1\\.[12]\\.\\d{1,3}$"
   }
 }

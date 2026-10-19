@@ -13,15 +13,16 @@ internal static partial class DirectForkDiagnostics
             // The stopped operation owns this snapshot. Never fill gaps with a later
             // successful CELL_TIMING or with a different OCR worker's last record.
             var evidence = ProjectDetails(details);
+            var environmentObserved = false;
             foreach (var (key, source) in new[] { ("width", "clientWidth"), ("height", "clientHeight"), ("dpi", "dpi") })
                 if (details.TryGetProperty(source, out var value) && value.TryGetBoundedInteger(Contract["environmentLimits"]![key]!.GetValue<long>(), out var number) && number > 0)
-                    environment[key] = number;
+                { environment[key] = number; environmentObserved = true; }
             if (details.TryGetProperty("captureMode", out var capture) && capture.ValueKind == JsonValueKind.String)
             {
                 var mode = capture.GetString()!.ToLowerInvariant();
-                if (mode is "gdi" or "dxgi") environment["captureMode"] = mode;
+                if (mode is "gdi" or "dxgi") { environment["captureMode"] = mode; environmentObserved = true; }
             }
-            evidence["diagnosticSource"] = evidence.Count > 0 ? "terminal_details" : "unavailable";
+            evidence["diagnosticSource"] = evidence.Count > 0 || environmentObserved ? "terminal_details" : "unavailable";
             return evidence;
         }
         return ReadLegacyFailureEvidence(log, code);

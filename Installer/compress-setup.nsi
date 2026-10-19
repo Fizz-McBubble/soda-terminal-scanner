@@ -2,7 +2,7 @@
 ; Ordered single solid stream: UI first, payload after launch, then wait for UI.
 Unicode true
 SetCompressor /SOLID lzma
-SetCompressorDictSize 128
+SetCompressorDictSize 96
 ; A late plugin would require decompressing the payload before CreateProcess.
 ReserveFile /plugin System.dll
 Name "Soda Terminal · 画面扫描"
