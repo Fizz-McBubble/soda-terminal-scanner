@@ -37,7 +37,9 @@ public sealed partial class ScanController
         bool postScrollFirstCell,
         bool selectionRoundTripReady,
         ProbeOnlyState state,
-        PanelSelectionTracker tracker)
+        PanelSelectionTracker tracker,
+        int totalRois,
+        int requiredStableFrames)
     {
         state.FrameCount++;
         var probeCaptureWatch = Stopwatch.StartNew();
@@ -125,7 +127,22 @@ public sealed partial class ScanController
                     }
 
                     scanLog.Write("Panel probes stayed unchanged past fallback delay; refusing to capture stale detail panel.");
-                    throw new StalePanelException("详情面板未检测到变化，已拒绝复用旧面板。");
+                    var staleException = new StalePanelException(
+                        visibleRois: 0,
+                        totalRois: totalRois,
+                        firstMissingRoi: null,
+                        firstMissingProbe: null,
+                        acceptGateReason: "waiting_for_panel_change",
+                        sawPanelChange: false,
+                        selectionChanged: tracker.SelectionChanged,
+                        stableFrames: tracker.EvidenceGate.StableFrames,
+                        requiredStableFrames: requiredStableFrames,
+                        frameCount: state.FrameCount,
+                        message: "详情面板未检测到变化，已拒绝复用旧面板。");
+                    scanLog.WriteEvent(
+                        "PANEL_CAPTURE_TIMEOUT",
+                        $"visibleRois={staleException.VisibleRois}/{staleException.TotalRois}, firstMissingRoi={staleException.FirstMissingRoi ?? "none"}, referenceLuma=none, candidateLuma=none, lumaDelta=none, allowedLumaDelta=none, edgeDensityPermille=none, minimumEdgeDensityPermille=none, acceptGateReason={staleException.AcceptGateReason}, sawPanelChange={staleException.SawPanelChange}, selectionChanged={staleException.SelectionChanged}, stableFrames={staleException.StableFrames}/{staleException.RequiredStableFrames}, frameCount={staleException.FrameCount}, captureMode={window.ActiveCaptureMode}");
+                    throw staleException;
                 }
             }
 
