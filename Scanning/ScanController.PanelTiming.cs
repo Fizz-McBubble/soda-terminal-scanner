@@ -149,7 +149,11 @@ public sealed partial class ScanController
         int textCoreStableProbeFrames,
         int requiredStableFrames,
         int frameCount,
-        ScanLog scanLog)
+        ScanLog scanLog,
+        int? selectionStableFrames,
+        bool preselectedTargetEvidence,
+        bool preselectedSelectionPresent,
+        bool selectionRoundTripReady)
     {
         var timeoutException = new PanelCaptureTimeoutException(
             lastVisibleCount,
@@ -161,7 +165,11 @@ public sealed partial class ScanController
             selectionChanged,
             Math.Max(stableProbeFrames, textCoreStableProbeFrames),
             requiredStableFrames,
-            frameCount);
+            frameCount,
+            selectionStableFrames: selectionStableFrames,
+            preselectedTargetEvidence: preselectedTargetEvidence,
+            preselectedSelectionPresent: preselectedTargetEvidence && frameCount > 0 ? preselectedSelectionPresent : null,
+            selectionRoundTripReady: selectionRoundTripReady);
         scanLog.WriteEvent(
             "PANEL_CAPTURE_TIMEOUT",
             $"visibleRois={timeoutException.VisibleRois}/{timeoutException.TotalRois}, firstMissingRoi={timeoutException.FirstMissingRoi ?? "none"}, referenceLuma={FormatOptionalInt(timeoutException.ReferenceLuma)}, candidateLuma={FormatOptionalInt(timeoutException.CandidateLuma)}, lumaDelta={FormatOptionalInt(timeoutException.LumaDelta)}, allowedLumaDelta={FormatOptionalInt(timeoutException.AllowedLumaDelta)}, edgeDensityPermille={FormatOptionalInt(timeoutException.EdgeDensityPermille)}, minimumEdgeDensityPermille={FormatOptionalInt(timeoutException.MinimumEdgeDensityPermille)}, acceptGateReason={timeoutException.AcceptGateReason}, sawPanelChange={timeoutException.SawPanelChange}, selectionChanged={timeoutException.SelectionChanged}, stableFrames={timeoutException.StableFrames}/{timeoutException.RequiredStableFrames}, frameCount={timeoutException.FrameCount}, captureMode={window.ActiveCaptureMode}");

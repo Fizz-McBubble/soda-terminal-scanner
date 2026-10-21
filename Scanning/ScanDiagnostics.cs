@@ -156,7 +156,11 @@ internal static class ScanDiagnosticDetails
         int clientHeight,
         int dpi,
         string captureMode,
-        string visualProfileId)
+        string visualProfileId,
+        int? selectionStableFrames = null,
+        bool? preselectedTargetEvidence = null,
+        bool? preselectedSelectionPresent = null,
+        bool? selectionRoundTripReady = null)
     {
         return new Dictionary<string, object?>
         {
@@ -177,6 +181,11 @@ internal static class ScanDiagnosticDetails
             ["sawPanelChange"] = sawPanelChange,
             ["selectionChanged"] = selectionChanged,
             ["stableFrames"] = stableFrames,
+            ["selectionStableFrames"] = selectionStableFrames,
+            ["requiredSelectionStableFrames"] = selectionStableFrames is null ? null : PanelTargetEvidenceGate.RequiredStableFrames,
+            ["preselectedTargetEvidence"] = preselectedTargetEvidence,
+            ["preselectedSelectionPresent"] = preselectedSelectionPresent,
+            ["selectionRoundTripReady"] = selectionRoundTripReady,
             ["requiredStableFrames"] = requiredStableFrames,
             ["attempts"] = attempts,
             ["frameCount"] = frameCount,

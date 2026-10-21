@@ -14,6 +14,10 @@ The bounded diagnostic summary preserves the failure stage, stopping position, w
 
 Packages accept the exact configured origins `https://sodaterminal.com` and `https://app.sodaterminal.workers.dev`. Pairing starts from the site's connect action without a second Windows dialog; the exact-origin check, eight-hour token, and revocation remain. Windows may still require its own administrator confirmation when scanning an elevated game. The OCR CLI runs locally.
 
+## 2026-10-21 diagnostic maintenance
+
+Installer 1.2.3, Helper 2.3.20, capture r37 and runtime RC8.19 preserve separate panel and target-selection stability evidence. Selection and OCR safety gates remain unchanged. Published 1.2.2 programs remain recognized for upgrade and removal.
+
 ## Build
 
 Install the .NET 8 SDK with Windows Desktop targeting support on Windows x64. From PowerShell:

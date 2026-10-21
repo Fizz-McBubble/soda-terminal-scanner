@@ -261,15 +261,7 @@ public sealed partial class ScanController
     }
 
 
-    private sealed class StalePanelException : TimeoutException
-    {
-        public StalePanelException(string message)
-            : base(message)
-        {
-        }
-    }
-
-    private sealed class PanelCaptureTimeoutException : TimeoutException
+    internal class PanelCaptureTimeoutException : TimeoutException
     {
         public PanelCaptureTimeoutException(
             int visibleRois,
@@ -281,8 +273,13 @@ public sealed partial class ScanController
             bool selectionChanged,
             int stableFrames,
             int requiredStableFrames,
-            int frameCount)
-            : base("详情面板截图等待超时。")
+            int frameCount,
+            string message = "详情面板截图等待超时。",
+            int? selectionStableFrames = null,
+            bool? preselectedTargetEvidence = null,
+            bool? preselectedSelectionPresent = null,
+            bool? selectionRoundTripReady = null)
+            : base(message)
         {
             VisibleRois = visibleRois;
             TotalRois = totalRois;
@@ -299,6 +296,10 @@ public sealed partial class ScanController
             StableFrames = stableFrames;
             RequiredStableFrames = requiredStableFrames;
             FrameCount = frameCount;
+            SelectionStableFrames = selectionStableFrames;
+            PreselectedTargetEvidence = preselectedTargetEvidence;
+            PreselectedSelectionPresent = preselectedSelectionPresent;
+            SelectionRoundTripReady = selectionRoundTripReady;
         }
 
         public int VisibleRois { get; }
@@ -316,9 +317,42 @@ public sealed partial class ScanController
         public int StableFrames { get; }
         public int RequiredStableFrames { get; }
         public int FrameCount { get; }
+        public int? SelectionStableFrames { get; }
+        public bool? PreselectedTargetEvidence { get; }
+        public bool? PreselectedSelectionPresent { get; }
+        public bool? SelectionRoundTripReady { get; }
     }
 
-    private sealed class PanelCellCaptureException : TimeoutException, IScannerFailureException
+    internal sealed class StalePanelException : PanelCaptureTimeoutException
+    {
+        public StalePanelException(
+            int visibleRois,
+            int totalRois,
+            string? firstMissingRoi,
+            RowPresenceProbeResult? firstMissingProbe,
+            string acceptGateReason,
+            bool sawPanelChange,
+            bool selectionChanged,
+            int stableFrames,
+            int requiredStableFrames,
+            int frameCount,
+            string message = "详情面板未检测到变化，已拒绝复用旧面板。",
+            int? selectionStableFrames = null,
+            bool? preselectedTargetEvidence = null,
+            bool? preselectedSelectionPresent = null,
+            bool? selectionRoundTripReady = null)
+            : base(visibleRois, totalRois, firstMissingRoi, firstMissingProbe, acceptGateReason, sawPanelChange, selectionChanged, stableFrames, requiredStableFrames, frameCount, message,
+                selectionStableFrames, preselectedTargetEvidence, preselectedSelectionPresent, selectionRoundTripReady)
+        {
+        }
+
+        public StalePanelException(string message)
+            : base(0, 0, null, null, "unknown", false, false, 0, 0, 0, message)
+        {
+        }
+    }
+
+    internal sealed class PanelCellCaptureException : TimeoutException, IScannerFailureException
     {
         public PanelCellCaptureException(
             int pass,
@@ -363,7 +397,11 @@ public sealed partial class ScanController
                 window.ClientScreenRect.Height,
                 window.Dpi,
                 window.ActiveCaptureMode,
-                visualProfileId);
+                visualProfileId,
+                timeout?.SelectionStableFrames,
+                timeout?.PreselectedTargetEvidence,
+                timeout?.PreselectedSelectionPresent,
+                timeout?.SelectionRoundTripReady);
         }
 
         public int Pass { get; }

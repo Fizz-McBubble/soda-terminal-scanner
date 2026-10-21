@@ -16,6 +16,7 @@ public static class InstallerStartup
         // trusted product registration it can prove only the first shipped version.
         if (pointer?.Version == LegacyRuntimeCatalog.Published120Version) return "1.2.0";
         if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-17-local-20261017") return "1.2.1";
+        if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-18-local-20261019") return "1.2.2";
         if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-14-local-20261011") return "1.1.4";
         if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-13-local-20261011") return "1.1.3";
         if (pointer?.Version == "soda-scanner-zzz-next-ppocrv6-18-rc8-12-local-20261011") return "1.1.2";

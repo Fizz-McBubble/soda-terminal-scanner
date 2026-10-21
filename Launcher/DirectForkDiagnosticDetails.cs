@@ -88,6 +88,7 @@ internal static partial class DirectForkDiagnostics
             CopyLegacyChoice(facts, evidence, "targetVerificationKind", Contract["targetVerificationKinds"]!.AsArray());
             Pair(facts, "visibleRois", "visibleRois", "totalRois", evidence);
             Pair(facts, "stableFrames", "stableFrames", "requiredStableFrames", evidence);
+            Pair(facts, "selectionStableFrames", "selectionStableFrames", "requiredSelectionStableFrames", evidence);
             Pair(facts, "scannedRows", "scannedRows", "totalRows", evidence);
             Pair(facts, "tick", "tick", "maximumTicks", evidence);
             var phase = stop.Groups["event"].Value switch

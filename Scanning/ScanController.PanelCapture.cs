@@ -71,6 +71,7 @@ public sealed partial class ScanController
         {
             SelectionChanged = initialGate.SelectionChanged || preselectedTargetEvidence
         };
+        var lastPreselectedSelectionPresent = false;
         ImageSignature[]? previousStableProbeSignatures = null;
         ImageSignature[]? previousTextCoreStableProbeSignatures = null;
         var stableProbeFrames = 0;
@@ -145,7 +146,9 @@ public sealed partial class ScanController
                     postScrollFirstCell,
                     selectionRoundTripReady,
                     probeState,
-                    tracker);
+                    tracker,
+                    rois.Count,
+                    requiredStableFrames);
                 frameCount = probeState.FrameCount;
                 captureMilliseconds = probeState.CaptureMilliseconds;
                 signatureMilliseconds = probeState.SignatureMilliseconds;
@@ -175,6 +178,7 @@ public sealed partial class ScanController
                 selectedBorderVisible,
                 scanLog,
                 postScrollFirstCell);
+            lastPreselectedSelectionPresent = preselectedSelectionPresent;
             var captureWatch = Stopwatch.StartNew();
             using var image = window.CaptureFrame(panelRect);
             captureWatch.Stop();
@@ -257,7 +261,22 @@ public sealed partial class ScanController
                 {
                     scanLog.WriteEvent("PANEL_FINAL_UNCHANGED",
                         $"finalChangeDistance={finalDistance}, tolerance={PanelChangeTolerance}, elapsedMs={elapsedMilliseconds:F1}, action=neighbor_roundtrip");
-                    throw new StalePanelException("最终详情与上一张相同，需要邻格往返确认目标。");
+                    throw new StalePanelException(
+                        visibleRois: lastVisibleCount,
+                        totalRois: rois.Count,
+                        firstMissingRoi: null,
+                        firstMissingProbe: null,
+                        acceptGateReason: "waiting_for_panel_change",
+                        sawPanelChange: sawPanelChange,
+                        selectionChanged: tracker.SelectionChanged,
+                        stableFrames: textCoreStableProbeFrames,
+                        requiredStableFrames: requiredStableFrames,
+                        frameCount: frameCount,
+                        message: "最终详情与上一张相同，需要邻格往返确认目标。",
+                        selectionStableFrames: frameCount > 0 ? (preselectedTargetEvidence ? tracker.PreselectedSelectionStableFrames : tracker.EvidenceGate.StableFrames) : null,
+                        preselectedTargetEvidence: preselectedTargetEvidence,
+                        preselectedSelectionPresent: preselectedTargetEvidence ? preselectedSelectionPresent : null,
+                        selectionRoundTripReady: selectionRoundTripReady);
                 }
                 return signatures;
             }
@@ -468,7 +487,26 @@ public sealed partial class ScanController
                         }
 
                         scanLog.Write("Panel probes stayed unchanged past fallback delay; refusing to capture stale detail panel.");
-                        throw new StalePanelException("详情面板未检测到变化，已拒绝复用旧面板。");
+                        var staleException = new StalePanelException(
+                            visibleRois: lastVisibleCount,
+                            totalRois: rois.Count,
+                            firstMissingRoi: lastRoiVisibility.FirstMissingRoi,
+                            firstMissingProbe: lastRoiVisibility.FirstMissingProbe,
+                            acceptGateReason: acceptGateReason,
+                            sawPanelChange: sawPanelChange,
+                            selectionChanged: tracker.SelectionChanged,
+                            stableFrames: unchangedStableFrames,
+                            requiredStableFrames: requiredStableFrames,
+                            frameCount: frameCount,
+                            message: "详情面板未检测到变化，已拒绝复用旧面板。",
+                            selectionStableFrames: frameCount > 0 ? (preselectedTargetEvidence ? tracker.PreselectedSelectionStableFrames : tracker.EvidenceGate.StableFrames) : null,
+                            preselectedTargetEvidence: preselectedTargetEvidence,
+                            preselectedSelectionPresent: preselectedTargetEvidence ? preselectedSelectionPresent : null,
+                            selectionRoundTripReady: selectionRoundTripReady);
+                        scanLog.WriteEvent(
+                            "PANEL_CAPTURE_TIMEOUT",
+                            $"visibleRois={staleException.VisibleRois}/{staleException.TotalRois}, firstMissingRoi={staleException.FirstMissingRoi ?? "none"}, referenceLuma={FormatOptionalInt(staleException.ReferenceLuma)}, candidateLuma={FormatOptionalInt(staleException.CandidateLuma)}, lumaDelta={FormatOptionalInt(staleException.LumaDelta)}, allowedLumaDelta={FormatOptionalInt(staleException.AllowedLumaDelta)}, edgeDensityPermille={FormatOptionalInt(staleException.EdgeDensityPermille)}, minimumEdgeDensityPermille={FormatOptionalInt(staleException.MinimumEdgeDensityPermille)}, acceptGateReason={staleException.AcceptGateReason}, sawPanelChange={staleException.SawPanelChange}, selectionChanged={staleException.SelectionChanged}, stableFrames={staleException.StableFrames}/{staleException.RequiredStableFrames}, frameCount={staleException.FrameCount}, captureMode={window.ActiveCaptureMode}");
+                        throw staleException;
                     }
                 }
             }
@@ -494,7 +532,11 @@ public sealed partial class ScanController
             textCoreStableProbeFrames,
             requiredStableFrames,
             frameCount,
-            scanLog);
+            scanLog,
+            frameCount > 0 ? (preselectedTargetEvidence ? tracker.PreselectedSelectionStableFrames : tracker.EvidenceGate.StableFrames) : null,
+            preselectedTargetEvidence,
+            lastPreselectedSelectionPresent,
+            selectionRoundTripReady);
         throw new UnreachableException();
     }
 }
