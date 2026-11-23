@@ -19,14 +19,14 @@
     <Compile Remove="Launcher\**\*.cs" />
     <Compile Remove="Tests\**\*.cs" />
     <Compile Remove="WebSocket\**\*.cs" />
+    <Compile Remove="Installer\**\*.cs" />
+    <Compile Remove="OcrCli\**\*.cs" />
     <None Remove="Launcher\**\*" />
     <None Remove="Tests\**\*" />
     <None Include="Data\**\*.*" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Resources\models\**\*.*" CopyToOutputDirectory="PreserveNewest" />
     <!-- Soda production uses the separately pinned PP-OCRv6 runtime, never this optional upstream v5 model. -->
     <None Update="Resources\models\PP-OCRv5_mobile_rec_infer.onnx" CopyToPublishDirectory="Never" />
-    <None Include="..\..\src\data\drive-disc-data.v1.json" Link="Data\soda-drive-disc-data.v1.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\scripts\scanner-detail-geometry.v1.json" Link="Data\scanner-detail-geometry.v1.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
