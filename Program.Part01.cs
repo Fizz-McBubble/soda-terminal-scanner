@@ -212,7 +212,8 @@ static partial class Program
             };
 
             var controller = new ScanController(ScanProfileFile.Load(), WikiData.Load());
-            var result = controller.ProbeNativeEdgeScrollAsync(options, runs, cts.Token).GetAwaiter().GetResult();
+            var verifyRowAdvance = args.Any(arg => arg.Equals("--verify-row-advance", StringComparison.OrdinalIgnoreCase));
+            var result = controller.ProbeNativeEdgeScrollAsync(options, runs, cts.Token, verifyRowAdvance).GetAwaiter().GetResult();
             var resultFile = Path.Combine(result.OutputDirectory, "edge-scroll-probe-result.json");
             File.WriteAllText(resultFile, JsonSerializer.Serialize(result, JsonDefaults.Write));
             Console.WriteLine($"output_dir={result.OutputDirectory}");

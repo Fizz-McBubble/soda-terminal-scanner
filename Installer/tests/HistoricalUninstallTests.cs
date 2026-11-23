@@ -40,10 +40,10 @@ internal static class HistoricalUninstallTests
 
         test("historical catalog and stub identities coverage", () =>
         {
-            Check(LegacyRuntimeCatalog.AllPackages.Count == 15, "historical_packages_count_mismatch");
+            Check(LegacyRuntimeCatalog.AllPackages.Count == 21, "historical_packages_count_mismatch");
             Check(LegacyRuntimeCatalog.AllDistinctFiles.Count > 0, "all_distinct_files_empty");
             Check(LegacyRuntimeCatalog.AllHelperFiles.Count > 0, "all_helper_files_empty");
-            Check(LegacyRuntimeCatalog.KnownStubs.Count >= 20, "historical_stubs_under_coverage");
+            Check(LegacyRuntimeCatalog.KnownStubs.Count >= 21, "historical_stubs_under_coverage");
 
             foreach (var pkg in LegacyRuntimeCatalog.AllPackages)
             {
@@ -60,12 +60,12 @@ internal static class HistoricalUninstallTests
                 Check(stub.Sha256.Length == 64, $"stub_{stub.Version}_invalid_sha256");
             }
 
-            // Verify all 22 versions 1.0.0 - 1.2.0 have corresponding stub identities
+            // Preserve every shipped/local-delivered stub identity through 1.2.6.
             var expectedVersions = new[]
             {
                 "1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9",
                 "1.0.10", "1.1.0", "1.1.1", "1.1.2", "1.1.3", "1.1.4", "1.1.5", "1.1.6", "1.1.7", "1.1.8", "1.1.9",
-                "1.2.0"
+                "1.2.0", "1.2.1", "1.2.2", "1.2.3", "1.2.4", "1.2.5", "1.2.6"
             };
             foreach (var v in expectedVersions)
             {

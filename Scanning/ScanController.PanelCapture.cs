@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Globalization;
-using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -185,100 +184,59 @@ public sealed partial class ScanController
             captureMilliseconds += captureWatch.Elapsed.TotalMilliseconds;
             elapsedMilliseconds = (DateTime.UtcNow - start).TotalMilliseconds;
 
-            var signatureWatch = Stopwatch.StartNew();
             ImageSignature[]? changeProbeSignatures = null;
-            if (!sawPanelChange && previousPanelSignatures is not null)
-            {
-                changeProbeSignatures = CreateSignatures(image, fullPanelProbeRects);
-                var fullPanelChangeDistance = ProbeChangeDistance(previousPanelSignatures, changeProbeSignatures);
-                var strongPanelChange = PanelCaptureGate.LatchStrongChange(
-                    panelChangedFromBaseline,
-                    fullPanelChangeDistance,
-                    elapsedMilliseconds,
-                    PanelStrongChangeTolerance,
-                    MinReliablePanelChangeMs);
-                if (strongPanelChange)
-                {
-                    sawPanelChange = true;
-                    panelChangedFromBaseline = true;
-                    changeMilliseconds ??= elapsedMilliseconds;
-                }
-                else if (fullPanelChangeDistance > PanelChangeTolerance)
-                {
-                    weakPanelChange = true;
-                    weakPanelChangeDistance = Math.Max(weakPanelChangeDistance, fullPanelChangeDistance);
-                    weakPanelChangeMilliseconds ??= elapsedMilliseconds;
-                    tracker.ObserveSelectionChange(selectionProbeRect, beforeSelectionSignature, frameCount, elapsedMilliseconds, selectionSignature);
-                }
-            }
-
-            UpdateStabilityProbes(
+            ObservePanelCaptureSignals(
                 image,
+                fullPanelProbeRects,
                 stableProbeRects,
+                textCoreStableProbeRects,
+                previousPanelSignatures,
+                selectionProbeRect,
+                beforeSelectionSignature,
+                selectionSignature,
+                frameCount,
+                elapsedMilliseconds,
+                stabilityDecision,
+                requiredStableFrames,
+                measureTextCoreStability,
+                tracker,
+                ref changeProbeSignatures,
+                ref sawPanelChange,
+                ref panelChangedFromBaseline,
+                ref weakPanelChange,
+                ref weakPanelChangeDistance,
+                ref changeMilliseconds,
+                ref weakPanelChangeMilliseconds,
                 ref previousStableProbeSignatures,
                 ref stableProbeFrames,
                 ref stableMilliseconds,
-                measureTextCoreStability,
-                textCoreStableProbeRects,
                 ref previousTextCoreStableProbeSignatures,
                 ref textCoreStableProbeFrames,
                 ref textCoreStableMilliseconds,
-                stabilityDecision,
-                requiredStableFrames,
-                elapsedMilliseconds);
-
-            tracker.ObserveSelectionChange(selectionProbeRect, beforeSelectionSignature, frameCount, elapsedMilliseconds, selectionSignature);
-            signatureWatch.Stop();
-            signatureMilliseconds += signatureWatch.Elapsed.TotalMilliseconds;
-
-            ImageSignature[] EnsureCurrentChangeProbeSignatures()
-            {
-                if (changeProbeSignatures is not null)
-                {
-                    return changeProbeSignatures;
-                }
-
-                var baselineWatch = Stopwatch.StartNew();
-                changeProbeSignatures = CreateSignatures(image, fullPanelProbeRects);
-                baselineWatch.Stop();
-                signatureMilliseconds += baselineWatch.Elapsed.TotalMilliseconds;
-                return changeProbeSignatures;
-            }
+                ref signatureMilliseconds);
 
             ImageSignature[] EnsureAcceptedChangeProbeSignatures()
             {
-                var signatures = EnsureCurrentChangeProbeSignatures();
-                var finalDistance = previousPanelSignatures is null
-                    ? int.MaxValue
-                    : ProbeChangeDistance(previousPanelSignatures, signatures);
-                // A click animation can change and then return to the previous
-                // disc's exact detail image. A latched transient is not final
-                // target evidence; reuse the bounded neighbor retry in that case.
-                if (PanelCaptureGate.RequiresFinalFrameRefresh(
-                    previousPanelSignatures is not null, finalDistance, PanelChangeTolerance,
-                    selectionRoundTripReady && tracker.EvidenceGate.Stable,
-                    preselectedTargetEvidence && preselectedSelectionPresent))
-                {
-                    scanLog.WriteEvent("PANEL_FINAL_UNCHANGED",
-                        $"finalChangeDistance={finalDistance}, tolerance={PanelChangeTolerance}, elapsedMs={elapsedMilliseconds:F1}, action=neighbor_roundtrip");
-                    throw new StalePanelException(
-                        visibleRois: lastVisibleCount,
-                        totalRois: rois.Count,
-                        firstMissingRoi: null,
-                        firstMissingProbe: null,
-                        acceptGateReason: "waiting_for_panel_change",
-                        sawPanelChange: sawPanelChange,
-                        selectionChanged: tracker.SelectionChanged,
-                        stableFrames: textCoreStableProbeFrames,
-                        requiredStableFrames: requiredStableFrames,
-                        frameCount: frameCount,
-                        message: "最终详情与上一张相同，需要邻格往返确认目标。",
-                        selectionStableFrames: frameCount > 0 ? (preselectedTargetEvidence ? tracker.PreselectedSelectionStableFrames : tracker.EvidenceGate.StableFrames) : null,
-                        preselectedTargetEvidence: preselectedTargetEvidence,
-                        preselectedSelectionPresent: preselectedTargetEvidence ? preselectedSelectionPresent : null,
-                        selectionRoundTripReady: selectionRoundTripReady);
-                }
-                return signatures;
+                return ScanController.EnsureAcceptedChangeProbeSignatures(
+                    image,
+                    fullPanelProbeRects,
+                    ref changeProbeSignatures,
+                    ref signatureMilliseconds,
+                    previousPanelSignatures,
+                    selectionRoundTripReady,
+                    preselectedTargetEvidence,
+                    preselectedSelectionPresent,
+                    PanelChangeTolerance,
+                    lastVisibleCount,
+                    rois.Count,
+                    sawPanelChange,
+                    tracker.SelectionChanged,
+                    textCoreStableProbeFrames,
+                    requiredStableFrames,
+                    frameCount,
+                    elapsedMilliseconds,
+                    scanLog,
+                    tracker);
             }
 
             var visibleWatch = Stopwatch.StartNew();
@@ -520,7 +478,7 @@ public sealed partial class ScanController
             await Task.Delay(interval, token);
         }
 
-        LogAndThrowPanelCaptureTimeout(
+        ThrowPanelCaptureTimeout(
             window,
             lastVisibleCount,
             rois.Count,

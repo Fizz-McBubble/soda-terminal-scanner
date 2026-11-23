@@ -88,13 +88,20 @@ internal static class InstallerFeedbackTests
                         using (var bitmap = new Bitmap(form.Width, form.Height))
                         { form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size)); bitmap.Save(Path.Combine(root, "feedback-error-" + scale + (priorInstallation ? "-repair" : "") + ".png")); }
                         Button(form, "反馈安装问题")!.PerformClick(); Application.DoEvents();
-                        Check(browserCalls == 1 && Button(form, "复制 / 下载")?.Visible == true, "browser_failure_exposes_recovery_" + scale);
-                        form.CopyFeedback(); form.ExportFeedback();
+                        Check(browserCalls == 1 && clipboardCalls == 1 && copiedUrl == openedUrl &&
+                            detail.Text.Contains("已复制反馈链接") && detail.Text.Contains("尚未发送"),
+                            "browser_failure_copies_reopenable_link_" + scale);
+                        Check(form.Controls.OfType<Button>().Count(button => button.Visible) == buttons.Length,
+                            "fallback_reuses_existing_button_row_" + scale);
+                        form.ExportFeedback();
                         Check(clipboardCalls == 1 && saveCalls == 1 && copiedUrl == openedUrl, "explicit_copy_and_download_" + scale);
                         Check(exportedJson == InstallerFeedback.Serialize(local), "recovery_preserves_same_report_id_" + scale);
-                        Check(detail.Text.Contains("尚未发送"), "download_does_not_claim_receipt_" + scale);
+                        Check(detail.Text.Contains("诊断文件已保存") && !detail.Text.Contains("已发送"),
+                            "download_does_not_claim_receipt_" + scale);
                         recoverySucceeds = false;
-                        form.CopyFeedback(); Check(detail.Text.Contains("复制未完成"), "clipboard_failure_remains_recoverable_" + scale);
+                        Button(form, "反馈安装问题")!.PerformClick();
+                        Check(browserCalls == 2 && clipboardCalls == 2 && detail.Text.Contains("请启动浏览器后重试"),
+                            "clipboard_failure_remains_recoverable_" + scale);
                         form.ExportFeedback(); Check(detail.Text.Contains("保存未完成") && exportedJson == InstallerFeedback.Serialize(local), "save_failure_preserves_report_" + scale);
                         Button(form, "重试")!.PerformClick(); Pump(() => Button(form, "完成")?.Enabled == true);
                         Check(!form.Controls.OfType<Button>().Any(button => button.Visible && (button.Text == "反馈安装问题" || button.Text == "复制 / 下载")), "retry_clears_stale_feedback_" + scale);

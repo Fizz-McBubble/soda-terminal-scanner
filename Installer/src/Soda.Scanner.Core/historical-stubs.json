@@ -118,5 +118,45 @@
     "version": "1.2.2",
     "size": 36218628,
     "sha256": "bfda77266a53e3702c52675ef2845715bf25473088b28aee0e06a86a48bf88d9"
+  },
+  {
+    "version": "1.2.3",
+    "size": 36226308,
+    "sha256": "e1d21029c205ab637112a082db359158a931cad61be61acf98f9fa876e1a9e34"
+  },
+  {
+    "version": "1.2.4",
+    "size": 36233988,
+    "sha256": "6fbec940af887ec85ced7778796875def34b4dcd137eb9af8094a00108dc8900"
+  },
+  {
+    "version": "1.2.5",
+    "size": 36241668,
+    "sha256": "c8649da8ca70b00a225eba965179d96a31f17deafb7fc8e939cd363ecf74bd9e"
+  },
+  {
+    "version": "1.2.6",
+    "size": 36077226,
+    "sha256": "b1b50c2f43a5588120738e8ac18bf0d785cbb795d4eff756cd4c5f1a89c1fced"
+  },
+  {
+    "version": "1.2.7",
+    "size": 36077601,
+    "sha256": "cc97961be092556479b42299b1493050536792b1702404ea442e7dcb2f2694ae"
+  },
+  {
+    "version": "1.2.8",
+    "size": 36077973,
+    "sha256": "0b42bc2496a9ad14348cceb2608b099b825f7add9f02b6f4f6e9692206ad6fba"
+  },
+  {
+    "version": "1.2.9",
+    "size": 36078327,
+    "sha256": "f5dfeef38eb2660db30ebe2d1fe8e51479eac79991c7d45f91dbf7e5e6406370"
+  },
+  {
+    "version": "1.3.0",
+    "size": 36078645,
+    "sha256": "88eb0944105df1adb7c396b86ca3a69379ced10f521da673faa24ab93f6fe776"
   }
 ]

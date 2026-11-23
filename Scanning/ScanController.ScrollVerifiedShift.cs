@@ -41,11 +41,14 @@ public sealed partial class ScanController
         var tickEvent = upward ? "ROW_SCROLL_RECOVERY_TICK" : "ROW_SCROLL_TICK";
         var doneEvent = upward ? "ROW_SCROLL_RECOVERED" : "ROW_SCROLL_DONE";
         var maxTicks = Math.Min(VerifiedScrollTransactionLimit, ScrollSmallTickLimit(profile));
-        var wheelPoint = window.ToScreenPoint(profile.Point("listWheelArea"));
-        var neutralPoint = ListNeutralPoint(window, listGridRect);
+        var neutralPoint = ListNeutralPoint(window, profile, listGridRect);
+        var wheelPoint = ScanPointerRoute.WheelPoint(listGridRect, profile.VisibleColumns,
+            neutralPoint, window.LastPointerPosition);
         var effectiveScrollTickDelayMs = EffectiveScrollTickDelay(profile, scrollTickDelayOverrideMs);
         var pollMilliseconds = Math.Max(10, profile.LoadPollMs);
-        window.MoveCursor(neutralPoint);
+        // Observe the current row at its existing pointer position. Releasing
+        // before this baseline would create an unnecessary out/in/out detour.
+        // The post-wheel release proof below remains mandatory.
         var beforeViewport = CaptureViewportSignatures(window, listGridRect, rowSignatureRects);
         var beforeGrid = beforeViewport.Grid;
         var beforeRows = beforeViewport.Rows;
@@ -109,10 +112,9 @@ public sealed partial class ScanController
                     verification.OneRowScore,
                     verification.TwoRowScore,
                     movedDistance);
-                var structuralObservation = new RowScrollObservation(structuralEvidence, frameDistance);
-                var scrollbar = structuralObservation.Stable || sample == 1
-                    ? CaptureScrollbarThumbProbe(window, profile)
-                    : default;
+                // Noisy-grid acceptance requires two actual scrollbar samples;
+                // dropping the second probe would make that proof unreachable.
+                var scrollbar = CaptureScrollbarThumbProbe(window, profile);
                 var directionalScrollbarDelta = DirectionalScrollbarDelta(beforeScrollbar, scrollbar, upward);
                 var evidence = directionalScrollbarDelta is int pixelDelta
                     ? RowAdvanceEvaluator.ReconcileScrollbarPosition(structuralEvidence, pixelDelta, scrollbarPixelsPerRow)
@@ -209,7 +211,7 @@ public sealed partial class ScanController
                     : releaseStructuralEvidence;
                 finalObservation = new RowScrollObservation(releaseEvidence, frameDistance, releaseScrollbarDelta);
 
-                if (finalObservation.Stable
+                if (RowScrollCoordinator.IsAcceptanceStable(finalObservation)
                     && releaseEvidence.Decision is RowAdvanceDecision.OneRow or RowAdvanceDecision.TwoRows)
                 {
                     if (releaseDecision == releaseEvidence.Decision)
@@ -352,12 +354,15 @@ public sealed partial class ScanController
         return rects;
     }
 
-    private static System.Drawing.Point ListNeutralPoint(GameWindow window, Rectangle listGridRect)
+    private static System.Drawing.Point ListNeutralPoint(GameWindow window, ScanProfile profile, Rectangle listGridRect)
     {
-        var bounds = window.ClientScreenRect;
-        return new System.Drawing.Point(
-            Math.Clamp(listGridRect.Right + 24, bounds.Left + 1, bounds.Right - 2),
-            Math.Clamp(listGridRect.Top + (listGridRect.Height / 2), bounds.Top + 1, bounds.Bottom - 2));
+        var observationRegions = profile.OrderedRoiKeys()
+            .Concat(new[] { "detailPanel", "panelChangeProbeRect" })
+            .Where(profile.HasRectangle)
+            .Select(key => window.ToScreenRectangle(profile.Rectangle(key)))
+            .ToArray();
+        return ScanPointerRoute.ReleasePoint(window.ClientScreenRect, listGridRect,
+            window.LastPointerPosition, observationRegions);
     }
 
     private static Rectangle SelectionProbeRect(GameWindow window, System.Drawing.Point clickPoint, ScanProfile? profile = null)

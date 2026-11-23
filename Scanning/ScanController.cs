@@ -125,7 +125,7 @@ public sealed partial class ScanController
             QuickPanelAcceptEnabled: false,
             adaptiveTimingActive,
             adaptiveTimingActive ? new AdaptiveTimingState() : null,
-            adaptiveTimingActive ? new AdaptiveOcrThrottle(queueCapacity) : null,
+            AdaptiveOcrThrottle.ForWorkers(queueCapacity, ocrWorkerCount, options.OcrBatchSize),
             panelStability,
             new PanelProbeHealth(),
             new ProfileHealthGate(),
@@ -149,8 +149,10 @@ public sealed partial class ScanController
         }
         if (adaptiveTimingActive)
         {
-            scanLog.Write($"Adaptive timing enabled for this scan only. WarmupItems={AdaptiveTimingState.DefaultWarmupItems}, OcrThrottleHigh={Math.Ceiling(queueCapacity * 0.60):F0}, OcrThrottleLow={Math.Floor(queueCapacity * 0.25):F0}.");
+            scanLog.Write($"Adaptive timing enabled for this scan only. WarmupItems={AdaptiveTimingState.DefaultWarmupItems}.");
         }
+        var ocrPacing = runtimeState.OcrThrottle!.Observe(0);
+        scanLog.Write($"OCR pacing active independently of fast/adaptive panel modes. HighBacklog={ocrPacing.HighBacklogThreshold}, LowBacklog={ocrPacing.LowBacklogThreshold}, MaximumAddedDelayMs=300, BasePanelTimingUnchanged=True.");
         if (requestedFastMode)
         {
             scanLog.Write($"Fast mode {(fastModeActive ? "enabled" : "disabled")}. {fastModeMessage}");

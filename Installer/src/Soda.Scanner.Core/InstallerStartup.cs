@@ -11,6 +11,13 @@ public static class InstallerStartup
             return productIdentity!.Values["DisplayVersion"].Value as string;
         var pointer = PointerStore.ReadValidated(Path.Combine(root, "active.json"), root);
         if (pointer?.Version == ScannerConstants.LockedRuntimeVersion) return ScannerConstants.DisplayVersion;
+        if (pointer?.Version == LegacyRuntimeCatalog.Delivered129Version) return "1.2.9";
+        if (pointer?.Version == LegacyRuntimeCatalog.Delivered128Version) return "1.2.8";
+        if (pointer?.Version == LegacyRuntimeCatalog.Delivered127Version) return "1.2.7";
+        if (pointer?.Version == LegacyRuntimeCatalog.Published126Version) return "1.2.6";
+        if (pointer?.Version == LegacyRuntimeCatalog.Published125Version) return "1.2.5";
+        if (pointer?.Version == LegacyRuntimeCatalog.Published124Version) return "1.2.4";
+        if (pointer?.Version == LegacyRuntimeCatalog.Published123Version) return "1.2.3";
         if (pointer?.Version == LegacyRuntimeCatalog.Published117Version) return "1.1.7";
         // Runtime identity is shared by multiple product releases. Without a
         // trusted product registration it can prove only the first shipped version.

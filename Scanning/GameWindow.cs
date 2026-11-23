@@ -35,6 +35,7 @@ public sealed class GameWindow : IDisposable
     public string ActiveFrameBackend => _captureSource.FrameBackendName;
     public string ProcessName { get; }
     public bool IsCloud { get; }
+    internal Point? LastPointerPosition { get; private set; }
 
     public static GameWindow Find(string processName)
     {
@@ -100,7 +101,7 @@ public sealed class GameWindow : IDisposable
     public void LeftClick(Point point, int durationMs = 0)
     {
         EnsureInputAllowed();
-        NativeMethods.SetCursorPos(point.X, point.Y);
+        SetPointerPosition(point);
         SendLeftClick(durationMs);
     }
 
@@ -130,7 +131,7 @@ public sealed class GameWindow : IDisposable
     public void LeftDrag(Point start, Point end, int durationMs = 120)
     {
         EnsureInputAllowed();
-        NativeMethods.SetCursorPos(start.X, start.Y);
+        SetPointerPosition(start);
         NativeMethods.mouse_event(NativeMethods.MouseEventLeftDown, 0, 0, 0, UIntPtr.Zero);
         try
         {
@@ -140,7 +141,7 @@ public sealed class GameWindow : IDisposable
                 EnsureCaptureContextCurrent();
                 var x = start.X + (end.X - start.X) * i / steps;
                 var y = start.Y + (end.Y - start.Y) * i / steps;
-                NativeMethods.SetCursorPos(x, y);
+                SetPointerPosition(new Point(x, y));
                 Thread.Sleep(Math.Max(1, durationMs / steps));
             }
         }
@@ -153,7 +154,23 @@ public sealed class GameWindow : IDisposable
     public void MoveCursor(Point point)
     {
         EnsureCaptureContextCurrent();
-        NativeMethods.SetCursorPos(point.X, point.Y);
+        SetPointerPosition(point);
+    }
+
+    private void SetPointerPosition(Point point)
+    {
+        // Track only this scan's own input, without sampling another app's pointer.
+        LastPointerPosition = null;
+        if (!NativeMethods.SetCursorPos(point.X, point.Y))
+        {
+            throw new ScannerFailureException(
+                "input_position_failed",
+                "无法定位扫描指针",
+                "鼠标未能移动到目标位置，已停止扫描。",
+                "请保持游戏可见且位于前台，然后重新扫描。");
+        }
+
+        LastPointerPosition = point;
     }
 
     public Bitmap Capture(Rectangle screenRect)

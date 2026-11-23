@@ -1,13 +1,13 @@
 [
   {
     "path": "helper\\scanner-public-origin.txt",
-    "size": 62,
-    "sha256": "269c2d2b0056eddfdd3e97c7317ba0d4f4ee33c5ace9bcdd0e0f700ca3d90640"
+    "size": 26,
+    "sha256": "6e3d7c39020fc0aa22704d2b42c4b85cb79eb4b3ff465ab4377b385bc941732e"
   },
   {
     "path": "helper\\ZZZ-Scanner-Helper.exe",
-    "size": 8372736,
-    "sha256": "ed8225068d3d4943f3b987a5477deba371c68f9be9bcc223f784f9d8740b4aff"
+    "size": 8376832,
+    "sha256": "ebc58b44197d54f03d39adee2ba18ab97c517c101913e0c8548b84a66086457f"
   },
   {
     "path": "LICENSE-ZZZ-Scanner.Next-MIT.txt",
@@ -51,8 +51,8 @@
   },
   {
     "path": "native\\ZZZ-Scanner.Next.Soda.exe",
-    "size": 72592303,
-    "sha256": "c83e01b3cf3671139c60b382542e178bcbd697ac8e5149337bfd5d24be290f35"
+    "size": 72600913,
+    "sha256": "4daf1c0c3ae5123cbc799bb56178bd18e565e89db03248b9c8448e0879912b46"
   },
   {
     "path": "notices\\DotNet-8-LICENSE.txt",
@@ -202,6 +202,6 @@
   {
     "path": "scanner-runtime.json",
     "size": 7774,
-    "sha256": "831667e63819808e7f7d971145ad7f933cca7499f0e08c34759f5fa270f07bb2"
+    "sha256": "0bbc01b7a5091d68e02e1fe09656aaa51cc0b33f51cba38c1b70eede2666bd89"
   }
 ]

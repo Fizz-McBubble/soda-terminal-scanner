@@ -84,32 +84,32 @@ static class Program
         if (!relocated && !string.IsNullOrEmpty(currentExe) &&
             string.Equals(Path.GetFullPath(currentExe), Path.GetFullPath(expectedExeInRoot), StringComparison.OrdinalIgnoreCase))
         {
-            var tempDir = Path.Combine(Path.GetTempPath(), $"SodaScannerUninstall_{Guid.NewGuid():N}");
-            Directory.CreateDirectory(tempDir);
-            var tempExe = Path.Combine(tempDir, ScannerConstants.UninstallExecutableName);
-            File.Copy(currentExe, tempExe, true);
-
-            var psi = new ProcessStartInfo
-            {
-                FileName = tempExe,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                WindowStyle = ProcessWindowStyle.Hidden
-            };
-
-            psi.ArgumentList.Add("--relocated");
-            psi.ArgumentList.Add("--wait-pid");
-            psi.ArgumentList.Add(Environment.ProcessId.ToString());
-            if (silent) psi.ArgumentList.Add("--silent");
-            if (testMode)
-            {
-                psi.ArgumentList.Add("--test-mode");
-                psi.ArgumentList.Add("--install-root");
-                psi.ArgumentList.Add(root);
-            }
-
             try
             {
+                var tempDir = Path.Combine(Path.GetTempPath(), $"SodaScannerUninstall_{Guid.NewGuid():N}");
+                Directory.CreateDirectory(tempDir);
+                var tempExe = Path.Combine(tempDir, ScannerConstants.UninstallExecutableName);
+                File.Copy(currentExe, tempExe, true);
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = tempExe,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+
+                psi.ArgumentList.Add("--relocated");
+                psi.ArgumentList.Add("--wait-pid");
+                psi.ArgumentList.Add(Environment.ProcessId.ToString());
+                if (silent) psi.ArgumentList.Add("--silent");
+                if (testMode)
+                {
+                    psi.ArgumentList.Add("--test-mode");
+                    psi.ArgumentList.Add("--install-root");
+                    psi.ArgumentList.Add(root);
+                }
+
                 Process.Start(psi);
                 return 0;
             }
@@ -130,7 +130,15 @@ static class Program
             try
             {
                 using var proc = Process.GetProcessById(waitPid);
-                if (!proc.WaitForExit(10000)) { Console.Error.WriteLine("uninstaller_parent_busy"); return 2; }
+                if (!proc.WaitForExit(10000))
+                {
+                    if (!silent)
+                    {
+                        MessageBox(IntPtr.Zero, "等待原卸载程序退出超时，卸载未完成。请关闭所有相关程序后重试。", "卸载画面扫描", MB_OK | MB_ICONERROR);
+                    }
+                    Console.Error.WriteLine("uninstaller_parent_busy");
+                    return 2;
+                }
             }
             catch (ArgumentException) { }
         }

@@ -48,7 +48,8 @@ public sealed partial class ScanController
         int startColumn = 1,
         RowDetailFingerprintBuilder? rowFingerprint = null,
         BufferedRowCapture? bufferedRow = null,
-        NativeEdgePostScrollSelection? preselectedPostScrollCell = null)
+        NativeEdgePostScrollSelection? preselectedPostScrollCell = null,
+        bool recoveredStationaryEdgeClick = false)
     {
         var currentY = offset.Y + step.Y * row;
         ImageSignature[]? previousPanelSignatures = CaptureCurrentPanelSignatures(
@@ -330,8 +331,8 @@ public sealed partial class ScanController
                 }
             }
 
-            var nativeWheelRecovery = options.RowAdvanceMode == RowAdvanceMode.NativeEdgeClick
-                && currentPostScrollFirstCell && !isPreselectedPostScrollCell;
+            var nativeWheelRecovery = NativeEdgePostScrollSelectionPolicy.RequiresNeighborRefresh(
+                recoveredStationaryEdgeClick, currentPostScrollFirstCell, isPreselectedPostScrollCell);
             if (!isPreselectedPostScrollCell
                 && (PanelCaptureGate.RequiresFirstCellNeighborRoundTrip(firstQueuedItem) || nativeWheelRecovery))
             {

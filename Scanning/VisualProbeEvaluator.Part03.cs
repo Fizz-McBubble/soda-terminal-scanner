@@ -12,6 +12,22 @@ internal static class RowScrollCoordinator
     public const int StableFrameTolerance = 4;
     public const int MinimumPartialMovementDistance = 12;
 
+    public static bool HasIndependentPositionEvidence(RowScrollObservation observation) =>
+        observation.Evidence.Strong
+        && observation.Evidence.UsesScrollbarPosition
+        && observation.Evidence.Decision is RowAdvanceDecision.OneRow or RowAdvanceDecision.TwoRows
+        && observation.ScrollbarPixelDelta is > 0;
+
+    public static bool IsAcceptanceStable(
+        RowScrollObservation observation, RowScrollObservation? previous = null) =>
+        observation.Stable
+        || (previous is { } prior && HasSameIndependentPosition(prior, observation));
+
+    private static bool HasSameIndependentPosition(RowScrollObservation before, RowScrollObservation after) =>
+        HasIndependentPositionEvidence(before) && HasIndependentPositionEvidence(after)
+        && before.Evidence.Decision == after.Evidence.Decision
+        && before.ScrollbarPixelDelta == after.ScrollbarPixelDelta;
+
     public static async Task<RowScrollCoordinatorResult> RunAsync(
         int maximumTicks,
         ScrollAcceptMode acceptMode,
@@ -36,6 +52,7 @@ internal static class RowScrollCoordinator
             await issueWheelAsync(tick, token);
             RowAdvanceDecision? consecutiveDecision = null;
             var consecutiveFrames = 0;
+            RowScrollObservation? previousPositive = null;
             var enterSettle = false;
 
             for (var sample = 1; sample <= MaximumSamplesPerTick; sample++)
@@ -71,7 +88,7 @@ internal static class RowScrollCoordinator
 
                 if (evidence.Decision is RowAdvanceDecision.OneRow or RowAdvanceDecision.TwoRows)
                 {
-                    ObservePositive(lastObservation, ref consecutiveDecision, ref consecutiveFrames);
+                    ObservePositive(lastObservation, ref consecutiveDecision, ref consecutiveFrames, ref previousPositive);
                     if (CanAccept(lastObservation, consecutiveFrames, acceptMode))
                     {
                         trace?.Invoke(new RowScrollCoordinatorTrace(tick, sample, RowScrollPhase.FastProbe, lastObservation, "accept"));
@@ -82,6 +99,7 @@ internal static class RowScrollCoordinator
                 {
                     consecutiveDecision = null;
                     consecutiveFrames = 0;
+                    previousPositive = null;
                     enterSettle = true;
                 }
 
@@ -105,6 +123,7 @@ internal static class RowScrollCoordinator
 
             consecutiveDecision = null;
             consecutiveFrames = 0;
+            previousPositive = null;
             var consecutiveStableNoMove = 0;
             settleWatch.Start();
             var settlePhaseWatch = System.Diagnostics.Stopwatch.StartNew();
@@ -130,7 +149,7 @@ internal static class RowScrollCoordinator
                         return Result(RowScrollCoordinatorOutcome.Accepted, tick, settleSample, RowScrollPhase.Settle, lastObservation);
                     }
 
-                    ObservePositive(lastObservation, ref consecutiveDecision, ref consecutiveFrames);
+                    ObservePositive(lastObservation, ref consecutiveDecision, ref consecutiveFrames, ref previousPositive);
                     if (CanAccept(lastObservation, consecutiveFrames, acceptMode))
                     {
                         trace?.Invoke(new RowScrollCoordinatorTrace(tick, settleSample, RowScrollPhase.Settle, lastObservation, "accept_settled"));
@@ -142,12 +161,14 @@ internal static class RowScrollCoordinator
                 {
                     consecutiveDecision = null;
                     consecutiveFrames = 0;
+                    previousPositive = null;
                     consecutiveStableNoMove++;
                 }
                 else
                 {
                     consecutiveDecision = null;
                     consecutiveFrames = 0;
+                    previousPositive = null;
                     consecutiveStableNoMove = 0;
                 }
 
@@ -211,16 +232,19 @@ internal static class RowScrollCoordinator
         void ObservePositive(
             RowScrollObservation observation,
             ref RowAdvanceDecision? decision,
-            ref int frames)
+            ref int frames,
+            ref RowScrollObservation? previous)
         {
-            if (!observation.Stable)
+            if (!observation.Stable && !HasIndependentPositionEvidence(observation))
             {
                 decision = null;
                 frames = 0;
+                previous = null;
                 return;
             }
 
-            if (decision == observation.Evidence.Decision)
+            if (decision == observation.Evidence.Decision && previous is { } prior
+                && ((observation.Stable && prior.Stable) || HasSameIndependentPosition(prior, observation)))
             {
                 frames++;
             }
@@ -229,6 +253,7 @@ internal static class RowScrollCoordinator
                 decision = observation.Evidence.Decision;
                 frames = 1;
             }
+            previous = observation;
         }
 
         static bool CanAccept(
@@ -236,7 +261,8 @@ internal static class RowScrollCoordinator
             int consecutiveFrames,
             ScrollAcceptMode mode)
         {
-            if (!observation.Stable)
+            if (!observation.Stable
+                && !(HasIndependentPositionEvidence(observation) && consecutiveFrames >= 2))
             {
                 return false;
             }

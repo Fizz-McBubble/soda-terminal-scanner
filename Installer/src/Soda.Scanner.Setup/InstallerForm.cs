@@ -21,9 +21,7 @@ public class InstallerForm : Form
     private readonly Func<string, bool>? _testCopyFeedback;
     private readonly Func<string, bool>? _testSaveFeedback;
     private InstallerFeedbackReport? _feedbackReport;
-    private bool _feedbackFallback;
     private Button _feedbackButton = null!;
-    private readonly ContextMenuStrip _feedbackRecovery = new();
 
     private Label _titleLabel = null!;
     private Label _subtitleLabel = null!;
@@ -136,9 +134,6 @@ public class InstallerForm : Form
         _feedbackButton = MakeButton("反馈安装问题", false);
         _feedbackButton.Width = 140; _feedbackButton.Visible = false; _feedbackButton.TabIndex = 3;
         _feedbackButton.Click += (_, _) => OpenFeedback();
-        _feedbackRecovery.Items.Add("重新打开反馈页", null, (_, _) => { _feedbackFallback = false; OpenFeedback(); });
-        _feedbackRecovery.Items.Add("复制反馈链接", null, (_, _) => CopyFeedback());
-        _feedbackRecovery.Items.Add("下载反馈文件", null, (_, _) => ExportFeedback());
         Controls.AddRange([_actionButton, _uninstallButton, _cancelButton, _feedbackButton]);
         AcceptButton = _actionButton;
         CancelButton = _cancelButton;
@@ -189,28 +184,24 @@ public class InstallerForm : Form
 
     private void ClearFeedback()
     {
-        _feedbackReport = null; _feedbackFallback = false; _feedbackButton.Visible = false;
-        _feedbackButton.Text = "反馈安装问题"; _feedbackRecovery.Close();
+        _feedbackReport = null; _feedbackButton.Visible = false;
+        _feedbackButton.Text = "反馈安装问题";
     }
     internal void OpenFeedback()
     {
         if (_feedbackReport is null) return;
-        if (!_feedbackFallback)
-        {
-            var url = InstallerFeedback.LaunchUrl(_feedbackReport);
-            var opened = _testOpenFeedback?.Invoke(url) ?? (!_testMode && InstallerFeedback.OpenBrowser(url));
-            if (opened) { UpdateDetails("反馈页已打开，请在网页核对并主动发送。\r\n本次反馈仅包含安装版本、阶段和有限错误码。"); return; }
-            _feedbackFallback = true; _feedbackButton.Text = "复制 / 下载";
-            UpdateDetails("反馈页未打开，可复制反馈链接或下载反馈文件。\r\n反馈内容保留在本机，尚未发送。");
-        }
-        if (Visible) _feedbackRecovery.Show(_feedbackButton, new Point(0, _feedbackButton.Height));
-    }
-    internal void CopyFeedback()
-    {
-        if (_feedbackReport is null) return;
         var url = InstallerFeedback.LaunchUrl(_feedbackReport);
+        var opened = _testOpenFeedback?.Invoke(url) ?? (!_testMode && InstallerFeedback.OpenBrowser(url));
+        if (opened)
+        {
+            UpdateDetails("反馈页已打开。");
+            return;
+        }
+
         var copied = _testCopyFeedback?.Invoke(url) ?? (!_testMode && InstallerFeedback.Copy(url));
-        UpdateDetails(copied ? "反馈链接已复制，可粘贴到浏览器打开后主动发送。" : "复制未完成，可下载反馈文件后重试。");
+        UpdateDetails(copied
+            ? "反馈页未能打开。已复制反馈链接，可粘贴到浏览器打开。诊断尚未发送。"
+            : "反馈页未能打开，反馈链接也未能复制。请启动浏览器后重试。");
     }
     internal void ExportFeedback()
     {
@@ -218,19 +209,21 @@ public class InstallerForm : Form
         var json = InstallerFeedback.Serialize(_feedbackReport);
         if (_testSaveFeedback is not null)
         {
-            UpdateDetails(_testSaveFeedback(json) ? "反馈文件已保存，尚未发送。" : "保存未完成，可复制反馈链接后重试。"); return;
+            UpdateDetails(_testSaveFeedback(json) ? "诊断文件已保存。" : "保存未完成，请重试。"); return;
         }
         if (_testMode) return;
         using var dialog = new SaveFileDialog { Title = "下载安装反馈", Filter = "JSON 文件|*.json",
             FileName = "Soda-画面扫描-安装反馈-" + _feedbackReport.InstallerVersion + ".json" };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
-        try { File.WriteAllText(dialog.FileName, json); UpdateDetails("反馈文件已保存，尚未发送。"); }
-        catch { UpdateDetails("保存未完成，可复制反馈链接后重试。"); }
+        try { File.WriteAllText(dialog.FileName, json); UpdateDetails("诊断文件已保存。"); }
+        catch { UpdateDetails("保存未完成，请重试。"); }
     }
-    protected override void Dispose(bool disposing)
+
+    protected override void WndProc(ref Message m)
     {
-        if (disposing) _feedbackRecovery.Dispose();
-        base.Dispose(disposing);
+        base.WndProc(ref m);
+        // Top-level settings and size messages also cover preference changes and minimization.
+        if (m.Msg is 0x001A or 0x0005) _progressBar?.RefreshMotionPreference();
     }
 
     private sealed class SodaProgressBar : ProgressBar
@@ -238,25 +231,111 @@ public class InstallerForm : Form
         private readonly System.Windows.Forms.Timer _animation = new() { Interval = 40 };
         private int _offset;
         private bool _indeterminate;
+        private bool _animationsEnabled;
+        private bool _animationDisposed;
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SystemParametersInfoW")]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool ReadSystemParameter(uint action, uint parameter, out int value, uint flags);
+
         public bool Indeterminate
         {
             get => _indeterminate;
-            set { _indeterminate = value; _animation.Enabled = value; Invalidate(); }
+            set { _indeterminate = value; UpdateAnimation(); Invalidate(); }
         }
+
         public SodaProgressBar()
         {
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
-            _animation.Tick += (_, _) => { _offset = (_offset + 7) % Math.Max(1, Width + Width / 3); Invalidate(); };
+            _animation.Tick += (_, _) =>
+            {
+                _offset = (_offset + 7) % Math.Max(1, Width + Width / 3);
+                Invalidate();
+            };
         }
+
+        internal void RefreshMotionPreference()
+        {
+            if (_animationDisposed) return;
+            // SPI_GETCLIENTAREAANIMATION reads the accessibility animation preference.
+            _animationsEnabled = ReadSystemParameter(0x1042, 0, out var enabled, 0)
+                && enabled != 0 && SystemInformation.UIEffectsEnabled;
+            if (!_animationsEnabled) _offset = 0;
+            UpdateAnimation();
+            Invalidate();
+        }
+
+        private void UpdateAnimation()
+        {
+            if (_animationDisposed) return;
+            _animation.Enabled = _indeterminate && _animationsEnabled
+                && Visible && IsHandleCreated && !IsDisposed && !Disposing
+                && FindForm()?.WindowState != FormWindowState.Minimized;
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            RefreshMotionPreference();
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            UpdateAnimation();
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            if (!_animationDisposed) _animation.Stop();
+            base.OnHandleDestroyed(e);
+        }
+
+        protected override AccessibleObject CreateAccessibilityInstance() => new ProgressStateAccessibleObject(this);
+
+        // The native range provider only sees Value, which can belong to the previous phase.
+        // Expose the same state as the custom painted control instead of a stale percentage.
+        private sealed class ProgressStateAccessibleObject : ControlAccessibleObject
+        {
+            private readonly SodaProgressBar _owner;
+            public ProgressStateAccessibleObject(SodaProgressBar owner) : base(owner) { _owner = owner; }
+            public override AccessibleRole Role => AccessibleRole.ProgressBar;
+            public override string? Value
+            {
+                get => _owner._indeterminate ? "正在处理" : $"{_owner.Value}%";
+                set => throw new InvalidOperationException("Progress is read-only.");
+            }
+        }
+
         protected override void OnPaint(PaintEventArgs e)
         {
             e.Graphics.Clear(Color.FromArgb(239, 235, 247));
             using var fill = new SolidBrush(Color.FromArgb(107, 89, 148));
-            if (_indeterminate) e.Graphics.FillRectangle(fill, _offset - Width / 3, 0, Width / 3, Height);
+            if (_indeterminate)
+            {
+                // A stationary busy segment has no percentage or completion meaning.
+                var left = _animationsEnabled ? _offset - Width / 3 : Width / 3;
+                e.Graphics.FillRectangle(fill, left, 0, Width / 3, Height);
+            }
             else e.Graphics.FillRectangle(fill, 0, 0, Width * Value / Math.Max(1, Maximum), Height);
         }
-        protected override void Dispose(bool disposing) { if (disposing) _animation.Dispose(); base.Dispose(disposing); }
-        protected override void WndProc(ref Message m) { base.WndProc(ref m); if (m.Msg == 0x402) Invalidate(); }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && !_animationDisposed)
+            {
+                _animation.Stop();
+                _animation.Dispose();
+                _animationDisposed = true;
+            }
+            base.Dispose(disposing);
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            base.WndProc(ref m);
+            if (m.Msg == 0x402) Invalidate();
+        }
     }
 
     internal void ApplyRenderFixture(string state)
@@ -450,7 +529,7 @@ public class InstallerForm : Form
         _cancelButton.Visible = false;
         _cancelButton.Text = "卸载中";
         _progressBar.Visible = true;
-        _progressBar.Value = 50;
+        _progressBar.Indeterminate = true;
 
         try
         {
@@ -465,6 +544,7 @@ public class InstallerForm : Form
             _statusLabel.Text = result.Message;
             UpdateDetails("卸载完成。扫描结果和账户数据已保留。");
             _busy = false;
+            _progressBar.Indeterminate = false;
             _progressBar.Value = 100;
             _completed = true;
             _actionButton.Visible = true;
@@ -477,6 +557,7 @@ public class InstallerForm : Form
         catch (Exception ex)
         {
             _busy = false;
+            _progressBar.Indeterminate = false;
             _feedbackReport = InstallerFeedback.Create("failed", InstallerFeedback.Classify(ex), 0);
             var saved = InstallerDiagnostics.Save(_installRoot, _feedbackReport);
             _feedbackButton.Visible = true;

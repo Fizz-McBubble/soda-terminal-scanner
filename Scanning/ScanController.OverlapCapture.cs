@@ -111,6 +111,7 @@ public sealed partial class ScanController
         using var positionGuard = new TraversalPositionGuard(window, profile, scanLog, maxVisibleTop > 1, token);
         positionGuard.BindVerifiedPosition(visibleTopLogicalRow);
         var lastScrollChangedViewport = false;
+        var lastScrollRecoveredStationaryEdgeClick = false;
         var guardIterations = Math.Max(totalRows * 4, 16);
         for (var iteration = 1; scannedLogicalRows.Count < totalRows && iteration <= guardIterations; iteration++)
         {
@@ -181,7 +182,8 @@ public sealed partial class ScanController
                         afterScroll: lastScrollChangedViewport,
                         postScrollFirstCell: lastScrollChangedViewport,
                         startColumn: startColumn,
-                        preselectedPostScrollCell: preselectedPostScrollCell);
+                        preselectedPostScrollCell: preselectedPostScrollCell,
+                        recoveredStationaryEdgeClick: lastScrollRecoveredStationaryEdgeClick);
                 }
                 catch (PanelCellCaptureException ex) when (
                     options.OverlapConflictMode == OverlapConflictMode.Recover
@@ -194,12 +196,14 @@ public sealed partial class ScanController
                     deferredRowCounts[logicalRow] = deferredRowCounts.GetValueOrDefault(logicalRow) + 1;
                     scannedThisViewport = true;
                     lastScrollChangedViewport = false;
+                    lastScrollRecoveredStationaryEdgeClick = false;
                     scanLog.WriteEvent("OVERLAP_ROW_DEFERRED_AFTER_PANEL_TIMEOUT", $"iteration={iteration}, logicalRow={logicalRow}, visualRow={visualRow}, resumeColumn={resumeColumn}, maxColumns={maxColumns}, deferCount={deferredRowCounts[logicalRow]}, visibleTopLogicalRow={visibleTopLogicalRow}, state={viewportState}, reason={ex.InnerException?.Message ?? ex.Message}, scannedRows={scannedLogicalRows.Count}/{totalRows}");
                     break;
                 }
 
                 positionGuard.Verify();
                 lastScrollChangedViewport = false;
+                lastScrollRecoveredStationaryEdgeClick = false;
                 if (rowResult == RowScanResult.Stop)
                 {
                     return;
@@ -217,6 +221,15 @@ public sealed partial class ScanController
                 scanLog.WriteEvent("OVERLAP_ROW_SCANNED", $"iteration={iteration}, logicalRow={logicalRow}, visualRow={visualRow}, scannedRows={scannedLogicalRows.Count}/{totalRows}");
             }
 
+            // A limit reached exactly at a row boundary must stop before the
+            // next viewport advance, rather than at the next row's first cell.
+            if (options.MaxItems > 0 && counters.Queued >= options.MaxItems)
+            {
+                scanLog.Write($"End: max items reached. MaxItems={options.MaxItems}, queued={counters.Queued}.");
+                Report(progress, counters, $"已达到读取上限：{options.MaxItems}");
+                return;
+            }
+
             if (scannedLogicalRows.Count >= totalRows)
             {
                 break;
@@ -231,7 +244,11 @@ public sealed partial class ScanController
 
             var beforeTop = visibleTopLogicalRow;
             positionGuard.SuspendForAdvance();
-            if (nativeEdgeClick)
+            var fullyVisibleEdgeTarget = nativeEdgeClick
+                && UseVerifiedWheelForFullEdgeTarget(window, profile, listGridRect);
+            if (fullyVisibleEdgeTarget)
+                scanLog.WriteEvent("ROW_ADVANCE_STRATEGY", $"fromTop={beforeTop}, requested=native_edge_click, effective=verified_wheel, reason=edge_target_fully_visible");
+            if (nativeEdgeClick && !fullyVisibleEdgeTarget)
             {
                 var edgeClick = await AdvanceNativeEdgeClickAsync(
                     window,
@@ -262,6 +279,7 @@ public sealed partial class ScanController
                     }
                     visibleTopLogicalRow = Math.Min(maxVisibleTop, visibleTopLogicalRow + 1);
                     pendingPreselectedPostScrollCell = preselected;
+                    lastScrollRecoveredStationaryEdgeClick = false;
                     positionGuard.BindVerifiedPosition(visibleTopLogicalRow);
                     lastScrollChangedViewport = true;
                     scanLog.WriteEvent("EDGE_CLICK_CHANGED", $"iteration={iteration}, fromTop={beforeTop}, toTop={visibleTopLogicalRow}, targetPoint={edgeClick.TargetPoint}, verifiedRows=1, movementDistance={edgeClick.MovementDistance}, stableFrames={edgeClick.StableFrames}, samples={edgeClick.Samples}, elapsedMs={edgeClick.ElapsedMilliseconds:F1}, beforeListHash={edgeClick.BeforeListHash}, afterListHash={edgeClick.AfterListHash}, preselectedLogicalRow={preselected.LogicalRow}, preselectedVisualRow={preselected.VisualRow}, preselectedColumn={preselected.Column}, inventoryCount={inventoryCount}, scannedRows={scannedLogicalRows.Count}/{totalRows}, reason=native_edge_position_release_confirmed");
@@ -295,6 +313,7 @@ public sealed partial class ScanController
                 positionGuard.BindVerifiedPosition(visibleTopLogicalRow);
                 pendingPreselectedPostScrollCell = null;
                 lastScrollChangedViewport = true;
+                lastScrollRecoveredStationaryEdgeClick = true;
                 scanLog.WriteEvent("OVERLAP_SCROLL_ACCEPTED", $"iteration={iteration}, fromTop={beforeTop}, toTop={visibleTopLogicalRow}, rowsAdvanced=1, decision=VerifiedOne, reason=verified_zero_then_one_row_wheel_recovery, scannedRows={scannedLogicalRows.Count}/{totalRows}");
                 continue;
             }
@@ -328,6 +347,7 @@ public sealed partial class ScanController
             visibleTopLogicalRow = Math.Min(maxVisibleTop, visibleTopLogicalRow + rowsAdvanced);
             positionGuard.BindVerifiedPosition(visibleTopLogicalRow);
             lastScrollChangedViewport = true;
+            lastScrollRecoveredStationaryEdgeClick = false;
             scanLog.WriteEvent("OVERLAP_SCROLL_ACCEPTED", $"iteration={iteration}, fromTop={beforeTop}, toTop={visibleTopLogicalRow}, rowsAdvanced={rowsAdvanced}, decision={signatureEvidence.Decision}, signatureBestRows={signatureEvidence.BestRows}, signatureBestScore={signatureEvidence.BestScore}, signatureSecondScore={signatureEvidence.SecondScore}, signatureMargin={signatureEvidence.Margin}, reason={signatureEvidence.Reason}, scannedThisViewport={scannedThisViewport}, scannedRows={scannedLogicalRows.Count}/{totalRows}");
             runtimeState.ProfileHealth.ObserveOverlap(false, scanLog.Write);
         }

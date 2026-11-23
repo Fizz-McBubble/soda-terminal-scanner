@@ -20,7 +20,8 @@ public sealed partial class ScanController
     public async Task<EdgeScrollProbeResult> ProbeNativeEdgeScrollAsync(
         ScanOptions options,
         int runs,
-        CancellationToken token)
+        CancellationToken token,
+        bool verifyRowAdvance = false)
     {
         runs = Math.Clamp(runs, 1, 100);
         var profile = _profiles.ResolveRequired(options.ProfileName);
@@ -95,19 +96,54 @@ public sealed partial class ScanController
             scanLog.WriteEvent(
                 "EDGE_CLICK_PROBE_ARM",
                 $"run={run}/{runs}, visualRow=3, column={columns}, point={armPoint}, reason=match_scan_pre_advance_selection");
-            var result = await AdvanceNativeEdgeClickAsync(
-                window,
-                profile,
-                listGridRect,
-                rowSignatureRects,
-                offset,
-                step,
-                visibleTopLogicalRow: 1,
-                maxVisibleTop,
-                preflight.InventoryCount ?? 0,
-                scannedRows: 0,
-                scanLog,
-                token);
+            if (verifyRowAdvance && UseVerifiedWheelForFullEdgeTarget(window, profile, listGridRect))
+            {
+                using var wheelFrames = new NativeEdgeProbeFrames(outputDir, $"wheel-{run:000}",
+                    rowSignatureRects.ToArray(), "surrounding_verified_wheel_transaction");
+                CaptureNativeEdgeViewport(window, profile, listGridRect, rowSignatureRects, wheelFrames.CaptureBefore);
+                try
+                {
+                    scanLog.WriteEvent("ROW_ADVANCE_PROBE_STRATEGY", "effective=verified_wheel, reason=edge_target_fully_visible");
+                    var wheel = await ScrollSafeBandOneRowWithRetryAsync(window, profile, options.ScrollAcceptMode,
+                        listGridRect, rowSignatureRects, 1, maxVisibleTop, false, scanLog,
+                        options.ScrollTickDelayOverrideMs, token);
+                    CaptureNativeEdgeViewport(window, profile, listGridRect, rowSignatureRects, wheelFrames.CaptureObserved);
+                    var advancedOne = wheel.Success && wheel.RowsAdvanced == 1
+                        && wheel.Evidence.Decision == RowAdvanceDecision.OneRow;
+                    if (advancedOne) changedRuns++; else failedRuns++;
+                    File.WriteAllText(Path.Combine(outputDir, $"wheel-{run:000}-result.json"),
+                        JsonSerializer.Serialize(new { wheel.Success, wheel.RowsAdvanced, wheel.Evidence,
+                            wheel.Message, wheel.DiagnosticDetails }, JsonDefaults.Write));
+                    scanLog.WriteEvent("ROW_ADVANCE_PROBE_RESULT",
+                        $"strategy=verified_wheel, success={wheel.Success}, rowsAdvanced={wheel.RowsAdvanced}, decision={wheel.Evidence.Decision}, reason={wheel.Evidence.Reason}");
+                }
+                finally { wheelFrames.Save(); }
+                continue;
+            }
+            using var probeFrames = new NativeEdgeProbeFrames(outputDir, $"edge-{run:000}", rowSignatureRects.ToArray());
+            NativeEdgeClickSettleResult result;
+            try
+            {
+                result = await AdvanceNativeEdgeClickAsync(
+                    window,
+                    profile,
+                    listGridRect,
+                    rowSignatureRects,
+                    offset,
+                    step,
+                    visibleTopLogicalRow: 1,
+                    maxVisibleTop,
+                    preflight.InventoryCount ?? 0,
+                    scannedRows: 0,
+                    scanLog,
+                    token,
+                    probeFrames);
+            }
+            finally
+            {
+                var framesManifest = probeFrames.Save();
+                scanLog.WriteEvent("EDGE_CLICK_PROBE_FRAMES", $"run={run}/{runs}, manifest={framesManifest}");
+            }
             var decision = NativeEdgeClickPolicy.ResolveSettle(result);
             if (decision == NativeEdgeClickDecision.AdvanceOne)
             {
@@ -159,7 +195,8 @@ public sealed partial class ScanController
         int inventoryCount,
         int scannedRows,
         ScanLog scanLog,
-        CancellationToken token)
+        CancellationToken token,
+        NativeEdgeProbeFrames? probeFrames = null)
     {
         if (rowSignatureRects.Count < 4)
         {
@@ -202,7 +239,8 @@ public sealed partial class ScanController
                 "unknown");
         }
 
-        var before = CaptureNativeEdgeViewport(window, profile, listGridRect, rowSignatureRects);
+        var before = CaptureNativeEdgeViewport(window, profile, listGridRect, rowSignatureRects,
+            probeFrames is null ? null : probeFrames.CaptureBefore);
         var beforeRows = before.Rows;
         var beforeListHash = FormatNativeEdgeListHash(beforeRows);
         var pixelsPerRow = ScrollbarPixelsPerLogicalRow(window, profile, before.Scrollbar, maxVisibleTop);
@@ -225,13 +263,16 @@ public sealed partial class ScanController
             token.ThrowIfCancellationRequested();
             await Task.Delay(pollMilliseconds, token);
             if (!settle.CanObserve(watch.Elapsed.TotalMilliseconds)) break;
-            latest = CaptureNativeEdgeViewport(window, profile, listGridRect, rowSignatureRects);
+            latest = CaptureNativeEdgeViewport(window, profile, listGridRect, rowSignatureRects,
+                probeFrames is null ? null : probeFrames.CaptureObserved);
             token.ThrowIfCancellationRequested();
             var currentMovementDistance = AverageSignatureDistance(
                 beforeRows,
                 latest.Rows,
                 [(0, 0), (1, 1), (2, 2)]);
-            latestEvidence = EvaluateNativeEdgePosition(before, latest, pixelsPerRow);
+            var leadingPhaseUnchanged = NativeEdgePhaseProbe.Compare(before.Phase, latest.Phase).Stable;
+            latestEvidence = EvaluateNativeEdgePosition(
+                before, latest, pixelsPerRow, leadingPhaseUnchanged);
             var pixelDelta = ScrollbarDelta(before.Scrollbar, latest.Scrollbar);
             var frameStable = NativeEdgeFrameStable(previous, latest);
             var phaseDifference = NativeEdgePhaseProbe.Compare(previous.Phase, latest.Phase);
@@ -241,7 +282,10 @@ public sealed partial class ScanController
             previous = latest;
             settle.Observe(currentMovementDistance, frameStable ? 0 : ListStableTolerance + 1,
                 watch.Elapsed.TotalMilliseconds, independentMovement: pixelDelta is not null and not 0,
-                allowSettlement: false);
+                allowSettlement: false,
+                independentlyStationary: latestEvidence.Strong
+                    && latestEvidence.Decision == RowAdvanceDecision.NoMove
+                    && latestEvidence.Reason == "scrollbar_and_leading_phase_no_move");
             if (watch.Elapsed.TotalMilliseconds >= settle.TimeoutMilliseconds) break;
             if (lastLoggedDecision != latestEvidence.Decision)
             {
@@ -278,7 +322,7 @@ public sealed partial class ScanController
         // Release hover and verify the final position against the ORIGINAL
         // baseline. A transient one-row position or a return to the baseline
         // must never authorize a preselected capture.
-        window.MoveCursor(ListNeutralPoint(window, listGridRect));
+        window.MoveCursor(ListNeutralPoint(window, profile, listGridRect));
         // Releasing hover can still animate. Keep observing the same click
         // until its original deadline instead of truncating after six samples.
         for (var sample = 1; settle.CanObserveRelease(watch.Elapsed.TotalMilliseconds); sample++)
@@ -286,10 +330,15 @@ public sealed partial class ScanController
             token.ThrowIfCancellationRequested();
             await Task.Delay(pollMilliseconds, token);
             if (!settle.CanObserveRelease(watch.Elapsed.TotalMilliseconds)) break;
-            var released = CaptureNativeEdgeViewport(window, profile, listGridRect, rowSignatureRects);
+            var released = CaptureNativeEdgeViewport(window, profile, listGridRect, rowSignatureRects,
+                probeFrames is null ? null : probeFrames.CaptureReleased);
             token.ThrowIfCancellationRequested();
             if (!settle.CanObserveRelease(watch.Elapsed.TotalMilliseconds)) break;
-            var evidence = EvaluateNativeEdgePosition(before, released, pixelsPerRow);
+            var evidence = EvaluateNativeEdgePosition(
+                before,
+                released,
+                pixelsPerRow,
+                NativeEdgePhaseProbe.Compare(before.Phase, released.Phase).Stable);
             var frameStable = NativeEdgeFrameStable(latest, released);
             var samePosition = evidence.Strong && evidence.Decision == provisional
                 && frameStable
@@ -322,7 +371,8 @@ public sealed partial class ScanController
     }
 
     private static NativeEdgeViewport CaptureNativeEdgeViewport(
-        GameWindow window, ScanProfile profile, Rectangle listGridRect, IReadOnlyList<Rectangle> rowRects)
+        GameWindow window, ScanProfile profile, Rectangle listGridRect, IReadOnlyList<Rectangle> rowRects,
+        Action<Bitmap, Rectangle>? captureProbeFrame = null)
     {
         var scrollbarBounds = ScrollbarProbeBounds(window, profile, includeThumbEnds: true);
         var bounds = Rectangle.Union(listGridRect, scrollbarBounds);
@@ -335,17 +385,26 @@ public sealed partial class ScanController
         phaseBounds.Offset(-bounds.Left, -bounds.Top);
         using var bitmap = frame.ToBitmap();
         var phase = NativeEdgePhaseProbe.Capture(bitmap, phaseBounds);
+        captureProbeFrame?.Invoke(bitmap, bounds);
         return new NativeEdgeViewport(rows, scrollbar, phase);
     }
 
     private static RowAdvanceEvidence EvaluateNativeEdgePosition(
-        NativeEdgeViewport before, NativeEdgeViewport after, double pixelsPerRow)
+        NativeEdgeViewport before,
+        NativeEdgeViewport after,
+        double pixelsPerRow,
+        bool leadingPhaseUnchangedFromBaseline = false)
     {
         var verification = VerifyOneRowDown(before.Rows, after.Rows);
         var distance = AverageSignatureDistance(before.Rows, after.Rows, [(0, 0), (1, 1), (2, 2)]);
         var structural = RowAdvanceEvaluator.Evaluate(verification.NoMoveScore,
             verification.OneRowScore, verification.TwoRowScore, distance);
-        return NativeEdgePositionPolicy.Resolve(structural, before.Scrollbar, after.Scrollbar, pixelsPerRow);
+        return NativeEdgePositionPolicy.Resolve(
+            structural,
+            before.Scrollbar,
+            after.Scrollbar,
+            pixelsPerRow,
+            leadingPhaseUnchangedFromBaseline);
     }
 
     private static bool NativeEdgeFrameStable(NativeEdgeViewport before, NativeEdgeViewport after) =>
@@ -353,6 +412,19 @@ public sealed partial class ScanController
         && before.Scrollbar.Found && after.Scrollbar.Found
         && before.Scrollbar.StartY == after.Scrollbar.StartY
         && before.Scrollbar.EndY == after.Scrollbar.EndY;
+
+    private static bool UseVerifiedWheelForFullEdgeTarget(GameWindow window, ScanProfile profile, Rectangle listGridRect)
+    {
+        var offset = profile.Point("driveDiscOffset");
+        var step = profile.Point("driveDiscStep");
+        var center = DriveDiscSelectionGeometry.Center(window.ToScreenPoint(
+            new PointF(offset.X + step.X, offset.Y + step.Y * 4)), window.ClientScreenRect, profile);
+        var halfWidth = Math.Max(1, (int)Math.Round(72d * window.ClientScreenRect.Width / profile.StandardScreen[0]));
+        var halfHeight = Math.Max(1, (int)Math.Round(84d * window.ClientScreenRect.Height / profile.StandardScreen[1]));
+        var fullProbe = new Rectangle(center.X - halfWidth, center.Y - halfHeight, halfWidth * 2, halfHeight * 2);
+        return window.ClientScreenRect.Contains(fullProbe)
+            && NativeEdgeClickPolicy.HasFullyVisibleTarget(fullProbe, listGridRect);
+    }
 
     private readonly record struct NativeEdgeViewport(
         RowVisualSignature[] Rows, ScrollbarThumbProbe Scrollbar, NativeEdgePhase Phase);

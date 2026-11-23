@@ -2,6 +2,18 @@ using System.Diagnostics;
 using System.Text.Json;
 using Soda.Scanner.Core;
 
+if (args.Length == 4 && args[1] == "--legacy125-preparation")
+    return Legacy125PreparationTests.Run(Path.GetFullPath(args[0]), Path.GetFullPath(args[2]), Path.GetFullPath(args[3]));
+
+if (args.Length == 2 && args[1] == "--version-identity-fix")
+    return FocusedInstallTests.RunVersionIdentityFix(Path.GetFullPath(args[0]));
+
+if (args.Length == 6 && args[3] == "--runtime-compatibility")
+    return RuntimeCompatibilityTests.Run(Path.GetFullPath(args[0]), Path.GetFullPath(args[1]), Path.GetFullPath(args[2]), Path.GetFullPath(args[4]), Path.GetFullPath(args[5]));
+
+if (args.Length == 7 && args[3] == "--runtime-compatibility")
+    return RuntimeCompatibilityTests.Run(Path.GetFullPath(args[0]), Path.GetFullPath(args[1]), Path.GetFullPath(args[2]), Path.GetFullPath(args[4]), Path.GetFullPath(args[5]), args[6]);
+
 if (args.Length == 2 && args[1] == "--installer-feedback")
     return InstallerFeedbackTests.Run(Path.GetFullPath(args[0]));
 

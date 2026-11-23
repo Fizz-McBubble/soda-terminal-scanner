@@ -282,6 +282,9 @@ internal sealed record AdaptivePanelTimingDecision(
 
 internal sealed class AdaptiveOcrThrottle
 {
+    internal static AdaptiveOcrThrottle ForWorkers(int queueCapacity, int workers, int batchSize) =>
+        new(Math.Min(Math.Max(1, queueCapacity), Math.Max(1, workers) * Math.Max(1, batchSize) * 4));
+
     private readonly int _highBacklogThreshold;
     private readonly int _lowBacklogThreshold;
     private int _highBacklogStreak;

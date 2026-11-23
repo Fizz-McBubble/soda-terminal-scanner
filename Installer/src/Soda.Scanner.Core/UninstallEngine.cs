@@ -15,6 +15,9 @@ public static class UninstallEngine
     {
         var root = FileSystemSafety.ValidateRoot(installRoot, testMode);
         using var operationLock = FileSystemSafety.AcquireOperationLock(root);
+        // Identity must be decided before killing a shared Helper or removing any
+        // catalog match: delivered versions can contain identical component bytes.
+        AssertActiveRuntimeOwnership(root, expectedUninstallerHash);
         var result = new UninstallResult();
         statusCallback?.Invoke("正在卸载…");
         ProcessHelper.TerminateManagedComponents(root, testMode);
@@ -155,5 +158,23 @@ public static class UninstallEngine
                 result.RemovedItems.Add(directory);
             }
         }
+    }
+
+    private static void AssertActiveRuntimeOwnership(string root, string? expectedUninstallerHash)
+    {
+        var active = PointerStore.ReadValidated(FileSystemSafety.SafePath(root, "active.json"), root);
+        if (active == null) return;
+        if (!LegacyRuntimeCatalog.AllPackages.Any(package => package.Version == active.Version))
+            throw new InvalidOperationException("uninstall_active_runtime_unknown");
+
+        // A new installer deliberately removing the whole product supplies its
+        // own embedded stub hash. An old stub identity cannot claim the active
+        // current installation merely because Helper/model hashes are equal.
+        if (active.Version != ScannerConstants.LockedRuntimeVersion) return;
+        var installedStub = FileSystemSafety.SafePath(root, ScannerConstants.UninstallExecutableName);
+        var callerHash = expectedUninstallerHash ?? (File.Exists(installedStub) ? Sha256Util.ComputeFileSha256(installedStub) : null);
+        if (callerHash != null && LegacyRuntimeCatalog.KnownStubs.Any(stub =>
+                stub.Version != ScannerConstants.DisplayVersion && stub.Sha256.Equals(callerHash, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("historical_uninstaller_cannot_remove_active_current_runtime");
     }
 }
